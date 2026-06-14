@@ -1,0 +1,24 @@
+[workspace]
+members = [
+    "src/newm2-driver",
+    "src/newm2-ir",
+    "src/newm2-lexer",
+    "src/newm2-llvm",
+    "src/newm2-loader",
+    "src/newm2-parser",
+    "src/newm2-runtime",
+    "src/newm2-sema",
+    "src/newm2-test-matrix",
+    "src/newm2-winapi-gen",
+    "tests/newm2-compat-tests",
+    "tests/newm2-tests",
+]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+version = "0.0.0"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"

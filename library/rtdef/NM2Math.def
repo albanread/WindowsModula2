@@ -1,0 +1,81 @@
+(* NewM2-internal math primitives. Not part of ISO 10514-1.
+
+   Procedures here are recognised by the front end and lowered to LLVM
+   floating-point intrinsics (llvm.sin.f64, llvm.cos.f64, llvm.sqrt.f64,
+   llvm.exp.f64, …) at IR generation time. No IMPLEMENTATION MODULE is
+   shipped; calls never reach a runtime symbol.
+
+   Portable user code should NOT import this module directly. The ISO
+   surfaces (RealMath, LongMath, LowReal, LowLong, ComplexMath,
+   LongComplexMath) import it internally and expose the ISO-defined
+   procedures with the proper domain-error handling.
+
+   Where this differs from XDS xMath:
+     - Names dropped the `X2C_` prefix (XDS C-binding convention; not
+       meaningful here).
+     - REAL and LONGREAL surfaces live in one module; XDS split them.
+     - Domain-error checks live in the importing modules (RealMath etc.);
+       this layer is the raw mathematical primitive.
+*)
+DEFINITION MODULE NM2Math;
+
+(* ── REAL surface ── *)
+
+PROCEDURE sin       (x: REAL): REAL;
+PROCEDURE cos       (x: REAL): REAL;
+PROCEDURE tan       (x: REAL): REAL;
+PROCEDURE arcsin    (x: REAL): REAL;
+PROCEDURE arccos    (x: REAL): REAL;
+PROCEDURE arctan    (x: REAL): REAL;
+PROCEDURE arctan2   (y, x: REAL): REAL;
+
+PROCEDURE sqrt      (x: REAL): REAL;
+PROCEDURE exp       (x: REAL): REAL;
+PROCEDURE ln        (x: REAL): REAL;
+PROCEDURE lg        (x: REAL): REAL;   (* base-2 logarithm *)
+PROCEDURE pow       (base, exponent: REAL): REAL;
+
+PROCEDURE sinh      (x: REAL): REAL;
+PROCEDURE cosh      (x: REAL): REAL;
+PROCEDURE tanh      (x: REAL): REAL;
+PROCEDURE arcsinh   (x: REAL): REAL;
+PROCEDURE arccosh   (x: REAL): REAL;
+PROCEDURE arctanh   (x: REAL): REAL;
+
+PROCEDURE floor     (x: REAL): REAL;
+PROCEDURE truncToInt(x: REAL): INTEGER;
+PROCEDURE truncToCard(x: REAL): CARDINAL;
+
+(* ── LONGREAL surface ── *)
+
+PROCEDURE Lsin       (x: LONGREAL): LONGREAL;
+PROCEDURE Lcos       (x: LONGREAL): LONGREAL;
+PROCEDURE Ltan       (x: LONGREAL): LONGREAL;
+PROCEDURE Larcsin    (x: LONGREAL): LONGREAL;
+PROCEDURE Larccos    (x: LONGREAL): LONGREAL;
+PROCEDURE Larctan    (x: LONGREAL): LONGREAL;
+PROCEDURE Larctan2   (y, x: LONGREAL): LONGREAL;
+
+PROCEDURE Lsqrt      (x: LONGREAL): LONGREAL;
+PROCEDURE Lexp       (x: LONGREAL): LONGREAL;
+PROCEDURE Lln        (x: LONGREAL): LONGREAL;
+PROCEDURE Llg        (x: LONGREAL): LONGREAL;
+PROCEDURE Lpow       (base, exponent: LONGREAL): LONGREAL;
+
+PROCEDURE Lsinh      (x: LONGREAL): LONGREAL;
+PROCEDURE Lcosh      (x: LONGREAL): LONGREAL;
+PROCEDURE Ltanh      (x: LONGREAL): LONGREAL;
+PROCEDURE Larcsinh   (x: LONGREAL): LONGREAL;
+PROCEDURE Larccosh   (x: LONGREAL): LONGREAL;
+PROCEDURE Larctanh   (x: LONGREAL): LONGREAL;
+
+PROCEDURE Lfloor     (x: LONGREAL): LONGREAL;
+PROCEDURE LtruncToInt(x: LONGREAL): INTEGER;
+PROCEDURE LtruncToCard(x: LONGREAL): CARDINAL;
+
+(* Low-level float decomposition (used by LowReal / RealConv). *)
+PROCEDURE Frexp (x: LONGREAL; VAR expOut: INTEGER): LONGREAL;
+PROCEDURE Ldexp (x: LONGREAL; n: INTEGER): LONGREAL;
+PROCEDURE Modf  (x: LONGREAL; VAR intOut: LONGREAL): LONGREAL;
+
+END NM2Math.

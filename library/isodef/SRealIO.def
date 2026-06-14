@@ -1,0 +1,11 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 SRealIO — decimal REAL IO over the default channels. *)
+DEFINITION MODULE SRealIO;
+
+PROCEDURE ReadReal   (VAR real: REAL);
+PROCEDURE WriteFloat (real: REAL; sigFigs: CARDINAL; width: CARDINAL);
+PROCEDURE WriteEng   (real: REAL; sigFigs: CARDINAL; width: CARDINAL);
+PROCEDURE WriteFixed (real: REAL; place: INTEGER; width: CARDINAL);
+PROCEDURE WriteReal  (real: REAL; width: CARDINAL);
+
+END SRealIO.

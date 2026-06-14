@@ -1,0 +1,25 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 TermFile — channels connected to the controlling
+   terminal. All open channels share the same device; reads are
+   distributed in arrival order. *)
+DEFINITION MODULE TermFile;
+
+IMPORT IOChan, ChanConsts;
+
+TYPE
+  ChanId      = IOChan.ChanId;
+  FlagSet     = ChanConsts.FlagSet;
+  OpenResults = ChanConsts.OpenResults;
+
+CONST
+  read  = FlagSet{ChanConsts.readFlag};
+  write = FlagSet{ChanConsts.writeFlag};
+  text  = FlagSet{ChanConsts.textFlag};
+  raw   = FlagSet{ChanConsts.rawFlag};
+  echo  = FlagSet{ChanConsts.echoFlag};
+
+PROCEDURE Open       (VAR cid: ChanId; flags: FlagSet; VAR res: OpenResults);
+PROCEDURE IsTermFile (cid: ChanId): BOOLEAN;
+PROCEDURE Close      (VAR cid: ChanId);
+
+END TermFile.

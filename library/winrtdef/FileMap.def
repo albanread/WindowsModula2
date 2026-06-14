@@ -1,0 +1,51 @@
+(* FileMap — memory-mapped file access. Clean-room NewM2 recreation of the
+   ADW/Stony Brook win32 helper (per e:\cleanroom\modules\win32\FileMap.md), in
+   pure Modula-2 over the Win32 mapping API (CreateFileMappingW / OpenFileMappingW
+   / MapViewOfFile / UnmapViewOfFile / FlushViewOfFile). Opens or creates a
+   (optionally named, shareable) file-mapping object over a disk file or over the
+   system page file, then maps windows of it into the address space for direct
+   pointer access. One view at a time per MappedFile.
+
+   (MapFileViewEx — mapping at a caller-chosen fixed address — is intentionally
+   omitted from this first cut; add it if a fixed base is ever needed.) *)
+DEFINITION MODULE FileMap;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+TYPE
+  MapMode        = (MapReadOnly, MapReadWrite);
+  FileMapResults = (FileMapFailed, FileMapOpened, FileMapCreated);
+
+  (* Transparent — the caller holds it by value. `status` (0 = OK) and `maxSize`
+     are the user fields; the rest are internal state exposed for advanced use. *)
+  MappedFile = RECORD
+    status:     CARDINAL;   (* OS error code; 0 = success; 2 = bad-args/no-view *)
+    maxSize:    CARDINAL;   (* mapping object size (filled in for a maxSize=0 file) *)
+    mapStart:   CARDINAL;
+    mapLength:  CARDINAL;
+    mapPtr:     ADDRESS;    (* current view base; NIL when none *)
+    mapHandle:  ADDRESS;    (* the mapping object; NIL when none *)
+    fileHandle: ADDRESS;    (* backing file; INVALID_HANDLE_VALUE for page file *)
+    mode:       MapMode;
+  END;
+
+(* Open the named mapping if it exists, else create one. mapName "" → unnamed
+   (not shareable). fileName "" → back with the page file (maxSize must be > 0).
+   maxSize 0 with a real file → map the whole file and report its size in maxSize. *)
+PROCEDURE CreateFileMap (VAR mf: MappedFile; fileName, mapName: ARRAY OF CHAR;
+                         mode: MapMode; maxSize: CARDINAL): FileMapResults;
+
+(* Unmap any view, close the mapping handle and (if opened) the file handle. *)
+PROCEDURE CloseFileMap (VAR mf: MappedFile): BOOLEAN;
+
+(* Map a region; returns a pointer or NIL. start must be 64K-aligned (Win32).
+   length 0 → from start to end (uses maxSize). Only one view at a time. *)
+PROCEDURE MapFileView (VAR mf: MappedFile; start, length: CARDINAL): ADDRESS;
+
+(* Unmap the current view (dirty pages written back); frees the slot. *)
+PROCEDURE UnMapFileView (VAR mf: MappedFile): BOOLEAN;
+
+(* Flush dirty pages of the current view to disk, keeping the view active. *)
+PROCEDURE FlushMappedFile (VAR mf: MappedFile): BOOLEAN;
+
+END FileMap.

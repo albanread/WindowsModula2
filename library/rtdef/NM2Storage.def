@@ -1,0 +1,24 @@
+(* NewM2-internal Storage primitives. Not part of ISO 10514-1.
+
+   Procedures here are bound by name in `src/newm2-llvm/src/lib.rs` to
+   functions in `newm2-runtime/src/storage.rs`. No IMPLEMENTATION
+   MODULE is shipped — every procedure has external linkage.
+
+   Portable user code should not import this module. ISO `Storage` and
+   `Heap`-style allocators import it internally to back ALLOCATE /
+   DEALLOCATE. *)
+DEFINITION MODULE NM2Storage;
+
+IMPORT SYSTEM;
+
+(* Allocate `n` bytes via the system allocator. The new pointer is
+   written into `*addrSlot`. `n=0` writes NIL. *)
+PROCEDURE Allocate ["NM2.Storage.Allocate" EXTERNAL]
+                  (VAR addrSlot: SYSTEM.ADDRESS; n: CARDINAL);
+
+(* Free the buffer at `*addrSlot` (no-op if NIL) and clear the slot.
+   `n` must match the original allocation size. *)
+PROCEDURE Deallocate ["NM2.Storage.Deallocate" EXTERNAL]
+                    (VAR addrSlot: SYSTEM.ADDRESS; n: CARDINAL);
+
+END NM2Storage.

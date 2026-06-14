@@ -1,0 +1,16 @@
+(* NewM2-internal wall-clock shim. Not part of ISO 10514-1.
+
+   Bound by name in `src/newm2-llvm/src/lib.rs` to
+   `newm2-runtime/src/sysclock.rs::nm2_sysclock_now`. ISO `SysClock`
+   imports this internally to back `GetClock`. *)
+DEFINITION MODULE NM2SysClock;
+
+IMPORT SYSTEM;
+
+(* Fill the `DateTime` record at `dtAddr` with the current wall-clock
+   time (UTC). The exact byte layout the runtime expects is documented
+   in `src/newm2-runtime/src/sysclock.rs` — it matches the M2 record
+   layout under NewM2's codegen rules. *)
+PROCEDURE Now ["NM2.SysClock.Now" EXTERNAL] (dtAddr: SYSTEM.ADDRESS);
+
+END NM2SysClock.

@@ -1,0 +1,38 @@
+(* SortLib — in-place comparison sorts over an ABSTRACT indexed sequence. A
+   clean-room NewModula2 recreation. The sort never touches the data directly;
+   the caller supplies callbacks that compare / swap / assign elements BY INDEX,
+   so the same algorithm sorts arrays, files, parallel arrays — anything index-
+   addressable. All sorts produce ascending order over elements indexed
+   1..numItems.
+
+   Comparator contract: `lessEq(left, right, eqAlso)` returns whether element
+   `left` is strictly LESS THAN element `right` when eqAlso = FALSE, or LESS
+   THAN OR EQUAL when eqAlso = TRUE. (One callback covers both `<` and `<=`.)
+
+   Index conventions are part of the contract — the caller must provide the
+   slots each algorithm uses:
+   - all sorts use 1..numItems for the live elements;
+   - ShellSort and BinaryInsertSort additionally use index 0 as a temp cell;
+   - MergeSort additionally uses numItems+1 .. 2*numItems as scratch (so the
+     caller must make 2*numItems slots addressable).
+   A caller that under-provisions these slots corrupts memory — this is the
+   module's only safety obligation, and it is the caller's. *)
+DEFINITION MODULE SortLib;
+
+TYPE
+  LessEqProc = PROCEDURE (CARDINAL, CARDINAL, BOOLEAN): BOOLEAN;
+  SwapProc   = PROCEDURE (CARDINAL, CARDINAL);
+  AssignProc = PROCEDURE (CARDINAL, CARDINAL);   (* copy element `right` into `left` *)
+
+PROCEDURE QuickSort       (numItems: CARDINAL; lessEq: LessEqProc; swap: SwapProc);
+  (* median-pivot quicksort; fast general purpose; NOT stable. *)
+PROCEDURE HeapSort        (numItems: CARDINAL; lessEq: LessEqProc; swap: SwapProc);
+  (* binary max-heap sort; O(n log n) worst case; NOT stable. *)
+PROCEDURE ShellSort       (numItems: CARDINAL; lessEq: LessEqProc; assign: AssignProc);
+  (* Shell sort, Knuth 3h+1 gaps; uses temp slot 0; NOT stable. *)
+PROCEDURE BinaryInsertSort (numItems: CARDINAL; lessEq: LessEqProc; assign: AssignProc);
+  (* insertion sort with binary-search placement; uses temp slot 0; STABLE. *)
+PROCEDURE MergeSort       (numItems: CARDINAL; lessEq: LessEqProc; assign: AssignProc);
+  (* bottom-up merge sort; uses scratch numItems+1..2*numItems; STABLE. *)
+
+END SortLib.

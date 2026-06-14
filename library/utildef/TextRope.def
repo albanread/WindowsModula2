@@ -1,0 +1,58 @@
+DEFINITION MODULE TextRope;
+(*
+ * TextRope — an immutable-style rope: a balanced binary tree of small text
+ * fragments, the data structure a text editor uses for a document buffer.
+ * Insert / delete / concatenate are O(log n) and never shift a big character
+ * array, so editing megabytes stays cheap. It is also a workout for the runtime:
+ * every edit allocates and frees tree nodes (NEW / DISPOSE), the tree walks are
+ * recursive, and the leaves carry the actual characters.
+ *
+ * OWNERSHIP — the editing operations CONSUME their rope arguments and return a
+ * fresh rope; the typical use is to reassign:
+ *
+ *     doc := TextRope.FromString("hello world");
+ *     doc := TextRope.Insert(doc, 5, ",");        (* old `doc` is consumed *)
+ *     doc := TextRope.DeleteRange(doc, 0, 2);
+ *     TextRope.ToString(doc, line);
+ *     TextRope.Free(doc);                          (* release the whole tree *)
+ *
+ * Do NOT use a rope value after it has been passed to a consuming operation
+ * (Concat, Insert, DeleteRange) — its nodes have been re-homed or freed. Query
+ * operations (Length, CharAt, Sub, ToString, Depth, Leaves, Nodes) do NOT
+ * consume. The empty rope is a NIL `Rope`; Free(NIL) and the queries on it are
+ * all safe.
+ *
+ * Characters are the wide `CHAR` (UTF-16) used everywhere in NewM2, so a rope
+ * interoperates with STextIO, the Terminal, and Canvas2D.DrawText directly.
+ *)
+
+TYPE
+  Rope;                                   (* opaque; NIL is the empty rope *)
+
+(* ---- construction (caller owns the result) ---- *)
+PROCEDURE Empty (): Rope;                 (* the empty rope (NIL) *)
+PROCEDURE FromString (s: ARRAY OF CHAR): Rope;
+
+(* ---- queries (non-consuming) ---- *)
+PROCEDURE Length (r: Rope): CARDINAL;
+PROCEDURE CharAt (r: Rope; i: CARDINAL): CHAR;        (* 0-based; 0C if out of range *)
+PROCEDURE Sub (r: Rope; i, n: CARDINAL; VAR out: ARRAY OF CHAR);
+                                          (* copy up to n chars from index i, NUL-terminated *)
+PROCEDURE ToString (r: Rope; VAR out: ARRAY OF CHAR); (* whole rope, truncated to out *)
+
+(* ---- editing (CONSUME their rope arguments, return a fresh rope) ---- *)
+PROCEDURE Concat (a, b: Rope): Rope;
+PROCEDURE Insert (r: Rope; i: CARDINAL; s: ARRAY OF CHAR): Rope;
+PROCEDURE Append (r: Rope; s: ARRAY OF CHAR): Rope;
+PROCEDURE DeleteRange (r: Rope; i, n: CARDINAL): Rope;
+
+(* ---- maintenance ---- *)
+PROCEDURE Balance (VAR r: Rope);          (* rebuild a balanced tree in place *)
+PROCEDURE Free (VAR r: Rope);             (* DISPOSE the whole tree; r := NIL *)
+
+(* ---- structure inspection (for tests / tuning) ---- *)
+PROCEDURE Depth  (r: Rope): CARDINAL;     (* longest root-to-leaf path *)
+PROCEDURE Leaves (r: Rope): CARDINAL;     (* number of leaf fragments *)
+PROCEDURE Nodes  (r: Rope): CARDINAL;     (* total nodes (leaves + branches) *)
+
+END TextRope.

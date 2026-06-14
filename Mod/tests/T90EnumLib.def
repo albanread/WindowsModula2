@@ -1,0 +1,7 @@
+DEFINITION MODULE T90EnumLib;
+(* Exports an enumeration type; importing the type alone should surface its
+   member constants in the importing module (ISO semantics). *)
+TYPE
+  Result = (failed, partial, opened, closed);
+PROCEDURE classify (n: CARDINAL): Result;
+END T90EnumLib.

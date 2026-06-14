@@ -1,0 +1,60 @@
+(* Money — exact fixed-point decimal currency arithmetic. A clean-room
+   NewModula2 recreation. A Money value is a signed 64-bit integer holding the
+   amount scaled by 10000 (4 implied decimal places), so currency math is exact
+   integer math with no binary-floating-point rounding error.
+
+   Mul and Div compute through a 128-bit intermediate (synthesised from 32-bit
+   limbs, since NewM2 has no native 128-bit int) so full-range operands do not
+   overflow. Mul rounds half-up; Div truncates toward zero (on magnitudes).
+
+   NewM2 notes / deliberate deviations from the ADW original:
+   - Money = INTEGER (64-bit). Representable range ~ -922,337,203,685,477.5808
+     .. +922,337,203,685,477.5807.
+   - DIV/MOD here are Wirth-floored, so every routine works on the value
+     MAGNITUDE (sign captured first) — identical under floored/truncating rules.
+   - String I/O uses SENSIBLE positional decimals, NOT the ADW quirks: "2.75"
+     parses to 2.7500 (the ADW original read ".75" as 75 ten-thousandths), and a
+     negative sub-unit amount keeps its sign (ADW took the sign from the whole
+     part only). These are intentional corrections for real-world correctness. *)
+DEFINITION MODULE Money;
+
+CONST
+  DecPlaces = 4;
+  Scale     = 10000;       (* 10^DecPlaces *)
+  Half      = 5000;        (* Scale / 2, the round-half-up bias *)
+
+TYPE
+  Money    = INTEGER;          (* amount * 10000 *)
+  Fraction = [0 .. Scale - 1]; (* a sub-unit part in ten-thousandths, 0..9999 *)
+
+(* ---- conversions ---- *)
+PROCEDURE IntToMoney  (intVal: INTEGER): Money;        (* whole units -> Money *)
+PROCEDURE MoneyToInt  (num: Money): INTEGER;           (* truncates toward zero *)
+PROCEDURE MakeFraction (fract: Fraction): Money;       (* bare fractional amount *)
+PROCEDURE GetFraction  (num: Money): Fraction;         (* |num| MOD Scale *)
+PROCEDURE MakeMoney   (whole: INTEGER; fract: Fraction): Money;  (* whole.fract, signed *)
+PROCEDURE RealToMoney (fltVal: REAL): Money;           (* truncates the scaled product *)
+PROCEDURE MoneyToReal (num: Money): REAL;
+
+(* ---- arithmetic ---- *)
+PROCEDURE Add     (a, b: Money): Money;
+PROCEDURE AddInt  (a: Money; intVal: INTEGER): Money;
+PROCEDURE Sub     (a, b: Money): Money;
+PROCEDURE SubInt  (a: Money; intVal: INTEGER): Money;
+PROCEDURE Mul     (a, b: Money): Money;                (* rounds half-up; 128-bit intermediate *)
+PROCEDURE MulInt  (a: Money; intVal: INTEGER): Money;
+PROCEDURE Div     (a, b: Money): Money;                (* truncates; 0 if b = 0 *)
+PROCEDURE DivInt  (a: Money; intVal: INTEGER): Money;
+PROCEDURE Neg     (a: Money): Money;
+PROCEDURE Abs     (a: Money): Money;
+PROCEDURE Percent (m: Money; fract: Fraction): Money;  (* m * fract/10000 *)
+
+(* ---- string I/O ---- *)
+PROCEDURE MoneyToString (num: Money; places: CARDINAL; VAR str: ARRAY OF CHAR): BOOLEAN;
+  (* format with `places` (clamped to 4) fractional digits, rounded half-up.
+     Returns FALSE if the destination is too small. *)
+PROCEDURE StringToMoney (str: ARRAY OF CHAR; VAR num: Money): BOOLEAN;
+  (* parse [sign] digits [ '.' digits ] positionally; excess fractional digits
+     round half-up to 4 places. TRUE only if parsed AND fully consumed. *)
+
+END Money.

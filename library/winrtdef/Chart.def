@@ -1,0 +1,35 @@
+(* Chart — business charts on the RasterView RGBA framebuffer. Each call renders a
+   complete chart (frame, gridlines, value-axis labels, title, data) into a region
+   of the current RasterView surface, so a dashboard is a few calls + Present /
+   SaveBMP. Values are REAL; colours are packed 0x00RRGGBB CARDINALs.
+
+   Draw RasterView.Text yourself for category labels / legends if you want them.
+
+   Usage:
+     RasterView.Clear(0FFFFFFH);
+     Chart.BarChart(40, 40, 360, 240, vals, 6, "REVENUE", 02E8B57H, 0404040H, 0FFFFFFH);
+     RasterView.Present;
+*)
+DEFINITION MODULE Chart;
+
+(* Vertical bar chart of vals[0..n-1] in the rectangle (px,py,pw,ph). bgCol fills
+   the panel, axisCol draws the axes + gridlines + numeric labels, barCol the bars.
+   Bars are scaled to the data maximum (a "nice" rounded top). *)
+PROCEDURE BarChart (px, py, pw, ph: INTEGER; VAR vals: ARRAY OF REAL; n: CARDINAL;
+                    title: ARRAY OF CHAR; barCol, axisCol, bgCol: CARDINAL);
+
+(* Line chart of vals[0..n-1]: a polyline through the points with a marker at each. *)
+PROCEDURE LineChart (px, py, pw, ph: INTEGER; VAR vals: ARRAY OF REAL; n: CARDINAL;
+                     title: ARRAY OF CHAR; lineCol, axisCol, bgCol: CARDINAL);
+
+(* Pie chart centred at (cx,cy) radius r; slice i uses cols[i]; areas are
+   proportional to vals[i]. *)
+PROCEDURE PieChart (cx, cy, r: INTEGER; VAR vals: ARRAY OF REAL; n: CARDINAL;
+                    VAR cols: ARRAY OF CARDINAL; title: ARRAY OF CHAR; bgCol: CARDINAL);
+
+(* A colour-swatch + text legend row, drawn left-to-right is awkward for multi-
+   label text, so this draws ONE entry (swatch + label) at (px,py); call once per
+   series. Returns the y for the next row. *)
+PROCEDURE LegendItem (px, py: INTEGER; col: CARDINAL; label: ARRAY OF CHAR): INTEGER;
+
+END Chart.

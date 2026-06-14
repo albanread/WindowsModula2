@@ -1,0 +1,29 @@
+[package]
+name = "newm2-tests"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[[bin]]
+name = "newm2-test-results"
+path = "src/bin/newm2-test-results.rs"
+
+[features]
+# Opt-in GC test lane; enables the collector across the pipeline so the
+# `gc_*` tests compile and run (`cargo test -p newm2-tests --features gc`).
+default = []
+gc = ["newm2-llvm/gc", "newm2-runtime/gc"]
+
+[dependencies]
+newm2-ir      = { path = "../../src/newm2-ir" }
+newm2-lexer   = { path = "../../src/newm2-lexer" }
+newm2-llvm    = { path = "../../src/newm2-llvm" }
+newm2-loader  = { path = "../../src/newm2-loader" }
+newm2-parser  = { path = "../../src/newm2-parser" }
+newm2-runtime = { path = "../../src/newm2-runtime" }
+newm2-sema    = { path = "../../src/newm2-sema" }
+# Bundled SQLite — no external libsqlite3 needed.
+rusqlite      = { version = "0.32", features = ["bundled"] }
+
+[dev-dependencies]
+newm2-winapi-gen = { path = "../../src/newm2-winapi-gen" }

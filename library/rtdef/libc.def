@@ -1,0 +1,23 @@
+(* libc — a clean-room, NewModula2-native simulation of the small C-library
+   surface the conformance corpus imports (`printf`, `exit`).
+
+   These are NOT bound to a platform libc: each procedure has external linkage
+   to a NewModula2 runtime export (`nm2_libc_*` in `newm2-runtime/src/io.rs`),
+   so behaviour is identical on Windows and, later, mac/linux. The link names
+   are bound by `bind_runtime_helpers` (JIT) and forwarded by
+   `emit_runtime_forwarders` (AOT) in `src/newm2-llvm/src/lib.rs`.
+
+   `printf` is variadic (`...`). The format string is taken as a NewModula2
+   wide ARRAY OF CHAR; variadic arguments are accepted but not yet
+   interpolated by the runtime equivalent. *)
+DEFINITION MODULE libc;
+
+IMPORT SYSTEM;
+
+EXPORT QUALIFIED printf, exit;
+
+PROCEDURE printf ["libc.printf" EXTERNAL] (format: ARRAY OF CHAR; ...) : INTEGER;
+
+PROCEDURE exit ["libc.exit" EXTERNAL] (code: INTEGER);
+
+END libc.

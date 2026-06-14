@@ -1,0 +1,23 @@
+ModuleGraph
+  modules: 5
+  topo: ChanConsts, IOConsts, SYSTEM, IOChan, Hello
+module ChanConsts
+  def: isodef/ChanConsts.def
+  impl: isomod/ChanConsts.mod
+  def-hash: 22528c0929b2b995
+  imports: (none)
+module IOConsts
+  def: isodef/IOConsts.def
+  impl: isomod/IOConsts.mod
+  def-hash: ef209ada14faf010
+  imports: (none)
+module SYSTEM (intrinsic)
+  imports: (none)
+module IOChan
+  def: isodef/IOChan.def
+  impl: isomod/IOChan.mod
+  def-hash: 9db8abcf3ce598f7
+  imports: ChanConsts, IOConsts, SYSTEM
+module Hello
+  impl: fixtures/hello.mod
+  imports: IOChan

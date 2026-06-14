@@ -1,0 +1,33 @@
+(* Com — COM/OLE lifecycle and object activation over ole32, called DIRECTLY
+   from M2. Clean-room NewModula2. NewM2's CLASS object layout and virtual
+   dispatch ARE the COM ABI, so a COM interface is consumed by declaring an
+   `ABSTRACT CLASS` with the interface's methods in vtable order (the three
+   IUnknown methods QueryInterface/AddRef/Release first, then the interface's
+   own methods) and assigning the raw interface pointer this module returns to
+   a variable of that class — calls then dispatch straight through the COM
+   vtable. See Mod/tests/t-90-229 for the IMalloc example.
+
+   This packages the proven COM-client capability into the M2WINRT tier using
+   direct ole32 calls (rather than a runtime shim). *)
+DEFINITION MODULE Com;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+PROCEDURE Initialize (): BOOLEAN;
+  (* CoInitializeEx (apartment-threaded) for the calling thread. TRUE on
+     success (including the already-initialized S_FALSE case). *)
+PROCEDURE Uninitialize ();
+  (* CoUninitialize for the calling thread (balance every Initialize). *)
+
+PROCEDURE GetMalloc (VAR malloc: ADDRESS): BOOLEAN;
+  (* The process COM task allocator (IMalloc) via CoGetMalloc. *)
+
+PROCEDURE CreateInstance (clsid, iid: ADDRESS; VAR obj: ADDRESS): BOOLEAN;
+  (* CoCreateInstance(clsid, NULL, CLSCTX_INPROC_SERVER, iid) — `clsid`/`iid`
+     point at 16-byte GUIDs; on success `obj` is the requested interface (the
+     caller owns one reference and must Release it). *)
+
+PROCEDURE TaskFree (p: ADDRESS);
+  (* CoTaskMemFree — release memory a COM method returned via the task allocator. *)
+
+END Com.

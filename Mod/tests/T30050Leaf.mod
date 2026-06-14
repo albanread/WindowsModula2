@@ -1,0 +1,12 @@
+MODULE T30050Leaf;
+
+CONST
+  LeafBase = 30;
+
+PROCEDURE LeafValue(n : INTEGER) : INTEGER;
+BEGIN
+  RETURN n + LeafBase
+END LeafValue;
+
+BEGIN
+END T30050Leaf.

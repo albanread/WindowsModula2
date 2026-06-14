@@ -1,0 +1,25 @@
+(*
+Name:     OleException
+Creation: 29-02-2000
+LastEdit: 15-05-2000
+Author:   Egbert J. van der Haring
+System:   StonyBrook Modula-2
+Remarks:
+*)
+
+DEFINITION MODULE OleException;
+
+IMPORT WIN32;
+IMPORT Ole2;
+
+PROCEDURE Show(exinfo: Ole2.EXCEPINFO);
+(* shows exception *)
+
+PROCEDURE ShowResult(hresult: WIN32.HRESULT);
+(* shows hresult, which was not S_OK but although there was no exception *)
+
+PROCEDURE GetText(    hresult: WIN32.HRESULT;
+                  VAR szText:  ARRAY OF CHAR);
+(* returns text for exception *)
+
+END OleException.

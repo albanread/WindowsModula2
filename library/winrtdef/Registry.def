@@ -1,0 +1,31 @@
+(* Registry — a small typed wrapper over the Windows registry, calling the
+   advapi32 W-APIs DIRECTLY from M2. Clean-room NewModula2. 16-bit CHAR = WCHAR,
+   so an ARRAY OF CHAR is the wide value/path buffer.
+
+   SECURITY (P3 / modernization M11): the default hive is CurrentUser (HKCU) —
+   per-user settings that need no elevation. LocalMachine (HKLM) is offered but
+   should be used only on an explicit, elevated request (writes will fail
+   without admin rights, which is the correct least-privilege behaviour). *)
+DEFINITION MODULE Registry;
+
+TYPE
+  Hive = (CurrentUser, LocalMachine);   (* default CurrentUser; see security note *)
+
+PROCEDURE SetString (hive: Hive; subkey, name, value: ARRAY OF CHAR): BOOLEAN;
+  (* Create/open `subkey` under `hive` and set string value `name` := `value`. *)
+PROCEDURE GetString (hive: Hive; subkey, name: ARRAY OF CHAR;
+                     VAR value: ARRAY OF CHAR): BOOLEAN;
+  (* Read string value `name` from `subkey`. FALSE if absent / not a string /
+     too large for `value`. *)
+
+PROCEDURE SetCard (hive: Hive; subkey, name: ARRAY OF CHAR; value: CARDINAL): BOOLEAN;
+  (* Set a 32-bit DWORD value (the low 32 bits of `value`). *)
+PROCEDURE GetCard (hive: Hive; subkey, name: ARRAY OF CHAR;
+                   VAR value: CARDINAL): BOOLEAN;
+  (* Read a 32-bit DWORD value. FALSE if absent / not a DWORD. *)
+
+PROCEDURE DeleteValue (hive: Hive; subkey, name: ARRAY OF CHAR): BOOLEAN;
+PROCEDURE DeleteKey   (hive: Hive; subkey: ARRAY OF CHAR): BOOLEAN;
+  (* Delete a value, or a (leaf) subkey. *)
+
+END Registry.

@@ -1,0 +1,41 @@
+(*
+Name:     TypeInfo
+Creation: 23-10-1998
+LastEdit: 02-03-2000
+Author:   Egbert J. van der Haring
+System:   StonyBrook Modula-2
+Remarks:  Support for COM type info.
+*)
+
+UNSAFEGUARDED DEFINITION MODULE TypeInfo;
+
+IMPORT WIN32;
+IMPORT Ole2;
+
+PROCEDURE LoadAndRegister(VAR hresult: WIN32.HRESULT): BOOLEAN;
+(* loads and registers type library *)
+(* szFile= file name of COM object containing type library *)
+(* szHelp= directory containing help file for COM object *)
+
+PROCEDURE Load(    cMajor:       CARDINAL;
+                   cMinor:       CARDINAL;
+                   guidTypeLib:  WIN32.GUID;
+                   iidInterface: WIN32.IID;
+               VAR iTypeInfo:    Ole2.ITypeInfo);
+(* loads type library with version cMajor.cMinor *)
+(* and returns type info for interface *)
+
+PROCEDURE LoadFromMe(    iidInterface: WIN32.IID;
+                     VAR iTypeInfo:    Ole2.ITypeInfo): BOOLEAN;
+(* loads type info from <application>.exe *)
+
+PROCEDURE Release(iTypeInfo: Ole2.ITypeInfo);
+(* releases type info *)
+
+PROCEDURE AddRef(cType:       CARDINAL;
+                 tiRequested: Ole2.ITypeInfo;
+                 tiInterface: Ole2.ITypeInfo);
+(* default implementation for IDispatch.AddRef *)
+
+
+END TypeInfo.

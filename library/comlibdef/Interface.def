@@ -1,0 +1,22 @@
+(*
+Name:     Interface
+Creation: 19-02-99
+LastEdit: 19-02-99
+Author:   Egbert J. van der Haring
+System:   StonyBrook Modula-2
+Remarks:
+*)
+
+DEFINITION MODULE Interface;
+
+IMPORT WIN32;
+
+PROCEDURE ToText(    iid:   WIN32.IID;
+                 VAR szIID: ARRAY OF CHAR);
+(* converts iid to text *)
+
+PROCEDURE Find(    iid:    WIN32.IID;
+               VAR szName: ARRAY OF CHAR): BOOLEAN;
+(* finds interface in Registry and returns its name *)
+
+END Interface.

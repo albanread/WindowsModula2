@@ -1,0 +1,14 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 LongIO — decimal LONGREAL IO over an explicit channel.
+   SLongIO is the default-channel analogue. *)
+DEFINITION MODULE LongIO;
+
+IMPORT IOChan;
+
+PROCEDURE ReadReal   (cid: IOChan.ChanId; VAR real: LONGREAL);
+PROCEDURE WriteFloat (cid: IOChan.ChanId; real: LONGREAL; sigFigs: CARDINAL; width: CARDINAL);
+PROCEDURE WriteEng   (cid: IOChan.ChanId; real: LONGREAL; sigFigs: CARDINAL; width: CARDINAL);
+PROCEDURE WriteFixed (cid: IOChan.ChanId; real: LONGREAL; place: INTEGER; width: CARDINAL);
+PROCEDURE WriteReal  (cid: IOChan.ChanId; real: LONGREAL; width: CARDINAL);
+
+END LongIO.

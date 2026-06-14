@@ -1,0 +1,44 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 LowLong — implementation-defined limits and direct bit
+   access for the LONGREAL type. Constants reflect IEEE 754 double
+   precision (binary64). *)
+DEFINITION MODULE LowLong;
+
+CONST
+  radix      = 2;
+  places     = 64;
+  expoMin    = -1022;
+  expoMax    = 1023;
+  large      = 1.79769313486231E+308;
+  small      = 2.22507385850721E-308;
+  IEEE       = TRUE;
+  ISO        = FALSE;
+  rounds     = TRUE;
+  gUnderflow = FALSE;
+  exception  = TRUE;
+  extend     = TRUE;
+  nModes     = 6;
+
+TYPE
+  Modes = PACKEDSET OF [0 .. nModes-1];
+
+PROCEDURE exponent  (x: LONGREAL): INTEGER;
+PROCEDURE fraction  (x: LONGREAL): LONGREAL;
+PROCEDURE sign      (x: LONGREAL): LONGREAL;
+PROCEDURE succ      (x: LONGREAL): LONGREAL;
+PROCEDURE ulp       (x: LONGREAL): LONGREAL;
+PROCEDURE pred      (x: LONGREAL): LONGREAL;
+PROCEDURE intpart   (x: LONGREAL): LONGREAL;
+PROCEDURE fractpart (x: LONGREAL): LONGREAL;
+
+PROCEDURE scale      (x: LONGREAL; n: INTEGER): LONGREAL;
+PROCEDURE trunc      (x: LONGREAL; n: INTEGER): LONGREAL;
+PROCEDURE round      (x: LONGREAL; n: INTEGER): LONGREAL;
+PROCEDURE synthesize (expart: INTEGER; frapart: LONGREAL): LONGREAL;
+
+PROCEDURE setMode     (m: Modes);
+PROCEDURE currentMode (): Modes;
+
+PROCEDURE IsLowException (): BOOLEAN;
+
+END LowLong.

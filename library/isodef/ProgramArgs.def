@@ -1,0 +1,15 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 ProgramArgs — command-line argument access modelled as
+   an input channel. NextArg advances; IsArgPresent peeks. *)
+DEFINITION MODULE ProgramArgs;
+
+IMPORT IOChan;
+
+TYPE
+  ChanId = IOChan.ChanId;
+
+PROCEDURE ArgChan       (): ChanId;
+PROCEDURE IsArgPresent  (): BOOLEAN;
+PROCEDURE NextArg       ();
+
+END ProgramArgs.

@@ -1,0 +1,26 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 StreamFile — independent sequential data streams (named
+   on disk). See SeqFile for sequential I/O over an existing channel
+   and RndFile for random access. *)
+DEFINITION MODULE StreamFile;
+
+IMPORT IOChan, ChanConsts;
+
+TYPE
+  ChanId      = IOChan.ChanId;
+  FlagSet     = ChanConsts.FlagSet;
+  OpenResults = ChanConsts.OpenResults;
+
+CONST
+  read  = FlagSet{ChanConsts.readFlag};
+  write = FlagSet{ChanConsts.writeFlag};
+  old   = FlagSet{ChanConsts.oldFlag};
+  text  = FlagSet{ChanConsts.textFlag};
+  raw   = FlagSet{ChanConsts.rawFlag};
+
+PROCEDURE Open         (VAR cid: ChanId; name: ARRAY OF CHAR;
+                        flags: FlagSet; VAR res: OpenResults);
+PROCEDURE IsStreamFile (cid: ChanId): BOOLEAN;
+PROCEDURE Close        (VAR cid: ChanId);
+
+END StreamFile.

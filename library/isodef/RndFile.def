@@ -1,0 +1,44 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 RndFile — random-access files. FilePos is an opaque
+   byte-blob big enough to hold a 64-bit position; the standard leaves
+   the encoding to the implementation and forces clients to round-trip
+   positions through Start/Current/EndPos and NewPos. *)
+DEFINITION MODULE RndFile;
+
+IMPORT IOChan, ChanConsts, SYSTEM;
+
+TYPE
+  ChanId      = IOChan.ChanId;
+  FlagSet     = ChanConsts.FlagSet;
+  OpenResults = ChanConsts.OpenResults;
+
+CONST
+  read  = FlagSet{ChanConsts.readFlag};
+  write = FlagSet{ChanConsts.writeFlag};
+  old   = FlagSet{ChanConsts.oldFlag};
+  text  = FlagSet{ChanConsts.textFlag};
+  raw   = FlagSet{ChanConsts.rawFlag};
+
+PROCEDURE OpenOld   (VAR cid: ChanId; name: ARRAY OF CHAR; flags: FlagSet;
+                     VAR res: OpenResults);
+PROCEDURE OpenClean (VAR cid: ChanId; name: ARRAY OF CHAR; flags: FlagSet;
+                     VAR res: OpenResults);
+
+PROCEDURE IsRndFile          (cid: ChanId): BOOLEAN;
+PROCEDURE IsRndFileException (): BOOLEAN;
+
+CONST
+  FilePosSize = 8;
+
+TYPE
+  FilePos = ARRAY [1 .. FilePosSize] OF SYSTEM.LOC;
+
+PROCEDURE StartPos   (cid: ChanId): FilePos;
+PROCEDURE CurrentPos (cid: ChanId): FilePos;
+PROCEDURE EndPos     (cid: ChanId): FilePos;
+PROCEDURE NewPos     (cid: ChanId; chunks: INTEGER; chunkSize: CARDINAL;
+                      from: FilePos): FilePos;
+PROCEDURE SetPos     (cid: ChanId; pos: FilePos);
+PROCEDURE Close      (VAR cid: ChanId);
+
+END RndFile.

@@ -1,0 +1,12 @@
+(* ISO 10514-1 TERMINATION — query program termination state. *)
+DEFINITION MODULE TERMINATION;
+
+PROCEDURE IsTerminating (): BOOLEAN;
+  (* Returns TRUE if any coroutine has started normal program termination,
+     otherwise FALSE. *)
+
+PROCEDURE HasHalted (): BOOLEAN;
+  (* Returns TRUE if the program has halted (a HALT was executed),
+     otherwise FALSE. *)
+
+END TERMINATION.

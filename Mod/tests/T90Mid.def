@@ -1,0 +1,9 @@
+DEFINITION MODULE T90Mid;
+
+(* The import of the leaf module lives only in this DEFINITION; the
+   IMPLEMENTATION below relies on it being followed by the loader. *)
+IMPORT T90Leaf;
+
+PROCEDURE eight (): CARDINAL;
+
+END T90Mid.

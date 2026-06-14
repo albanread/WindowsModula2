@@ -1,0 +1,1138 @@
+DefinitionModule ShObjIdl
+  FromImport WIN32 REFGUID, REFIID, PVOID, HRESULT, DWORD, UINT, HWND, LPCSTR, HANDLE, LPCWSTR, POINT, HMENU, UINT_PTR, ULONG, WINT, PUINT, PWCHAR, IID, GUID, BOOL, CLSID, LPWSTR
+  FromImport OOle2 IUnknown, IBindCtx
+  Type SFGAOF
+    Named ULONG
+  Type FDE_OVERWRITE_RESPONSE
+    Enum FDEOR_DEFAULT, FDEOR_ACCEPT, FDEOR_REFUSE
+  Type FDE_SHAREVIOLATION_RESPONSE
+    Enum FDESVR_DEFAULT, FDESVR_ACCEPT, FDESVR_REFUSE
+  Type FDAP
+    Enum FDAP_BOTTOM, FDAP_TOP
+  Type CMINVOKECOMMANDINFO
+    Record
+      Field cbSize
+        Named DWORD
+      Field fMask
+        Named DWORD
+      Field hwnd
+        Named HWND
+      Field lpVerb
+        Named LPCSTR
+      Field lpParameters
+        Named LPCSTR
+      Field lpDirectory
+        Named LPCSTR
+      Field nShow
+        Named WINT
+      Field dwHotKey
+        Named DWORD
+      Field hIcon
+        Named HANDLE
+  Type LPCMINVOKECOMMANDINFO
+    PointerTo
+      Named CMINVOKECOMMANDINFO
+  Type PCCMINVOKECOMMANDINFO
+    Named LPCMINVOKECOMMANDINFO
+  Type CMINVOKECOMMANDINFOEX
+    Record
+      Field cbSize
+        Named DWORD
+      Field fMask
+        Named DWORD
+      Field hwnd
+        Named HWND
+      Field lpVerb
+        Named LPCSTR
+      Field lpParameters
+        Named LPCSTR
+      Field lpDirectory
+        Named LPCSTR
+      Field nShow
+        Named WINT
+      Field dwHotKey
+        Named DWORD
+      Field hIcon
+        Named HANDLE
+      Field lpTitle
+        Named LPCSTR
+      Field lpVerbW
+        Named LPCWSTR
+      Field lpParametersW
+        Named LPCWSTR
+      Field lpDirectoryW
+        Named LPCWSTR
+      Field lpTitleW
+        Named LPCWSTR
+      Field ptInvoke
+        Named POINT
+  Type LPCMINVOKECOMMANDINFOEX
+    PointerTo
+      Named CMINVOKECOMMANDINFOEX
+  Type PCCMINVOKECOMMANDINFOEX
+    Named LPCMINVOKECOMMANDINFOEX
+  Type PROPERTYKEY
+    Record
+      Field fmtid
+        Named GUID
+      Field pid
+        Named DWORD
+  Type REFPROPERTYKEY
+    PointerTo
+      Named PROPERTYKEY
+  Type GETPROPERTYSTOREFLAGS
+    Enum GPS_DEFAULT, GPS_HANDLERPROPERTIESONLY, GPS_READWRITE, GPS_TEMPORARY, GPS_FASTPROPERTIESONLY, GPS_OPENSLOWITEM, GPS_DELAYCREATION, GPS_BESTEFFORT, GPS_NO_OPLOCK, GPS_PREFERQUERYPROPERTIES, GPS_EXTRINSICPROPERTIES, GPS_EXTRINSICPROPERTIESONLY, GPS_MASK_VALID
+  Type PROPVARIANT
+    Opaque
+  Type REFPROPVARIANT
+    Opaque
+  Const CLSID_PropertyStore
+    CLSID{Integer(3833161040), Integer(57185), Integer(17547), {Integer(145), Integer(147), Integer(19), Integer(252), Integer(19), Integer(65), Integer(177), Integer(99)}}
+  Const IID_IPropertyStore
+    IID{Integer(2288881387), Integer(36082), Integer(17478), {Integer(141), Integer(2), Integer(205), Integer(186), Integer(29), Integer(189), Integer(207), Integer(153)}}
+  AbstractClass IPropertyStore
+    Inherit IUnknown
+    Reveal GetCount, GetAt, GetValue, SetValue, Commit
+    AbstractMethod GetCount
+      Param VAR cProps
+        Named DWORD
+      Returns
+        Named HRESULT
+    AbstractMethod GetAt
+      Param iProp
+        Named DWORD
+      Param VAR pkey
+        Named PROPERTYKEY
+      Returns
+        Named HRESULT
+    AbstractMethod GetValue
+      Param key
+        Named REFPROPERTYKEY
+      Param VAR pv
+        Named PROPVARIANT
+      Returns
+        Named HRESULT
+    AbstractMethod SetValue
+      Param key
+        Named REFPROPERTYKEY
+      Param propvar
+        Named REFPROPVARIANT
+      Returns
+        Named HRESULT
+    AbstractMethod Commit
+      Returns
+        Named HRESULT
+  Const IID_IPropertyDescriptionList
+    IID{Integer(530563536), Integer(50075), Integer(19238), {Integer(129), Integer(127), Integer(1), Integer(25), Integer(103), Integer(211), Integer(68), Integer(14)}}
+  AbstractClass IPropertyDescriptionList
+    Inherit IUnknown
+    Reveal GetCount, GetAt
+    AbstractMethod GetCount
+      Param VAR pcElem
+        Named UINT
+      Returns
+        Named HRESULT
+    AbstractMethod GetAt
+      Param iElem
+        Named UINT
+      Param riid
+        Named REFIID
+      Param VAR ppv
+        Named PVOID
+      Returns
+        Named HRESULT
+  Type KNOWNFOLDERID
+    Named GUID
+  Type REFKNOWNFOLDERID
+    Named KNOWNFOLDERID
+  Type COMDLG_FILTERSPEC
+    Record
+      Field pszName
+        Named LPCWSTR
+      Field pszSpec
+        Named LPCWSTR
+  Const MK_ALT
+    Integer(32)
+  Const DROPEFFECT_NONE
+    Integer(0)
+  Const DROPEFFECT_COPY
+    Integer(1)
+  Const DROPEFFECT_MOVE
+    Integer(2)
+  Const DROPEFFECT_LINK
+    Integer(4)
+  Const DROPEFFECT_SCROLL
+    Integer(2147483648)
+  Const DD_DEFSCROLLINSET
+    Integer(11)
+  Const DD_DEFSCROLLDELAY
+    Integer(50)
+  Const DD_DEFSCROLLINTERVAL
+    Integer(50)
+  Const DD_DEFDRAGDELAY
+    Integer(200)
+  Const DD_DEFDRAGMINDIST
+    Integer(2)
+  Const IID_IContextMenu
+    IID{Integer(136420), Integer(0), Integer(0), {Integer(192), Integer(0), Integer(0), Integer(0), Integer(0), Integer(0), Integer(0), Integer(70)}}
+  AbstractClass IContextMenu
+    Inherit IUnknown
+    Reveal QueryContextMenu, InvokeCommand, GetCommandString
+    AbstractMethod QueryContextMenu
+      Param hmenu
+        Named HMENU
+      Param indexMenu
+        Named UINT
+      Param idCmdFirst
+        Named UINT
+      Param idCmdLast
+        Named UINT
+      Param uFlags
+        Named UINT
+      Returns
+        Named HRESULT
+    AbstractMethod InvokeCommand
+      Param pici
+        Named CMINVOKECOMMANDINFO
+      Returns
+        Named HRESULT
+    AbstractMethod GetCommandString
+      Param idCmd
+        Named UINT_PTR
+      Param uType
+        Named UINT
+      Param pReserved
+        Named PUINT
+      Param VAR pszName
+        OpenArray
+          Named UCHAR
+      Param cchMax
+        Named UINT
+      Returns
+        Named HRESULT
+  AbstractClass IShellItem FORWARD
+  Const IID_IEnumShellItems
+    IID{Integer(1885507635), Integer(58211), Integer(18984), {Integer(165), Integer(103), Integer(13), Integer(183), Integer(128), Integer(6), Integer(230), Integer(215)}}
+  AbstractClass IEnumShellItems
+    Inherit IUnknown
+    Reveal Next, Skip, Reset, Clone
+    AbstractMethod Next
+      Param celt
+        Named ULONG
+      Param VAR rgelt
+        Named IShellItem
+      Param VAR pceltFetched
+        Named ULONG
+      Returns
+        Named HRESULT
+    AbstractMethod Skip
+      Param celt
+        Named ULONG
+      Returns
+        Named HRESULT
+    AbstractMethod Reset
+      Returns
+        Named HRESULT
+    AbstractMethod Clone
+      Param VAR ppenum
+        Named IEnumShellItems
+      Returns
+        Named HRESULT
+  Type SIGDN
+    Enum SIGDN_NORMALDISPLAY, SIGDN_PARENTRELATIVEPARSING, SIGDN_DESKTOPABSOLUTEPARSING, SIGDN_PARENTRELATIVEEDITING, SIGDN_DESKTOPABSOLUTEEDITING, SIGDN_FILESYSPATH, SIGDN_URL, SIGDN_PARENTRELATIVEFORADDRESSBAR, SIGDN_PARENTRELATIVE, SIGDN_PARENTRELATIVEFORUI
+  Type SICHINTF
+    Enum SICHINT_DISPLAY, SICHINT_ALLFIELDS, SICHINT_CANONICAL, SICHINT_TEST_FILESYSPATH_IF_NOT_EQUAL
+  Const CLSID_ShellItem
+    CLSID{Integer(2596928481), Integer(57506), Integer(19158), {Integer(180), Integer(238), Integer(226), Integer(18), Integer(1), Integer(62), Integer(169), Integer(23)}}
+  Const IID_IShellItem
+    IID{Integer(1132621086), Integer(59160), Integer(17134), {Integer(188), Integer(85), Integer(161), Integer(226), Integer(97), Integer(195), Integer(123), Integer(254)}}
+  AbstractClass IShellItem
+    Inherit IUnknown
+    Reveal BindToHandler, GetParent, GetDisplayName, GetAttributes, Compare
+    AbstractMethod BindToHandler
+      Param pbc
+        Named IBindCtx
+      Param bhid
+        Named REFGUID
+      Param riid
+        Named REFIID
+      Param ppv
+        Named PVOID
+      Returns
+        Named HRESULT
+    AbstractMethod GetParent
+      Param VAR ppsi
+        Named IShellItem
+      Returns
+        Named HRESULT
+    AbstractMethod GetDisplayName
+      Param sigdnName
+        Named SIGDN
+      Param VAR ppszName
+        Named LPWSTR
+      Returns
+        Named HRESULT
+    AbstractMethod GetAttributes
+      Param sfgaoMask
+        Named SFGAOF
+      Param VAR psfgaoAttribs
+        Named SFGAOF
+      Returns
+        Named HRESULT
+    AbstractMethod Compare
+      Param psi
+        Named IShellItem
+      Param hint
+        Named SICHINTF
+      Param VAR piOrder
+        Named WINT
+      Returns
+        Named HRESULT
+  Procedure SHCreateItemInKnownFolder
+    Param kfid
+      Named REFKNOWNFOLDERID
+    Param dwKFFlags
+      Named DWORD
+    Param pszItem
+      OpenArray
+        Named UCHAR
+    Param riid
+      Named REFIID
+    Param VAR ppv
+      Named PVOID
+    Returns
+      Named HRESULT
+  Type SIATTRIBFLAGS
+    Enum SIATTRIBFLAGS_AND, SIATTRIBFLAGS_OR, SIATTRIBFLAGS_APPCOMPAT, SIATTRIBFLAGS_MASK, SIATTRIBFLAGS_ALLITEMS
+  Const IID_IShellItemArray
+    IID{Integer(3057559405), Integer(8069), Integer(17775), {Integer(161), Integer(156), Integer(72), Integer(21), Integer(158), Integer(250), Integer(133), Integer(139)}}
+  AbstractClass IShellItemArray
+    Inherit IUnknown
+    Reveal BindToHandler, GetPropertyStore, GetPropertyDescriptionList, GetAttributes, GetCount, GetItemAt, EnumItems
+    AbstractMethod BindToHandler
+      Param pbc
+        Named IBindCtx
+      Param bhid
+        Named REFGUID
+      Param riid
+        Named REFIID
+      Param ppv
+        Named PVOID
+      Returns
+        Named HRESULT
+    AbstractMethod GetPropertyStore
+      Param GetPropertyStore
+        Named GETPROPERTYSTOREFLAGS
+      Param riid
+        Named REFIID
+      Param ppv
+        Named PVOID
+      Returns
+        Named HRESULT
+    AbstractMethod GetPropertyDescriptionList
+      Param keyType
+        Named REFPROPERTYKEY
+      Param riid
+        Named REFIID
+      Param ppv
+        Named PVOID
+      Returns
+        Named HRESULT
+    AbstractMethod GetAttributes
+      Param AttribFlags
+        Named SIATTRIBFLAGS
+      Param sfgaoMask
+        Named SFGAOF
+      Param psfgaoAttribs
+        Named SFGAOF
+      Returns
+        Named HRESULT
+    AbstractMethod GetCount
+      Param VAR pdwNumItems
+        Named DWORD
+      Returns
+        Named HRESULT
+    AbstractMethod GetItemAt
+      Param dwIndex
+        Named DWORD
+      Param VAR ppsi
+        Named IShellItem
+      Returns
+        Named HRESULT
+    AbstractMethod EnumItems
+      Param VAR ppenumShellItems
+        Named IEnumShellItems
+      Returns
+        Named HRESULT
+  AbstractClass IFileDialog FORWARD
+  Const IID_IFileDialogEvents
+    IID{Integer(3057559405), Integer(8069), Integer(17775), {Integer(161), Integer(156), Integer(72), Integer(21), Integer(158), Integer(250), Integer(133), Integer(139)}}
+  AbstractClass IFileDialogEvents
+    Inherit IUnknown
+    Reveal OnFileOk, OnFolderChanging, OnFolderChange, OnSelectionChange, OnShareViolation, OnTypeChange, OnOverwrite
+    AbstractMethod OnFileOk
+      Param pfd
+        Named IFileDialog
+      Returns
+        Named HRESULT
+    AbstractMethod OnFolderChanging
+      Param pfd
+        Named IFileDialog
+      Param psiFolder
+        Named IShellItem
+      Returns
+        Named HRESULT
+    AbstractMethod OnFolderChange
+      Param pfd
+        Named IFileDialog
+      Returns
+        Named HRESULT
+    AbstractMethod OnSelectionChange
+      Param pfd
+        Named IFileDialog
+      Returns
+        Named HRESULT
+    AbstractMethod OnShareViolation
+      Param pfd
+        Named IFileDialog
+      Param psi
+        Named IShellItem
+      Param VAR pResponse
+        Named FDE_SHAREVIOLATION_RESPONSE
+      Returns
+        Named HRESULT
+    AbstractMethod OnTypeChange
+      Param pfd
+        Named IFileDialog
+      Returns
+        Named HRESULT
+    AbstractMethod OnOverwrite
+      Param pfd
+        Named IFileDialog
+      Param psi
+        Named IShellItem
+      Param VAR pResponse
+        Named FDE_OVERWRITE_RESPONSE
+      Returns
+        Named HRESULT
+  Type _SHGDNF
+    Enum SHGDN_NORMAL, SHGDN_INFOLDER, SHGDN_FOREDITING, SHGDN_FORADDRESSBAR, SHGDN_FORPARSING
+  Type SHGDNF
+    Named DWORD
+  Type _SHCONTF
+    Enum SHCONTF_CHECKING_FOR_CHILDREN, SHCONTF_FOLDERS, SHCONTF_NONFOLDERS, SHCONTF_INCLUDEHIDDEN, SHCONTF_INIT_ON_FIRST_NEXT, SHCONTF_NETPRINTERSRCH, SHCONTF_SHAREABLE, SHCONTF_STORAGE, SHCONTF_NAVIGATION_ENUM, SHCONTF_FASTITEMS, SHCONTF_FLATLIST, SHCONTF_ENABLE_ASYNC, SHCONTF_INCLUDESUPERHIDDEN
+  Type SHCONTF
+    Named DWORD
+  Const SHCIDS_ALLFIELDS
+    Integer(2147483648)
+  Const SHCIDS_CANONICALONLY
+    Integer(268435456)
+  Const SHCIDS_BITMASK
+    Integer(4294901760)
+  Const SHCIDS_COLUMNMASK
+    Integer(65535)
+  Const SFGAO_CANCOPY
+    DROPEFFECT_COPY
+  Const SFGAO_CANMOVE
+    DROPEFFECT_MOVE
+  Const SFGAO_CANLINK
+    DROPEFFECT_LINK
+  Const SFGAO_STORAGE
+    Integer(8)
+  Const SFGAO_CANRENAME
+    Integer(16)
+  Const SFGAO_CANDELETE
+    Integer(32)
+  Const SFGAO_HASPROPSHEET
+    Integer(64)
+  Const SFGAO_DROPTARGET
+    Integer(256)
+  Const SFGAO_CAPABILITYMASK
+    Integer(375)
+  Const SFGAO_SYSTEM
+    Integer(4096)
+  Const SFGAO_ENCRYPTED
+    Integer(8192)
+  Const SFGAO_ISSLOW
+    Integer(16384)
+  Const SFGAO_GHOSTED
+    Integer(32768)
+  Const SFGAO_LINK
+    Integer(65536)
+  Const SFGAO_SHARE
+    Integer(131072)
+  Const SFGAO_READONLY
+    Integer(262144)
+  Const SFGAO_HIDDEN
+    Integer(524288)
+  Const SFGAO_DISPLAYATTRMASK
+    Integer(1032192)
+  Const SFGAO_FILESYSANCESTOR
+    Integer(268435456)
+  Const SFGAO_FOLDER
+    Integer(536870912)
+  Const SFGAO_FILESYSTEM
+    Integer(1073741824)
+  Const SFGAO_HASSUBFOLDER
+    Integer(2147483648)
+  Const SFGAO_CONTENTSMASK
+    Integer(2147483648)
+  Const SFGAO_VALIDATE
+    Integer(16777216)
+  Const SFGAO_REMOVABLE
+    Integer(33554432)
+  Const SFGAO_COMPRESSED
+    Integer(67108864)
+  Const SFGAO_BROWSABLE
+    Integer(134217728)
+  Const SFGAO_NONENUMERATED
+    Integer(1048576)
+  Const SFGAO_NEWCONTENT
+    Integer(2097152)
+  Const SFGAO_CANMONIKER
+    Integer(4194304)
+  Const SFGAO_HASSTORAGE
+    Integer(4194304)
+  Const SFGAO_STREAM
+    Integer(4194304)
+  Const SFGAO_STORAGEANCESTOR
+    Integer(8388608)
+  Const SFGAO_STORAGECAPMASK
+    Integer(1891958792)
+  Const SFGAO_PKEYSFGAOMASK
+    Integer(2164539392)
+  Type SYNC_TRANSFER_STATUS
+    Enum STS_NONE, STS_NEEDSUPLOAD, STS_NEEDSDOWNLOAD, STS_TRANSFERRING, STS_PAUSED, STS_HASERROR, STS_FETCHING_METADATA
+  Type PLACEHOLDER_STATES
+    Enum PS_NONE, PS_MARKED_FOR_OFFLINE_AVAILABILITY, PS_FULL_PRIMARY_STREAM_AVAILABLE, PS_CREATE_FILE_ACCESSIBLE, PS_ALL
+  Type SYNC_ENGINE_STATE_FLAGS
+    Enum SESF_NONE, SESF_SERVICE_QUOTA_NEARING_LIMIT, SESF_SERVICE_QUOTA_EXCEEDED_LIMIT, SESF_AUTHENTICATION_ERROR, SESF_PAUSED_DUE_TO_METERED_NETWORK, SESF_PAUSED_DUE_TO_DISK_SPACE_FULL, SESF_PAUSED_DUE_TO_CLIENT_POLICY, SESF_PAUSED_DUE_TO_SERVICE_POLICY, SESF_SERVICE_UNAVAILABLE, SESF_ALL_FLAGS
+  Const CONFLICT_RESOLUTION_CLSID_KEY
+    String("ConflictResolutionCLSID"U)
+  Type MERGE_UPDATE_STATUS
+    Enum MUS_COMPLETE, MUS_USERINPUTNEEDED, MUS_FAILED
+  Const IID_IModalWindow
+    IID{Integer(3034256983), Integer(28887), Integer(18526), {Integer(142), Integer(62), Integer(111), Integer(203), Integer(90), Integer(92), Integer(24), Integer(2)}}
+  AbstractClass IModalWindow
+    Inherit IUnknown
+    Reveal Show
+    AbstractMethod Show
+      Param hwndOwner
+        Named HWND
+      Returns
+        Named HRESULT
+  Const IID_IShellItemFilter
+    IID{Integer(643413109), Integer(61112), Integer(18615), {Integer(143), Integer(7), Integer(179), Integer(120), Integer(129), Integer(15), Integer(72), Integer(207)}}
+  AbstractClass IShellItemFilter
+    Inherit IUnknown
+    Reveal IncludeItem, GetEnumFlagsForItem
+    AbstractMethod IncludeItem
+      Param psi
+        Named IShellItem
+      Returns
+        Named HRESULT
+    AbstractMethod GetEnumFlagsForItem
+      Param psi
+        Named IShellItem
+      Param VAR pgrfFlags
+        Named SHCONTF
+      Returns
+        Named HRESULT
+  Type _FILEOPENDIALOGOPTIONS
+    Enum FOS_OVERWRITEPROMPT, FOS_STRICTFILETYPES, FOS_NOCHANGEDIR, FOS_PICKFOLDERS, FOS_FORCEFILESYSTEM, FOS_ALLNONSTORAGEITEMS, FOS_NOVALIDATE, FOS_ALLOWMULTISELECT, FOS_PATHMUSTEXIST, FOS_FILEMUSTEXIST, FOS_CREATEPROMPT, FOS_SHAREAWARE, FOS_NOREADONLYRETURN, FOS_NOTESTFILECREATE, FOS_HIDEMRUPLACES, FOS_HIDEPINNEDPLACES, FOS_NODEREFERENCELINKS, FOS_DONTADDTORECENT, FOS_FORCESHOWHIDDEN, FOS_DEFAULTNOMINIMODE, FOS_FORCEPREVIEWPANEON, FOS_SUPPORTSTREAMABLEITEMS
+  Type FILEOPENDIALOGOPTIONS
+    Named DWORD
+  Const IID_IFileDialog
+    IID{Integer(1123569974), Integer(56190), Integer(17308), {Integer(133), Integer(241), Integer(228), Integer(7), Integer(93), Integer(19), Integer(95), Integer(200)}}
+  AbstractClass IFileDialog
+    Inherit IModalWindow
+    Reveal SetFileTypes, SetFileTypeIndex, GetFileTypeIndex, Advise, Unadvise, SetOptions, GetOptions, SetDefaultFolder, SetFolder, GetFolder, GetCurrentSelection, SetFileName, GetFileName, SetTitle, SetOkButtonLabel, SetFileNameLabel, GetResult, AddPlace, SetDefaultExtension, Close, SetClientGuid, ClearClientData, SetFilter
+    AbstractMethod SetFileTypes
+      Param cFileTypes
+        Named UINT
+      Param rgFilterSpec
+        Named COMDLG_FILTERSPEC
+      Returns
+        Named HRESULT
+    AbstractMethod SetFileTypeIndex
+      Param iFileType
+        Named UINT
+      Returns
+        Named HRESULT
+    AbstractMethod GetFileTypeIndex
+      Param VAR iFileType
+        Named UINT
+      Returns
+        Named HRESULT
+    AbstractMethod Advise
+      Param pfde
+        Named IFileDialogEvents
+      Param VAR pdwCookie
+        Named DWORD
+      Returns
+        Named HRESULT
+    AbstractMethod Unadvise
+      Param fos
+        Named DWORD
+      Returns
+        Named HRESULT
+    AbstractMethod SetOptions
+      Param fos
+        Named FILEOPENDIALOGOPTIONS
+      Returns
+        Named HRESULT
+    AbstractMethod GetOptions
+      Param VAR pfos
+        Named FILEOPENDIALOGOPTIONS
+      Returns
+        Named HRESULT
+    AbstractMethod SetDefaultFolder
+      Param psi
+        Named IShellItem
+      Returns
+        Named HRESULT
+    AbstractMethod SetFolder
+      Param psi
+        Named IShellItem
+      Returns
+        Named HRESULT
+    AbstractMethod GetFolder
+      Param VAR psi
+        Named IShellItem
+      Returns
+        Named HRESULT
+    AbstractMethod GetCurrentSelection
+      Param VAR psi
+        Named IShellItem
+      Returns
+        Named HRESULT
+    AbstractMethod SetFileName
+      Param pszName
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod GetFileName
+      Param VAR pszName
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod SetTitle
+      Param pszTitle
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod SetOkButtonLabel
+      Param pszText
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod SetFileNameLabel
+      Param pszLabel
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod GetResult
+      Param VAR ppsi
+        Named IShellItem
+      Returns
+        Named HRESULT
+    AbstractMethod AddPlace
+      Param psi
+        Named IShellItem
+      Returns
+        Named HRESULT
+    AbstractMethod SetDefaultExtension
+      Param pszDefaultExtension
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod Close
+      Param hr
+        Named HRESULT
+      Returns
+        Named HRESULT
+    AbstractMethod SetClientGuid
+      Param guid
+        Named REFGUID
+      Returns
+        Named HRESULT
+    AbstractMethod ClearClientData
+      Returns
+        Named HRESULT
+    AbstractMethod SetFilter
+      Param pFilter
+        Named IShellItemFilter
+      Returns
+        Named HRESULT
+  Const IID_IFileOperationProgressSink
+    IID{Integer(78705063), Integer(38032), Integer(17596), {Integer(150), Integer(225), Integer(66), Integer(150), Integer(163), Integer(18), Integer(82), Integer(226)}}
+  AbstractClass IFileOperationProgressSink
+    Inherit IUnknown
+    Reveal StartOperations, FinishOperations, PreRenameItem, PostRenameItem, PreMoveItem, PostMoveItem, PreCopyItem, PostCopyItem, PreDeleteItem, PostDeleteItem, PreNewItem, PostNewItem, UpdateProgress, ResetTimer, PauseTimer, ResumeTimer
+    AbstractMethod StartOperations
+      Returns
+        Named HRESULT
+    AbstractMethod FinishOperations
+      Param hrResult
+        Named HRESULT
+      Returns
+        Named HRESULT
+    AbstractMethod PreRenameItem
+      Param dwFlags
+        Named DWORD
+      Param psiItem
+        Named IShellItem
+      Param pszNewName
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod PostRenameItem
+      Param dwFlags
+        Named DWORD
+      Param psiItem
+        Named IShellItem
+      Param pszNewName
+        OpenArray
+          Named UCHAR
+      Param hrRename
+        Named HRESULT
+      Param psiNewlyCreated
+        Named IShellItem
+      Returns
+        Named HRESULT
+    AbstractMethod PreMoveItem
+      Param dwFlags
+        Named DWORD
+      Param psiItem
+        Named IShellItem
+      Param psiDestinationFolder
+        Named IShellItem
+      Param pszNewName
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod PostMoveItem
+      Param dwFlags
+        Named DWORD
+      Param psiItem
+        Named IShellItem
+      Param psiDestinationFolder
+        Named IShellItem
+      Param pszNewName
+        OpenArray
+          Named UCHAR
+      Param hrMove
+        Named HRESULT
+      Param psiNewlyCreated
+        Named IShellItem
+      Returns
+        Named HRESULT
+    AbstractMethod PreCopyItem
+      Param dwFlags
+        Named DWORD
+      Param psiItem
+        Named IShellItem
+      Param psiDestinationFolder
+        Named IShellItem
+      Param pszNewName
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod PostCopyItem
+      Param dwFlags
+        Named DWORD
+      Param psiItem
+        Named IShellItem
+      Param psiDestinationFolder
+        Named IShellItem
+      Param pszNewName
+        OpenArray
+          Named UCHAR
+      Param hrCopy
+        Named HRESULT
+      Param psiNewlyCreated
+        Named IShellItem
+      Returns
+        Named HRESULT
+    AbstractMethod PreDeleteItem
+      Param dwFlags
+        Named DWORD
+      Param psiItem
+        Named IShellItem
+      Returns
+        Named HRESULT
+    AbstractMethod PostDeleteItem
+      Param dwFlags
+        Named DWORD
+      Param psiItem
+        Named IShellItem
+      Param hrDelete
+        Named HRESULT
+      Param psiNewlyCreated
+        Named IShellItem
+      Returns
+        Named HRESULT
+    AbstractMethod PreNewItem
+      Param dwFlags
+        Named DWORD
+      Param psiDestinationFolder
+        Named IShellItem
+      Param pszNewName
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod PostNewItem
+      Param dwFlags
+        Named DWORD
+      Param psiDestinationFolder
+        Named IShellItem
+      Param pszNewName
+        OpenArray
+          Named UCHAR
+      Param pszTemplateName
+        OpenArray
+          Named UCHAR
+      Param dwFileAttributes
+        Named DWORD
+      Param hrNew
+        Named HRESULT
+      Param psiNewItem
+        Named IShellItem
+      Returns
+        Named HRESULT
+    AbstractMethod UpdateProgress
+      Param iWorkTotal
+        Named UINT
+      Param iWorkSoFar
+        Named UINT
+      Returns
+        Named HRESULT
+    AbstractMethod ResetTimer
+      Returns
+        Named HRESULT
+    AbstractMethod PauseTimer
+      Returns
+        Named HRESULT
+    AbstractMethod ResumeTimer
+      Returns
+        Named HRESULT
+  Const CLSID_FileSaveDialog
+    CLSID{Integer(3233080051), Integer(47649), Integer(18291), {Integer(141), Integer(186), Integer(51), Integer(94), Integer(201), Integer(70), Integer(235), Integer(139)}}
+  Const IID_IFileSaveDialog
+    IID{Integer(2226965795), Integer(24542), Integer(19675), {Integer(174), Integer(164), Integer(175), Integer(100), Integer(184), Integer(61), Integer(120), Integer(171)}}
+  AbstractClass IFileSaveDialog
+    Inherit IFileDialog
+    Reveal SetSaveAsItem, SetProperties, SetCollectedProperties, GetProperties, ApplyProperties
+    AbstractMethod SetSaveAsItem
+      Param psi
+        Named IShellItem
+      Returns
+        Named HRESULT
+    AbstractMethod SetProperties
+      Param pStore
+        Named IPropertyStore
+      Returns
+        Named HRESULT
+    AbstractMethod SetCollectedProperties
+      Param pList
+        Named IPropertyDescriptionList
+      Param fAppendDefault
+        Named BOOL
+      Returns
+        Named HRESULT
+    AbstractMethod GetProperties
+      Param VAR ppStore
+        Named IPropertyStore
+      Returns
+        Named HRESULT
+    AbstractMethod ApplyProperties
+      Param psi
+        Named IShellItem
+      Param pStore
+        Named IPropertyStore
+      Param hwnd
+        Named HWND
+      Param pSink
+        Named IFileOperationProgressSink
+      Returns
+        Named HRESULT
+  Const CLSID_FileOpenDialog
+    CLSID{Integer(3692845724), Integer(59530), Integer(19934), {Integer(165), Integer(161), Integer(96), Integer(248), Integer(42), Integer(32), Integer(174), Integer(247)}}
+  Const IID_IFileOpenDialog
+    IID{Integer(3581702792), Integer(54445), Integer(18280), {Integer(190), Integer(2), Integer(157), Integer(150), Integer(149), Integer(50), Integer(217), Integer(96)}}
+  AbstractClass IFileOpenDialog
+    Inherit IFileDialog
+    Reveal GetResults, GetSelectedItems
+    AbstractMethod GetResults
+      Param VAR ppenum
+        Named IShellItemArray
+      Returns
+        Named HRESULT
+    AbstractMethod GetSelectedItems
+      Param VAR ppsai
+        Named IShellItemArray
+      Returns
+        Named HRESULT
+  Type CDCONTROLSTATEF
+    Enum CDCS_INACTIVE, CDCS_ENABLED, CDCS_VISIBLE, CDCS_ENABLEDVISIBLE
+  Const IID_IFileDialogCustomize
+    IID{Integer(3875394074), Integer(5695), Integer(18805), {Integer(156), Integer(140), Integer(166), Integer(159), Integer(27), Integer(163), Integer(112), Integer(52)}}
+  AbstractClass IFileDialogCustomize
+    Inherit IUnknown
+    Reveal EnableOpenDropDown, AddMenu, AddPushButton, AddComboBox, AddRadioButtonList, AddCheckButton, AddEditBox, AddSeparator, AddText, SetControlLabel, GetControlState, SetControlState, GetEditBoxText, SetEditBoxText, GetCheckButtonState, SetCheckButtonState, AddControlItem, RemoveControlItem, RemoveAllControlItems, GetControlItemState, SetControlItemState, GetSelectedControlItem, SetSelectedControlItem, StartVisualGroup, EndVisualGroup, MakeProminent, SetControlItemText
+    AbstractMethod EnableOpenDropDown
+      Param dwIDCtl
+        Named DWORD
+      Returns
+        Named HRESULT
+    AbstractMethod AddMenu
+      Param dwIDCtl
+        Named DWORD
+      Param pszLabel
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod AddPushButton
+      Param dwIDCtl
+        Named DWORD
+      Param pszLabel
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod AddComboBox
+      Param dwIDCtl
+        Named DWORD
+      Returns
+        Named HRESULT
+    AbstractMethod AddRadioButtonList
+      Param dwIDCtl
+        Named DWORD
+      Returns
+        Named HRESULT
+    AbstractMethod AddCheckButton
+      Param dwIDCtl
+        Named DWORD
+      Param pszLabel
+        OpenArray
+          Named UCHAR
+      Param bChecked
+        Named BOOL
+      Returns
+        Named HRESULT
+    AbstractMethod AddEditBox
+      Param dwIDCtl
+        Named DWORD
+      Param pszText
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod AddSeparator
+      Param dwIDCtl
+        Named DWORD
+      Returns
+        Named HRESULT
+    AbstractMethod AddText
+      Param dwIDCtl
+        Named DWORD
+      Param pszText
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod SetControlLabel
+      Param dwIDCtl
+        Named DWORD
+      Param pszLabel
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod GetControlState
+      Param dwIDCtl
+        Named DWORD
+      Param VAR pdwState
+        Named CDCONTROLSTATEF
+      Returns
+        Named HRESULT
+    AbstractMethod SetControlState
+      Param dwIDCtl
+        Named DWORD
+      Param dwState
+        Named CDCONTROLSTATEF
+      Returns
+        Named HRESULT
+    AbstractMethod GetEditBoxText
+      Param dwIDCtl
+        Named DWORD
+      Param VAR ppszText
+        Named PWCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod SetEditBoxText
+      Param dwIDCtl
+        Named DWORD
+      Param pszLabel
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod GetCheckButtonState
+      Param dwIDCtl
+        Named DWORD
+      Param VAR pbChecked
+        Named BOOL
+      Returns
+        Named HRESULT
+    AbstractMethod SetCheckButtonState
+      Param dwIDCtl
+        Named DWORD
+      Param bChecked
+        Named BOOL
+      Returns
+        Named HRESULT
+    AbstractMethod AddControlItem
+      Param dwIDCtl
+        Named DWORD
+      Param dwIDItem
+        Named DWORD
+      Param pszLabel
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod RemoveControlItem
+      Param dwIDCtl
+        Named DWORD
+      Param dwIDItem
+        Named DWORD
+      Returns
+        Named HRESULT
+    AbstractMethod RemoveAllControlItems
+      Param dwIDCtl
+        Named DWORD
+      Returns
+        Named HRESULT
+    AbstractMethod GetControlItemState
+      Param dwIDCtl
+        Named DWORD
+      Param dwIDItem
+        Named DWORD
+      Param VAR pdwState
+        Named CDCONTROLSTATEF
+      Returns
+        Named HRESULT
+    AbstractMethod SetControlItemState
+      Param dwIDCtl
+        Named DWORD
+      Param dwIDItem
+        Named DWORD
+      Param dwState
+        Named CDCONTROLSTATEF
+      Returns
+        Named HRESULT
+    AbstractMethod GetSelectedControlItem
+      Param dwIDCtl
+        Named DWORD
+      Param VAR pdwIDItem
+        Named DWORD
+      Returns
+        Named HRESULT
+    AbstractMethod SetSelectedControlItem
+      Param dwIDCtl
+        Named DWORD
+      Param dwIDItem
+        Named DWORD
+      Returns
+        Named HRESULT
+    AbstractMethod StartVisualGroup
+      Param dwIDCtl
+        Named DWORD
+      Param pszLabel
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod EndVisualGroup
+      Returns
+        Named HRESULT
+    AbstractMethod MakeProminent
+      Param dwIDCtl
+        Named DWORD
+      Returns
+        Named HRESULT
+    AbstractMethod SetControlItemText
+      Param dwIDCtl
+        Named DWORD
+      Param dwIDItem
+        Named DWORD
+      Param pszLabel
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+  Const IID_IFileDialogControlEvents
+    IID{Integer(907109954), Integer(55059), Integer(19351), {Integer(155), Integer(131), Integer(116), Integer(132), Integer(169), Integer(208), Integer(4), Integer(51)}}
+  AbstractClass IFileDialogControlEvents
+    Inherit IUnknown
+    Reveal OnItemSelected, OnButtonClicked, OnCheckButtonToggled, OnControlActivating
+    AbstractMethod OnItemSelected
+      Param pfdc
+        Named IFileDialogCustomize
+      Param dwIDCtl
+        Named DWORD
+      Param dwIDItem
+        Named DWORD
+      Returns
+        Named HRESULT
+    AbstractMethod OnButtonClicked
+      Param pfdc
+        Named IFileDialogCustomize
+      Param dwIDCtl
+        Named DWORD
+      Returns
+        Named HRESULT
+    AbstractMethod OnCheckButtonToggled
+      Param pfdc
+        Named IFileDialogCustomize
+      Param dwIDCtl
+        Named DWORD
+      Param bChecked
+        Named BOOL
+      Returns
+        Named HRESULT
+    AbstractMethod OnControlActivating
+      Param pfdc
+        Named IFileDialogCustomize
+      Param dwIDCtl
+        Named DWORD
+      Returns
+        Named HRESULT
+  Const IID_IFileDialog2
+    IID{Integer(1635012551), Integer(34229), Integer(18321), {Integer(169), Integer(176), Integer(39), Integer(34), Integer(118), Integer(48), Integer(155), Integer(19)}}
+  AbstractClass IFileDialog2
+    Inherit IFileDialog
+    Reveal SetCancelButtonLabel, SetNavigationRoot
+    AbstractMethod SetCancelButtonLabel
+      Param pszLabel
+        OpenArray
+          Named UCHAR
+      Returns
+        Named HRESULT
+    AbstractMethod SetNavigationRoot
+      Param psi
+        Named IShellItem
+      Returns
+        Named HRESULT

@@ -1,0 +1,8 @@
+DEFINITION MODULE T30020Helper;
+
+CONST
+  Base = 17;
+
+PROCEDURE WriteValue(n : INTEGER);
+
+END T30020Helper.

@@ -1,0 +1,52 @@
+(* FormatString — printf-style string formatting. A clean-room NewModula2
+   recreation of ADW FormatString. The ADW entry point is a C-variadic procedure
+   that walks a VA_LIST; NewM2 has no iterable-from-M2 varargs surface (the FFI
+   surface is Win32+COM), so the variadic ABI is replaced by an explicit typed
+   argument vector the caller builds with the Arg* constructors. The %-spec /
+   escape grammar, width/justification and in-place overflow behaviour are
+   otherwise faithful. All number<->text goes through M2WINRT Conversions.
+
+   Grammar accepted by Format:
+     %[flags][width]<type>
+       flags : '-' (left-justify)   '0' (zero-pad, numeric only)
+       width : decimal digits (capped at 256)
+       type  : d i (signed)  u (unsigned)  x X (hex lower/UPPER)  b (BOOLEAN)
+               c (CHAR)       s (string)    %% (a literal '%')
+     escapes: \n -> CR LF (Windows)   \t \r \\ \"  (others copied verbatim)
+   Each %-spec consumes the next argument in order; the type letter drives how
+   that argument's stored value is rendered. *)
+DEFINITION MODULE FormatString;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+CONST
+  MaxArgs  = 32;
+  MaxWidth = 256;
+
+TYPE
+  ArgKind = (argCard, argInt, argHex, argBool, argChar, argStr);
+  FormatArg =
+    RECORD
+      kind: ArgKind;
+      num : CARDINAL;   (* card / int (bit-reinterpreted) / bool / char code *)
+      str : ADDRESS;    (* a NUL-terminated ARRAY OF CHAR, for argStr *)
+    END;
+  ArgList = ARRAY [0 .. MaxArgs - 1] OF FormatArg;
+
+(* ---- argument constructors ---- *)
+PROCEDURE ArgCard (n: CARDINAL): FormatArg;
+PROCEDURE ArgInt  (n: INTEGER): FormatArg;
+PROCEDURE ArgHex  (n: CARDINAL): FormatArg;
+PROCEDURE ArgBool (b: BOOLEAN): FormatArg;
+PROCEDURE ArgChar (c: CHAR): FormatArg;
+PROCEDURE ArgStr  (VAR s: ARRAY OF CHAR): FormatArg;
+  (* The string is captured BY REFERENCE; it must outlive the Format call. *)
+
+(* ---- formatter ---- *)
+PROCEDURE Format (fmt: ARRAY OF CHAR; VAR dest: ARRAY OF CHAR;
+                  args: ARRAY OF FormatArg; argCount: CARDINAL): BOOLEAN;
+  (* Expand `fmt` into `dest`. Returns FALSE if `dest` ran out of room (it is
+     still NUL-terminated and holds as much as fit) or a %-spec referenced an
+     argument beyond `argCount`. *)
+
+END FormatString.

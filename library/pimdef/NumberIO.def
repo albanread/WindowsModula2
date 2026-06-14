@@ -1,0 +1,9 @@
+(* NumberIO — PIM whole-number I/O. A clean-room NewModula2 implementation
+   that delegates to ISO SWholeIO and WholeStr. *)
+DEFINITION MODULE NumberIO;
+
+PROCEDURE WriteCard (card: CARDINAL; width: CARDINAL);
+PROCEDURE WriteInt (int: INTEGER; width: CARDINAL);
+PROCEDURE CardToStr (card: CARDINAL; width: CARDINAL; VAR str: ARRAY OF CHAR);
+
+END NumberIO.

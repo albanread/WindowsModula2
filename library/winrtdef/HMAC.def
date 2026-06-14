@@ -1,0 +1,24 @@
+(* HMAC — keyed-hash message authentication (HMAC-SHA-256) over Windows CNG,
+   called DIRECTLY from M2. Clean-room NewModula2: a thin façade over BCryptHash
+   with a key. Verify compares the computed tag against an expected tag in
+   CONSTANT TIME (MemUtils.EqualCT) to avoid a timing side channel.
+
+   SHA-256-based only (the modernization sweep retires HMAC-SHA-1 for new use). *)
+DEFINITION MODULE HMAC;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+CONST HmacSHA256Bytes = 32;
+
+PROCEDURE HmacSHA256 (key: ADDRESS; keyLen: CARDINAL;
+                      data: ADDRESS; dataLen: CARDINAL;
+                      VAR mac: ARRAY OF BYTE): BOOLEAN;
+  (* Compute HMAC-SHA-256(key, data) into `mac` (>= 32 bytes). *)
+
+PROCEDURE Verify (key: ADDRESS; keyLen: CARDINAL;
+                  data: ADDRESS; dataLen: CARDINAL;
+                  expected: ADDRESS; expectedLen: CARDINAL): BOOLEAN;
+  (* TRUE iff HMAC-SHA-256(key, data) equals the `expectedLen`-byte tag at
+     `expected`, compared in constant time. FALSE if expectedLen <> 32. *)
+
+END HMAC.

@@ -1,0 +1,27 @@
+(* Hash — SHA-2 message digests over Windows CNG (bcrypt.dll), called DIRECTLY
+   from M2. Clean-room NewModula2: a thin FAÇADE over BCryptHash — the algorithm
+   is the OS's, not re-implemented here (the modernization sweep forbids
+   roll-your-own crypto). SHA-256/384/512 only; the broken MD5/SHA-1 are not
+   exposed. One-shot digests over a byte buffer, plus a lower-case hex encoder.
+
+   For keyed authentication use [HMAC]; for password key derivation use
+   [CryptKey] (PBKDF2). Both build on these primitives via CNG. *)
+DEFINITION MODULE Hash;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+CONST
+  SHA256Bytes = 32;
+  SHA384Bytes = 48;
+  SHA512Bytes = 64;
+
+PROCEDURE SHA256 (data: ADDRESS; len: CARDINAL; VAR digest: ARRAY OF BYTE): BOOLEAN;
+  (* SHA-256 of `len` bytes at `data` into `digest` (>= 32 bytes). *)
+PROCEDURE SHA384 (data: ADDRESS; len: CARDINAL; VAR digest: ARRAY OF BYTE): BOOLEAN;
+PROCEDURE SHA512 (data: ADDRESS; len: CARDINAL; VAR digest: ARRAY OF BYTE): BOOLEAN;
+
+PROCEDURE HexDigest (digest: ARRAY OF BYTE; len: CARDINAL; VAR hex: ARRAY OF CHAR);
+  (* Encode `len` digest bytes as a lower-case hex string into `hex`
+     (needs 2*len + 1 chars). *)
+
+END Hash.

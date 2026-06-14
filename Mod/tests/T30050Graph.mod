@@ -1,0 +1,11 @@
+MODULE T30050Graph;
+
+FROM T30050Mid IMPORT MidValue;
+
+PROCEDURE GraphValue(n : INTEGER) : INTEGER;
+BEGIN
+  RETURN MidValue(n * 2)
+END GraphValue;
+
+BEGIN
+END T30050Graph.

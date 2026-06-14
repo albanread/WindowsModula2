@@ -1,0 +1,72 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 IOLink — concrete device-table layer that IOChan dispatches
+   through. Every channel is a DeviceTablePtr whose fields hold procedure
+   pointers installed by the device module (TermFile, StreamFile, …). *)
+DEFINITION MODULE IOLink;
+
+IMPORT IOChan, IOConsts, ChanConsts, SYSTEM;
+
+TYPE
+  DeviceId;
+    (* Opaque cookie identifying a device module. Acquired via
+       AllocateDeviceId during module init. *)
+
+PROCEDURE AllocateDeviceId (VAR did: DeviceId);
+PROCEDURE MakeChan         (did: DeviceId; VAR cid: IOChan.ChanId);
+PROCEDURE UnMakeChan       (did: DeviceId; VAR cid: IOChan.ChanId);
+
+TYPE
+  DeviceTablePtr = POINTER TO DeviceTable;
+
+  LookProc      = PROCEDURE (DeviceTablePtr, VAR CHAR, VAR IOConsts.ReadResults);
+  SkipProc      = PROCEDURE (DeviceTablePtr);
+  SkipLookProc  = PROCEDURE (DeviceTablePtr, VAR CHAR, VAR IOConsts.ReadResults);
+  WriteLnProc   = PROCEDURE (DeviceTablePtr);
+  TextReadProc  = PROCEDURE (DeviceTablePtr, SYSTEM.ADDRESS, CARDINAL, VAR CARDINAL);
+  TextWriteProc = PROCEDURE (DeviceTablePtr, SYSTEM.ADDRESS, CARDINAL);
+  RawReadProc   = PROCEDURE (DeviceTablePtr, SYSTEM.ADDRESS, CARDINAL, VAR CARDINAL);
+  RawWriteProc  = PROCEDURE (DeviceTablePtr, SYSTEM.ADDRESS, CARDINAL);
+  GetNameProc   = PROCEDURE (DeviceTablePtr, VAR ARRAY OF CHAR);
+  ResetProc     = PROCEDURE (DeviceTablePtr);
+  FlushProc     = PROCEDURE (DeviceTablePtr);
+  FreeProc      = PROCEDURE (DeviceTablePtr);
+
+  DeviceData = SYSTEM.ADDRESS;
+
+  DeviceTable =
+    RECORD                         (* Initialized by MakeChan to: *)
+      cd:          DeviceData;     (* NIL *)
+      did:         DeviceId;       (* the value given in MakeChan *)
+      cid:         IOChan.ChanId;  (* identity of the channel *)
+      result:      IOConsts.ReadResults; (* notKnown *)
+      errNum:      IOChan.DeviceErrNum;  (* undefined *)
+      flags:       ChanConsts.FlagSet;   (* FlagSet{} *)
+      doLook:      LookProc;
+      doSkip:      SkipProc;
+      doSkipLook:  SkipLookProc;
+      doLnWrite:   WriteLnProc;
+      doTextRead:  TextReadProc;
+      doTextWrite: TextWriteProc;
+      doRawRead:   RawReadProc;
+      doRawWrite:  RawWriteProc;
+      doGetName:   GetNameProc;
+      doReset:     ResetProc;
+      doFlush:     FlushProc;
+      doFree:      FreeProc;
+    END;
+
+TYPE
+  DevExceptionRange = [IOChan.notAvailable ..  IOChan.textParseError];
+
+PROCEDURE DeviceTablePtrValue (cid: IOChan.ChanId; did: DeviceId;
+                               x: DevExceptionRange; s: ARRAY OF CHAR): DeviceTablePtr;
+
+PROCEDURE IsDevice (cid: IOChan.ChanId; did: DeviceId): BOOLEAN;
+
+PROCEDURE RAISEdevException (cid: IOChan.ChanId; did: DeviceId;
+                             x: DevExceptionRange; s: ARRAY OF CHAR);
+
+PROCEDURE IsIOException (): BOOLEAN;
+PROCEDURE IOException   (): IOChan.ChanExceptions;
+
+END IOLink.

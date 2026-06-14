@@ -1,0 +1,12 @@
+DEFINITION MODULE T30030ScalarHelper;
+
+CONST
+  BaseInt = 11;
+  BaseCard = 7;
+
+PROCEDURE BumpInt(n : INTEGER) : INTEGER;
+PROCEDURE BumpCard(n : CARDINAL) : CARDINAL;
+PROCEDURE NextChar(ch : CHAR) : CHAR;
+PROCEDURE Flip(flag : BOOLEAN) : BOOLEAN;
+
+END T30030ScalarHelper.

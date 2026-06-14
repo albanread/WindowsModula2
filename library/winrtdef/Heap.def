@@ -1,0 +1,43 @@
+(* Heap — a self-hosted Modula-2 memory allocator. Clean-room NewModula2: the
+   free-list allocator is implemented IN M2; it obtains raw, zeroed pages from
+   the OS directly via VirtualAlloc (no underlying C/OS allocator) and carves
+   them with its own boundary-tag free list. This is the first step toward the
+   NewM2 runtime heap being written in Modula-2 rather than Rust.
+
+   Design (per the ExStorage synthesis): each block header carries its own size
+   (16-byte granular; the low 4 bits hold flags) and the previous physical
+   block's size, so adjacent free blocks coalesce in O(1) on free with no
+   footer. First-fit; splitting carves the request off a larger free block. Each
+   OS chunk ends in a permanently-"allocated" sentinel so coalescing and walks
+   never run off the chunk. Payloads are 16-byte aligned (SIMD-safe).
+
+   The Allocate/Deallocate surface matches ISO Storage, so this can back the
+   standard Storage façade (and ultimately NEW/DISPOSE). *)
+DEFINITION MODULE Heap;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+PROCEDURE Allocate (VAR p: ADDRESS; size: CARDINAL);
+  (* Allocate at least `size` bytes; p := NIL on failure. The block is zeroed. *)
+PROCEDURE Deallocate (VAR p: ADDRESS; size: CARDINAL);
+  (* Return the block at `p` to the heap; p := NIL. `size` is advisory (the
+     block remembers its own size), matching ISO Storage. *)
+
+(* ---- value-returning entry points for NEW / DISPOSE ----
+   When the compiler is run with `--m2-heap`, NEW lowers to a call of `Alloc`
+   and DISPOSE to `Free` (in place of the Rust nm2_alloc / nm2_free), so the
+   self-hosted M2 heap becomes the process allocator. Their (size)->ADDRESS /
+   (ADDRESS)->void shapes match the runtime entry points they replace. *)
+PROCEDURE Alloc (size: CARDINAL): ADDRESS;
+  (* A zeroed block of at least `size` bytes, or NIL on failure. *)
+PROCEDURE Free (p: ADDRESS);
+  (* Return the block at `p`; NIL is ignored. *)
+
+(* ---- introspection (mainly for testing) ---- *)
+PROCEDURE BytesInUse (): CARDINAL;
+  (* Total bytes currently handed out (including per-block headers). *)
+PROCEDURE Validate (): BOOLEAN;
+  (* Walk every chunk and the free list checking the structural invariants
+     (sizes, prevSize links, sentinels, free-list membership). TRUE iff intact. *)
+
+END Heap.

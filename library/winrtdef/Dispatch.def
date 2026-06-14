@@ -1,0 +1,57 @@
+(* Dispatch — late-bound (IDispatch) COM Automation from M2. Clean-room
+   NewModula2. Given a raw IDispatch pointer (from Com.CreateInstance with
+   IID_IDispatch), drive any Automation object by member name: build VARIANT
+   arguments with the V* constructors, call Invoke (method / property-get /
+   property-put), and read the VARIANT result with the As* accessors — the
+   IID_NULL / DISPID / DISPPARAMS / VARIANT / BSTR machinery is all hidden.
+   The IDispatch vtable is fixed and standard, so one internal ABSTRACT CLASS
+   consumes every object (NewM2's CLASS layout IS the COM ABI).
+
+   Ownership: V* constructors that allocate (VStr) and every result must be
+   released with Clear when done. *)
+DEFINITION MODULE Dispatch;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+CONST
+  DISPATCH_METHOD      = 1;
+  DISPATCH_PROPERTYGET = 2;
+  DISPATCH_PROPERTYPUT = 4;
+  (* VARIANT type tags (subset) *)
+  VT_EMPTY    = 0;
+  VT_I4       = 3;
+  VT_BSTR     = 8;
+  VT_DISPATCH = 9;
+  VT_BOOL     = 11;
+
+TYPE
+  Variant = RECORD lo, val, hi: CARDINAL END;   (* a 24-byte COM VARIANT; use the helpers, not the fields *)
+
+(* ---- build VARIANT arguments ---- *)
+PROCEDURE VEmpty (): Variant;
+PROCEDURE VInt   (n: INTEGER): Variant;
+PROCEDURE VBool  (b: BOOLEAN): Variant;
+PROCEDURE VStr   (s: ARRAY OF CHAR): Variant;     (* allocates a BSTR; release with Clear *)
+
+(* ---- read a VARIANT result ---- *)
+PROCEDURE VType (VAR v: Variant): CARDINAL;        (* the VT_* tag *)
+PROCEDURE AsInt (VAR v: Variant): INTEGER;
+PROCEDURE AsBool (VAR v: Variant): BOOLEAN;
+PROCEDURE AsStr (VAR v: Variant; VAR s: ARRAY OF CHAR);
+PROCEDURE AsObj (VAR v: Variant): ADDRESS;         (* VT_DISPATCH / VT_UNKNOWN interface pointer *)
+PROCEDURE Clear (VAR v: Variant);                  (* free a BSTR / release an object held by v *)
+
+(* ---- the universal late-bound call ----
+   Resolve `name` on `obj` (an IDispatch) and invoke it with `nargs` VARIANT
+   arguments (natural order; Invoke reverses them for COM). `flags` is one of
+   DISPATCH_METHOD / DISPATCH_PROPERTYGET. The caller owns `args` and `result`
+   and must Clear each. Returns FALSE on any COM failure. *)
+PROCEDURE Invoke (obj: ADDRESS; name: ARRAY OF CHAR; flags: CARDINAL;
+                  args: ARRAY OF Variant; nargs: CARDINAL; VAR result: Variant): BOOLEAN;
+
+(* ---- convenience over Invoke ---- *)
+PROCEDURE GetID (obj: ADDRESS; name: ARRAY OF CHAR; VAR dispid: INTEGER): BOOLEAN;
+PROCEDURE GetIntProp (obj: ADDRESS; name: ARRAY OF CHAR; VAR value: INTEGER): BOOLEAN;
+PROCEDURE InvokeStr1 (obj: ADDRESS; name, arg: ARRAY OF CHAR; VAR result: ARRAY OF CHAR): BOOLEAN;
+
+END Dispatch.

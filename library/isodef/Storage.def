@@ -1,0 +1,25 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 Storage — dynamic allocation. NewM2 maps ALLOCATE/-
+   DEALLOCATE to its own malloc/free runtime in --no-gc mode and to
+   `nm2_new_rec`/no-op in GC mode (DEALLOCATE is a hint there). *)
+DEFINITION MODULE Storage;
+
+IMPORT SYSTEM;
+
+PROCEDURE ALLOCATE   (VAR addr: SYSTEM.ADDRESS; amount: CARDINAL);
+PROCEDURE DEALLOCATE (VAR addr: SYSTEM.ADDRESS; amount: CARDINAL);
+
+(* TRUE if a subsequent ALLOCATE of `amount` bytes would succeed. *)
+PROCEDURE Available  (amount: CARDINAL): BOOLEAN;
+
+TYPE
+  StorageExceptions = (
+    nilDeallocation,             (* DEALLOCATE called with NIL *)
+    pointerToUnallocatedStorage, (* DEALLOCATE pointer not from ALLOCATE *)
+    wrongStorageToUnallocate     (* amount mismatch *)
+  );
+
+PROCEDURE IsStorageException (): BOOLEAN;
+PROCEDURE StorageException   (): StorageExceptions;
+
+END Storage.

@@ -1,0 +1,16 @@
+(* ISO 10514-1 TERMINATION implementation over the NM2RT runtime primitives. *)
+IMPLEMENTATION MODULE TERMINATION;
+
+IMPORT NM2RT;
+
+PROCEDURE IsTerminating (): BOOLEAN;
+BEGIN
+  RETURN NM2RT.IsTerminating()
+END IsTerminating;
+
+PROCEDURE HasHalted (): BOOLEAN;
+BEGIN
+  RETURN NM2RT.HasHalted()
+END HasHalted;
+
+END TERMINATION.

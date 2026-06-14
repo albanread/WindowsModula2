@@ -1,0 +1,101 @@
+DefinitionModule IOChan
+  Import IOConsts, ChanConsts, SYSTEM
+  Type ChanId
+    Opaque
+  Procedure InvalidChan
+    Returns
+      Named ChanId
+  Procedure Look
+    Param cid
+      Named ChanId
+    Param VAR ch
+      Named CHAR
+    Param VAR res
+      Named IOConsts.ReadResults
+  Procedure Skip
+    Param cid
+      Named ChanId
+  Procedure SkipLook
+    Param cid
+      Named ChanId
+    Param VAR ch
+      Named CHAR
+    Param VAR res
+      Named IOConsts.ReadResults
+  Procedure WriteLn
+    Param cid
+      Named ChanId
+  Procedure TextRead
+    Param cid
+      Named ChanId
+    Param to
+      Named SYSTEM.ADDRESS
+    Param maxChars
+      Named CARDINAL
+    Param VAR charsRead
+      Named CARDINAL
+  Procedure TextWrite
+    Param cid
+      Named ChanId
+    Param from
+      Named SYSTEM.ADDRESS
+    Param charsToWrite
+      Named CARDINAL
+  Procedure RawRead
+    Param cid
+      Named ChanId
+    Param to
+      Named SYSTEM.ADDRESS
+    Param maxLocs
+      Named CARDINAL
+    Param VAR locsRead
+      Named CARDINAL
+  Procedure RawWrite
+    Param cid
+      Named ChanId
+    Param from
+      Named SYSTEM.ADDRESS
+    Param locsToWrite
+      Named CARDINAL
+  Procedure GetName
+    Param cid
+      Named ChanId
+    Param VAR s
+      OpenArray
+        Named CHAR
+  Procedure Reset
+    Param cid
+      Named ChanId
+  Procedure Flush
+    Param cid
+      Named ChanId
+  Procedure SetReadResult
+    Param cid
+      Named ChanId
+    Param res
+      Named IOConsts.ReadResults
+  Procedure ReadResult
+    Param cid
+      Named ChanId
+    Returns
+      Named IOConsts.ReadResults
+  Procedure CurrentFlags
+    Param cid
+      Named ChanId
+    Returns
+      Named ChanConsts.FlagSet
+  Type ChanExceptions
+    Enum wrongDevice, notAvailable, skipAtEnd, softDeviceError, hardDeviceError, textParseError, notAChannel
+  Procedure IsChanException
+    Returns
+      Named BOOLEAN
+  Procedure ChanException
+    Returns
+      Named ChanExceptions
+  Type DeviceErrNum
+    Named INTEGER
+  Procedure DeviceError
+    Param cid
+      Named ChanId
+    Returns
+      Named DeviceErrNum

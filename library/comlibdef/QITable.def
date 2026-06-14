@@ -1,0 +1,36 @@
+(*
+Name:     QueryInterface Table
+Creation: 01-02-99
+LastEdit: 08-02-99
+Author:   Egbert J. van der Haring
+System:   StonyBrook Modula-2
+Remarks:
+*)
+
+UNSAFEGUARDED DEFINITION MODULE QITable;
+
+IMPORT WIN32;
+IMPORT Ole2;
+
+TYPE T;
+
+PROCEDURE Create(iUnknown:    Ole2.IUnknown;
+                 cInterfaces: CARDINAL): T;
+(* creates table *)
+
+PROCEDURE Dispose(VAR INOUT table: T);
+(* disposes of table *)
+
+PROCEDURE Add(table:      T;
+              cInterface: CARDINAL;
+              iid:        WIN32.GUID;
+              pIUnknown:  Ole2.PIUnknown);
+(* adds interface to table *)
+
+PROCEDURE Find(    table:      T;
+                   iid:        WIN32.GUID;
+               VAR cInterface: CARDINAL;
+               VAR iUnknown:   Ole2.IUnknown): BOOLEAN;
+(* finds interface *)
+
+END QITable.

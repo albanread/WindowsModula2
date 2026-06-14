@@ -1,0 +1,81 @@
+# NewM2 demos
+
+Real Modula-2 programs that exercise the compiler the way a user would — they
+are also the most honest test of the toolchain: each one compiles the ISO
+standard library, the M2 runtime, and a GUI/COM stack, then runs through both
+back ends (the ORC JIT and the AOT `.exe`).
+
+Every demo here is pure Modula-2. The GUI ones build on the Windows-11 stack
+written in M2 (no GDI):
+
+| Module        | Role                                                          |
+|---------------|---------------------------------------------------------------|
+| `WinShell`    | a real window + the M2 window-procedure callback + message loop |
+| `TermRender`  | Direct2D / DirectWrite renderer (per-cell 24-bit colour)      |
+| `Terminal`    | the cell-grid model — colours, menus, status bar, fields, events |
+| `DWrite`      | DirectWrite bindings (proves FLOAT args through virtual COM calls) |
+
+## Running
+
+```
+newm2 run   demos/<name>.mod      # JIT (ORC) — compiles + runs in one step
+newm2 build demos/<name>.mod      # AOT — writes <name>.exe next to the source
+```
+
+(`newm2` here is the `newm2-driver` binary under `target/<profile>/`.)
+
+## Demos
+
+| Demo             | Kind | Status | Notes                                            |
+|------------------|------|--------|--------------------------------------------------|
+| `term-demo.mod`      | TUI | ✅ | A live Direct2D/DirectWrite terminal — coloured cells, drop-down menus, status bar, an editable field, event queue. **Renders entirely through the winapi-gen-generated, `@ordinal`-checked COM interfaces** (see [the case study](../docs/papers/com-vtables-before-after.md)). |
+| `mandelbrot_gpu.mod` | GPU | ✅ | **Direct3D11 + HLSL pixel-shader Mandelbrot zoomer** — escape iteration on the GPU, via the generic `ShaderView` host. arrows pan, `+/-` zoom, `R` reset, `Esc` quit. |
+| `julia_gpu.mod`      | GPU | ✅ | **Animated Julia set** — each pixel iterates `z = z²+c` while `c` sweeps a circle every few seconds, so the fractal morphs continuously. Same `ShaderView` host, different pixel shader. `+/-` zoom, `R` reset, `Esc` quit. |
+| `plasma_gpu.mod`     | GPU | ✅ | **Animated plasma** — summed sine waves over screen space swept by time, through a cosine palette. The whole effect is ~6 lines of pixel shader + a 16-byte constant record. `+/-` speed, `R` reset, `Esc` quit. |
+| `raymarch_gpu.mod`   | GPU | ✅ | **Raymarched 3-D torus** — each pixel sphere-traces a signed-distance field and shades the hit with diffuse + specular lighting; the torus spins via time-driven rotation matrices. The camera ray, march loop, normal and lighting all live in the pixel shader. `+/-` spin speed, `R` reset, `Esc` quit. |
+| `mandelbrot.mod`     | TUI | ✅ | CPU escape-time set in colour over the Terminal cell canvas (each cell = one pixel); **`A` auto-dives** into a spiral on its own, or steer by hand: arrows pan, `+/-` zoom, `[ ]` iterations, `R` reset. |
+| `life.mod`           | TUI | ✅ | **Conway's Game of Life** animating on the cell grid (a torus); `Space` run/pause, `S` step, `R` random soup, `C` clear, `G` glider, `+/-` speed, click to paint cells. |
+| `minesweeper.mod`    | GUI | ✅ | **Mouse-driven Minesweeper** on the Terminal cell grid — left-click reveals (flood-fill of empty regions via recursion), right-click flags; first click is always safe. `R` new game, `Esc` quit. |
+| `reversi.mod`        | TUI | ✅ | **Reversi / Othello** (text cell grid) — you play Black, a greedy corner-preferring AI plays White; legal moves are highlighted, the 8-direction bracket-and-flip rule runs the captures. `R` new game, `Esc` quit. |
+| `reversi_gui.mod`    | GUI | ✅ | **Reversi / Othello, drawn with Direct2D** — the same game and AI as `reversi.mod`, but a green felt board with gridlines, anti-aliased circular discs, faint legal-move dots, and a text score line, via the reusable `Canvas2D` host. `R` new game, `Esc` quit. |
+| `editor.mod`         | TUI | ✅ | **Notepad-like text editor** on the Terminal cell grid — the document buffer is a `TextRope` (`library/utilmod`), so each keystroke is an O(log n) rope edit, not a big-array shift. Cursor + viewport scroll, click-to-place, type/Enter/Backspace/Del, and ISO file save/load (`F2`/`F3` ↔ `notepad.txt`). |
+| `simd_particles.mod` | GUI | ✅ | **SIMD particle swirl** — 640 particles pulled toward a moving attractor, integrated **four at a time in `REAL32X4` lane vectors** (element-wise `+ - * /`, scalar broadcast, `FMA`); drawn with `Canvas2D`. Drag the mouse to steer the attractor, `Space` pause, `R` reseed, `Esc` quit. |
+| `calculator.mod`     | GUI | ✅ | **Scientific calculator** — a clickable Direct2D button grid + a typed-expression display, evaluated by a hand-written **recursive-descent parser** (precedence, right-assoc `^`, unary minus, parens, `sin/cos/tan/ln/log/sqrt/exp/abs`, `pi`/`e`) over `RealMath`. Click or type; `=`/Enter evaluates, `C` clears, `Esc` quits. |
+| `worms.mod`          | TUI | ✅ | **Worms** (multi-worm snake) — you are the green worm; **three worker `COROUTINES`** cooperate with the main loop: a treat dispenser deposits food, and the red & blue worm AIs each steer toward the nearest treat while dodging walls and bodies. Eat to grow; hitting a wall/worm is fatal. Arrows steer, `Space` pause, `R` restart, `Esc` quit. |
+| `chart_demo.mod`     | GFX | ✅ | **Business dashboard** — a bar chart, line chart, pie chart and legend drawn with the `Chart` library on the **`RasterView`** RGBA software framebuffer (every pixel in Modula-2), blitted with one GDI call. `S` exports the exact image to `dashboard.bmp`; `Esc` quits. |
+
+The GPU demos share a reusable host — **`ShaderView`** (`library/winrtmod`), a
+generic full-screen pixel-shader renderer on Direct3D11: a demo calls
+`Attach(hwnd,w,h)`, `SetShader(hlsl, SIZE(constants))`, then `RunLoop(build)` and
+supplies only its own HLSL pixel shader + a constant-buffer record. All the D3D11
+plumbing (device, swapchain, RTV, runtime `D3DCompile`, Present) drives the
+winapi-gen-generated, `@ordinal`-checked COM interfaces — no hand-counted vtables.
+A new shader demo is ~one pixel shader + one constant record.
+
+The 2-D graphical demos share a second reusable host — **`Canvas2D`**
+(`library/winrtmod`), an immediate-mode Direct2D drawing surface: a demo calls
+`Attach(hwnd,w,h)`, then per frame `Begin`, `Clear`/`FillRect`/`FillCircle`/
+`DrawText`, `Flush`. It drives the same winapi-gen-generated, `@ordinal`-checked
+Direct2D/DirectWrite interfaces the Terminal renderer proves (`FillEllipse` is
+slot `@21`) — the shape sibling of `ShaderView`.
+
+A third host, **`RasterView`** (`library/winrtmod`), is a general-purpose RGBA
+**software** framebuffer for high-resolution business graphics: draw with pure-M2
+primitives (`FillRect`/`Line`/`Disc`/`Text` over a 5×7 bitmap font, …) into a pixel
+array, then `Present` (one GDI `SetDIBitsToDevice` blit) or `SaveBMP` (export to a
+32-bpp `.bmp`). Because the drawing is all software, output is reproducible and
+**headless-testable**. The **`Chart`** library builds bar/line/pie charts on it —
+`chart_demo` is a few `Chart` calls.
+
+Prebuilt `.exe`s sit next to each source (`newm2 build demos/<name>.mod` rebuilds);
+the `.exe`/`.obj` are git-ignored.
+
+More shader, terminal (TUI), and GUI demos land here as they are written.
+
+## Why these
+
+They are deliberately varied — a floating-point pixel kernel (mandelbrot/julia),
+event-and-state UIs (minesweeper/reversi) — so that between them they stress the
+LONGREAL path, arrays and records, the COM/vtable call path, Win32 message
+dispatch, and the standard library. If the demos build and run identically under
+the JIT and AOT, the compiler is in good shape.

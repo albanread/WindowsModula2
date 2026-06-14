@@ -1,0 +1,33 @@
+(* SecureRandom — cryptographically secure random bytes from the operating
+   system CSPRNG. A clean-room NewModula2 module that calls the Windows
+   BCryptGenRandom API directly (system-preferred RNG). This is the RNG that
+   crypto code MUST use for keys, primes, nonces, IVs, salts, tokens, OAEP
+   seeds and PSS salts — it satisfies cryptography-audit Finding F9.
+
+   Contrast with [RandomNumbers], which is a fast NON-cryptographic
+   lagged-Fibonacci generator and must NEVER be used for security. Crypto paths
+   import SecureRandom, never RandomNumbers.
+
+   Fail-closed contract: the convenience draws (NextCard/NextBelow/NextRange)
+   HALT the program if the OS CSPRNG cannot supply entropy, rather than silently
+   returning predictable bytes. Use FillBytes if you need to handle that error. *)
+DEFINITION MODULE SecureRandom;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+PROCEDURE FillBytes (buf: ADDRESS; count: CARDINAL): BOOLEAN;
+  (* Fill `count` bytes at `buf` with cryptographically secure random data.
+     Returns FALSE iff the OS CSPRNG call failed (rare on a healthy system). *)
+
+PROCEDURE NextCard (): CARDINAL;
+  (* A uniformly random 64-bit word. HALTs on CSPRNG failure. *)
+
+PROCEDURE NextBelow (bound: CARDINAL): CARDINAL;
+  (* Uniform in 0 .. bound-1 with rejection sampling (NO modulo bias).
+     bound must be > 0. HALTs on CSPRNG failure. *)
+
+PROCEDURE NextRange (low, high: CARDINAL): CARDINAL;
+  (* Uniform in the inclusive interval low .. high (low <= high), unbiased.
+     HALTs on CSPRNG failure. *)
+
+END SecureRandom.

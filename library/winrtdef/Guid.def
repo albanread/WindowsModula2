@@ -1,0 +1,22 @@
+(* Guid — 128-bit COM GUID/CLSID/IID parsing, formatting and ProgID resolution
+   over ole32, called DIRECTLY from M2. Clean-room NewModula2. A GUID is handled
+   as a 16-byte blob (ARRAY [0..15] OF BYTE); the helpers convert to/from the
+   registry "{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}" string form and resolve a
+   ProgID (e.g. "Scripting.FileSystemObject") to its CLSID — the GUIDs you then
+   hand to Com.CreateInstance. *)
+DEFINITION MODULE Guid;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+CONST Bytes = 16;
+
+PROCEDURE FromString (s: ARRAY OF CHAR; VAR guid: ARRAY OF BYTE): BOOLEAN;
+  (* Parse "{...}" into the 16-byte `guid`. FALSE on a malformed string. *)
+PROCEDURE ToString (guid: ARRAY OF BYTE; VAR s: ARRAY OF CHAR): BOOLEAN;
+  (* Format `guid` as "{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}" (needs >= 39 CHARs). *)
+PROCEDURE FromProgID (progid: ARRAY OF CHAR; VAR clsid: ARRAY OF BYTE): BOOLEAN;
+  (* Resolve a registered ProgID to its CLSID. FALSE if the ProgID is unknown. *)
+PROCEDURE Equal (a, b: ADDRESS): BOOLEAN;
+  (* Compare two 16-byte GUIDs at `a` and `b`. *)
+
+END Guid.

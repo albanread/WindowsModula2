@@ -1,0 +1,199 @@
+(* Terminal — a monospaced text UI (TUI) model, modernised for Windows 11:
+   the screen is a grid of cells, each carrying a character and a 24-bit
+   foreground/background colour, rendered with Direct2D/DirectWrite (see
+   TermRender) rather than GDI. This module is the *model* — pure Modula-2,
+   fully observable by reading cells back — and carries the TUI features:
+   coloured monospaced text, cursor positioning, a menu bar (with drop-down
+   menus) and a status bar. Text windows and input fields layer on top (see the
+   WinXxx/Field surface).
+
+   A controlling app drives the model from its message loop. Two layers are on
+   offer: the low-level model calls (set cells, move the menu highlight, feed a
+   field a key), and a higher-level *event* layer — translate Win32 keys into
+   the Key* codes, hand them to HandleKey / FieldHandleKey, and drain the
+   resulting semantic Events (menu moved, drop-down item chosen, field changed,
+   submitted, cancelled). The app responds to events rather than raw keys.
+
+   Colours are packed 0x00RRGGBB CARDINALs; a 16-entry standard palette is
+   provided. Coordinates are (col, row) = (x, y), 0-based from the top-left. *)
+DEFINITION MODULE Terminal;
+
+TYPE Colour = CARDINAL;          (* 0x00RRGGBB *)
+
+CONST                            (* the standard 16-colour palette *)
+  Black = 000000H; Maroon = 0800000H; Green  = 0008000H; Olive   = 0808000H;
+  Navy  = 0000080H; Purple = 0800080H; Teal   = 0008080H; Silver  = 0C0C0C0H;
+  Gray  = 0808080H; Red    = 0FF0000H; Lime   = 000FF00H; Yellow  = 0FFFF00H;
+  Blue  = 00000FFH; Fuchsia= 0FF00FFH; Aqua   = 000FFFFH; White   = 0FFFFFFH;
+
+(* ---- screen ---- *)
+PROCEDURE Init (cols, rows: CARDINAL);     (* size the screen and clear it *)
+PROCEDURE Cols (): CARDINAL;
+PROCEDURE Rows (): CARDINAL;
+PROCEDURE Clear;                           (* fill with spaces in the current colour, home the cursor *)
+
+(* ---- colour + cursor ---- *)
+PROCEDURE SetColour (fg, bg: Colour);
+PROCEDURE Fg (): Colour;
+PROCEDURE Bg (): Colour;
+PROCEDURE GotoXY (col, row: CARDINAL);
+PROCEDURE WhereX (): CARDINAL;
+PROCEDURE WhereY (): CARDINAL;
+
+(* ---- output (teletype: advances the cursor, wraps, scrolls on overflow) ---- *)
+PROCEDURE Put (ch: CHAR);                  (* CHR(10) = newline, CHR(13) = carriage return *)
+PROCEDURE Write (s: ARRAY OF CHAR);
+PROCEDURE WriteAt (col, row: CARDINAL; s: ARRAY OF CHAR);
+PROCEDURE WriteColAt (col, row: CARDINAL; fg, bg: Colour; s: ARRAY OF CHAR);
+
+(* ---- area drawing (cheap building blocks for the controlling app) ---- *)
+PROCEDURE Fill (col, row, w, h: CARDINAL; ch: CHAR; fg, bg: Colour);  (* fill a rectangle *)
+PROCEDURE HLine (col, row, len: CARDINAL; ch: CHAR; fg, bg: Colour);  (* horizontal run *)
+PROCEDURE VLine (col, row, len: CARDINAL; ch: CHAR; fg, bg: Colour);  (* vertical run *)
+PROCEDURE Box (col, row, w, h: CARDINAL; fg, bg: Colour);            (* line-drawn border *)
+
+(* ---- cell read-back (for rendering and tests) ---- *)
+PROCEDURE CellChar (col, row: CARDINAL): CHAR;
+PROCEDURE CellFg (col, row: CARDINAL): Colour;
+PROCEDURE CellBg (col, row: CARDINAL): Colour;
+
+(* ---- status bar (bottom row) ---- *)
+PROCEDURE SetStatus (s: ARRAY OF CHAR);                   (* white-on-navy, full width *)
+PROCEDURE SetStatusColour (s: ARRAY OF CHAR; fg, bg: Colour);
+
+(* ---- menu bar (top row): titles laid out left-to-right, one highlighted.
+   Each top-level menu may carry a drop-down list of items; opening it paints a
+   bordered popup under the title (the cells beneath are saved and restored on
+   close). A disabled menu is dimmed and skipped by MenuNext/MenuPrev. ---- *)
+PROCEDURE MenuClear;
+PROCEDURE MenuAdd (title: ARRAY OF CHAR);
+PROCEDURE MenuCount (): CARDINAL;
+PROCEDURE MenuRender;                                     (* paints the bar + open drop-down *)
+
+(* selection + navigation *)
+PROCEDURE MenuSelect (index: CARDINAL);
+PROCEDURE MenuSelected (): CARDINAL;
+PROCEDURE MenuNext (): BOOLEAN;            (* move highlight right past enabled menus; TRUE if it moved *)
+PROCEDURE MenuPrev (): BOOLEAN;            (* move highlight left; TRUE if it moved *)
+
+(* editing the bar after creation *)
+PROCEDURE MenuTitle (index: CARDINAL; VAR s: ARRAY OF CHAR);
+PROCEDURE MenuSetTitle (index: CARDINAL; title: ARRAY OF CHAR);
+PROCEDURE MenuInsert (index: CARDINAL; title: ARRAY OF CHAR);   (* insert before index *)
+PROCEDURE MenuRemove (index: CARDINAL);
+PROCEDURE MenuEnable (index: CARDINAL; on: BOOLEAN);
+PROCEDURE MenuEnabled (index: CARDINAL): BOOLEAN;
+
+(* drop-down items of a top-level menu *)
+PROCEDURE MenuAddItem (menu: CARDINAL; text: ARRAY OF CHAR);
+PROCEDURE MenuItemCount (menu: CARDINAL): CARDINAL;
+PROCEDURE MenuItemText (menu, item: CARDINAL; VAR s: ARRAY OF CHAR);
+PROCEDURE MenuSetItem (menu, item: CARDINAL; text: ARRAY OF CHAR);
+PROCEDURE MenuClearItems (menu: CARDINAL);
+
+(* opening / closing the highlighted menu's drop-down *)
+PROCEDURE MenuOpen;                        (* open the highlighted menu (no-op if disabled/empty) *)
+PROCEDURE MenuClose;                       (* close and restore the cells underneath *)
+PROCEDURE MenuIsOpen (): BOOLEAN;
+PROCEDURE MenuItemSelected (): CARDINAL;   (* highlighted item in the open drop-down *)
+PROCEDURE MenuItemSelect (item: CARDINAL);
+PROCEDURE MenuItemNext (): BOOLEAN;
+PROCEDURE MenuItemPrev (): BOOLEAN;
+
+(* ---- events: semantic things the controlling app responds to. Produced by the
+   HandleKey / FieldHandleKey dispatchers (and postable directly). Drain them in
+   the app with NextEvent after feeding input. ---- *)
+TYPE
+  EventKind = (EvNone,        (* empty queue sentinel *)
+               EvMenuMove,    (* bar highlight moved        — menu = new index *)
+               EvMenuOpen,    (* a drop-down opened         — menu = index *)
+               EvMenuClose,   (* a drop-down closed (Esc)   — menu = index *)
+               EvMenuItem,    (* a drop-down item chosen    — menu, item *)
+               EvFieldChange, (* a field's text changed     — ch = the key *)
+               EvSubmit,      (* Enter on a field *)
+               EvCancel,      (* Esc on a field *)
+               EvKey);        (* an unclaimed key, for the app to interpret — ch *)
+  Event = RECORD
+    kind:       EventKind;
+    menu, item: CARDINAL;
+    ch:         CHAR;
+  END;
+
+CONST                          (* Key* codes: map your Win32 keys onto these *)
+  KeyNone   = 0;
+  KeyChar   = 1;               (* a printable character — pass it in `ch` *)
+  KeyEnter  = 2;
+  KeyEsc    = 3;
+  KeyTab    = 4;
+  KeyBack   = 5;               (* backspace *)
+  KeyDelete = 6;               (* delete forward *)
+  KeyLeft   = 7;
+  KeyRight  = 8;
+  KeyUp     = 9;
+  KeyDown   = 10;
+  KeyHome   = 11;
+  KeyEnd    = 12;
+
+PROCEDURE PostEvent (kind: EventKind; menu, item: CARDINAL; ch: CHAR);
+PROCEDURE NextEvent (VAR e: Event): BOOLEAN;   (* FALSE (e.kind = EvNone) when the queue is empty *)
+PROCEDURE HasEvent (): BOOLEAN;
+PROCEDURE ClearEvents;
+
+(* Drive the menu bar / drop-down from one key. Returns TRUE if it consumed the
+   key (the app should then repaint and drain events); FALSE means "not mine" —
+   route the key to the focused field instead. *)
+PROCEDURE HandleKey (key: CARDINAL; ch: CHAR): BOOLEAN;
+
+(* ---- text windows: a sub-rectangle of the screen with its own cursor and
+   colour. Coordinates passed to WinGotoXY/WinWrite are window-relative; output
+   wraps within the window and clamps at its bottom. WinBox draws a border on
+   the window's perimeter (inset the interior by 1 if you box it). ---- *)
+TYPE
+  TextWin = RECORD
+    x, y, w, h: CARDINAL;     (* screen origin + size *)
+    cx, cy:     CARDINAL;     (* window-relative cursor *)
+    fg, bg:     Colour;
+  END;
+
+PROCEDURE WinOpen (VAR tw: TextWin; x, y, w, h: CARDINAL; fg, bg: Colour);
+PROCEDURE WinClear (VAR tw: TextWin);
+PROCEDURE WinBox (VAR tw: TextWin);
+PROCEDURE WinGotoXY (VAR tw: TextWin; col, row: CARDINAL);
+PROCEDURE WinPut (VAR tw: TextWin; ch: CHAR);
+PROCEDURE WinWrite (VAR tw: TextWin; s: ARRAY OF CHAR);
+
+(* ---- input fields: a one-line editable text box at (x, y) of a given width.
+   Feed characters with FieldKey (CHR(8) = backspace); the caret can be moved
+   with the FieldLeft/Right/Home/End helpers and a forward delete. FieldRender
+   paints the buffer + a caret (rendered inverse) into the grid. For the event
+   layer, FieldHandleKey routes a Key* code to the right edit and posts the
+   matching event. ---- *)
+TYPE
+  Field = RECORD
+    x, y, width: CARDINAL;
+    buf:         ARRAY [0..255] OF CHAR;
+    len, caret:  CARDINAL;
+    fg, bg:      Colour;
+  END;
+
+PROCEDURE FieldInit (VAR f: Field; x, y, width: CARDINAL; fg, bg: Colour);
+PROCEDURE FieldSet (VAR f: Field; s: ARRAY OF CHAR);
+PROCEDURE FieldKey (VAR f: Field; ch: CHAR): BOOLEAN;   (* TRUE if the key was consumed *)
+PROCEDURE FieldText (f: Field; VAR s: ARRAY OF CHAR);
+PROCEDURE FieldRender (VAR f: Field);
+
+(* caret editing + read-back *)
+PROCEDURE FieldLeft (VAR f: Field): BOOLEAN;
+PROCEDURE FieldRight (VAR f: Field): BOOLEAN;
+PROCEDURE FieldHome (VAR f: Field);
+PROCEDURE FieldEnd (VAR f: Field);
+PROCEDURE FieldDelete (VAR f: Field): BOOLEAN;          (* delete the char at the caret *)
+PROCEDURE FieldClear (VAR f: Field);
+PROCEDURE FieldCaret (f: Field): CARDINAL;
+PROCEDURE FieldLen (f: Field): CARDINAL;
+
+(* Route one Key* code to a field, posting EvFieldChange / EvSubmit / EvCancel.
+   Returns TRUE if the field changed or the key was claimed. *)
+PROCEDURE FieldHandleKey (VAR f: Field; key: CARDINAL; ch: CHAR): BOOLEAN;
+
+END Terminal.

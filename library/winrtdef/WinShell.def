@@ -1,0 +1,61 @@
+(* WinShell — a Modula-2 GUI application framework over Win32, modernised for
+   Windows 11 (Direct2D/DirectWrite rendering replaces the GDI of the original
+   ADW WinShell). This is the framework FOUNDATION: a window object whose window
+   procedure dispatches to a Modula-2 handler (an M2 procedure used as a native
+   C-ABI window callback), driven by Win32 directly. The retained-mode widget
+   tree, menus/toolbars, drawing layer (Direct2D) and message loop are layered on
+   top in later cuts.
+
+   The window/callback core is proven headlessly with a message-only window
+   (HWND_MESSAGE): SendMessageW dispatches synchronously into the handler. *)
+DEFINITION MODULE WinShell;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+TYPE
+  Window = ADDRESS;          (* an HWND; NIL = none *)
+
+  (* Per-message handler. (window, msg, wParam, lParam, VAR handled) -> result.
+     Set handled := TRUE for messages you process; anything left unhandled falls
+     through to the default window procedure. *)
+  MsgProc = PROCEDURE (Window, CARDINAL, CARDINAL, CARDINAL, VAR BOOLEAN): CARDINAL;
+
+(* Create a message-only window whose procedure dispatches to `handler`.
+   Returns NIL on failure. (Single active handler for now — the retained widget
+   tree will key handlers per window.) *)
+PROCEDURE CreateMessageWindow (handler: MsgProc): Window;
+
+(* Synchronously send `msg` to `w` (dispatches straight into the handler) and
+   return the handler's (or default proc's) result. *)
+PROCEDURE Send (w: Window; msg, wParam, lParam: CARDINAL): CARDINAL;
+
+(* Create a visible top-level application window of (approximate) size w x h
+   pixels, dispatching to `handler`. Returns NIL on failure. *)
+PROCEDURE CreateAppWindow (title: ARRAY OF CHAR; w, h: CARDINAL; handler: MsgProc): Window;
+
+(* Make a window visible. *)
+PROCEDURE Show (w: Window);
+
+(* The window's client area size in pixels (what a render target should match). *)
+PROCEDURE ClientSize (w: Window; VAR cw, ch: CARDINAL);
+
+(* Mark the whole window for repaint (a WM_PAINT will follow). *)
+PROCEDURE Repaint (w: Window);
+
+(* Run the standard message loop until the window posts a quit (see Quit). *)
+PROCEDURE RunMessageLoop;
+
+(* Non-blocking pump for a continuous render loop: drains all pending messages
+   (PeekMessage/Translate/Dispatch) and returns immediately. Returns FALSE once
+   WM_QUIT has been seen (the loop should stop), TRUE otherwise. Lets a renderer
+   own the frame cadence (render + Present each iteration) instead of parking in
+   GetMessage. RunMessageLoop is left intact for event-driven apps. *)
+PROCEDURE PumpMessages (): BOOLEAN;
+
+(* Post a quit so RunMessageLoop returns (call from a WM_DESTROY handler). *)
+PROCEDURE Quit;
+
+(* Destroy the window; w := NIL. *)
+PROCEDURE Destroy (VAR w: Window);
+
+END WinShell.

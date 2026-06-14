@@ -1,0 +1,14 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 SIOResult — last-read result for the default input
+   channel (S = "default Stream"). Mirrors IOResult but with no
+   explicit channel parameter. *)
+DEFINITION MODULE SIOResult;
+
+IMPORT IOConsts;
+
+TYPE
+  ReadResults = IOConsts.ReadResults;
+
+PROCEDURE ReadResult (): ReadResults;
+
+END SIOResult.

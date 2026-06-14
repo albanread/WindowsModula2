@@ -1,0 +1,39 @@
+(* Threads — OS threads and a recursive mutual-exclusion lock, over the Windows
+   threading APIs called DIRECTLY from M2. Clean-room NewModula2.
+
+   A Lock is a Win32 CRITICAL_SECTION: recursive and owner-tracked (the same
+   thread may Acquire it repeatedly and must Release it the same number of
+   times) — this is the "PROTECT" lock contract the rest of the library builds
+   on (modernization rule M9 keeps the recursive CRITICAL_SECTION semantics). A
+   Thread runs a ThreadProc on a new OS thread.
+
+   NewM2 has no GC in the default/AOT memory mode, so a procedure can run on a
+   thread NewM2 did not create without root-registration. (The richer Threads
+   surface — TLS, condition variables, rwlocks, barriers, named sync objects —
+   is a later increment.) *)
+DEFINITION MODULE Threads;
+
+FROM SYSTEM IMPORT ADDRESS;
+FROM WIN32 IMPORT HANDLE;
+FROM System_Threading IMPORT CRITICAL_SECTION;
+
+TYPE
+  Lock       = CRITICAL_SECTION;            (* recursive critical section *)
+  Thread     = HANDLE;
+  ThreadProc = PROCEDURE (ADDRESS): CARDINAL;   (* receives the spawn param, returns an exit code *)
+
+(* ---- recursive lock (the PROTECT mechanism) ---- *)
+PROCEDURE InitLock    (VAR l: Lock);
+PROCEDURE Acquire     (VAR l: Lock);
+PROCEDURE Release     (VAR l: Lock);
+PROCEDURE DestroyLock (VAR l: Lock);
+
+(* ---- threads ---- *)
+PROCEDURE Spawn (proc: ThreadProc; param: ADDRESS): Thread;
+  (* Start `proc(param)` on a new OS thread. *)
+PROCEDURE Join (t: Thread; timeoutMs: CARDINAL): BOOLEAN;
+  (* Wait up to `timeoutMs` ms for `t` to finish. TRUE iff it finished in time. *)
+PROCEDURE CloseThread (t: Thread);
+  (* Release the thread handle (after Join). *)
+
+END Threads.

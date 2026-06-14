@@ -1,0 +1,30 @@
+(* Builtins — the subset of the Builtins (GCC math intrinsics) surface the
+   conformance corpus exercises. A clean-room NewModula2 implementation: the REAL forms
+   delegate to ISO RealMath, the C `l`-suffixed LONGREAL forms to LongMath;
+   `log10` is `ln(x)/ln(10)`, `fabs` is `ABS`, `pow` is `power`. The control
+   builtins (setjmp/longjmp/alloca) are intentionally not provided here. *)
+DEFINITION MODULE Builtins;
+
+(* --- REAL --- *)
+PROCEDURE sqrt  (x: REAL): REAL;
+PROCEDURE exp   (x: REAL): REAL;
+PROCEDURE log   (x: REAL): REAL;
+PROCEDURE log10 (x: REAL): REAL;
+PROCEDURE sin   (x: REAL): REAL;
+PROCEDURE cos   (x: REAL): REAL;
+PROCEDURE tan   (x: REAL): REAL;
+PROCEDURE fabs  (x: REAL): REAL;
+PROCEDURE pow   (base, exponent: REAL): REAL;
+
+(* --- LONGREAL (C `l` suffix) --- *)
+PROCEDURE sqrtl  (x: LONGREAL): LONGREAL;
+PROCEDURE expl   (x: LONGREAL): LONGREAL;
+PROCEDURE logl   (x: LONGREAL): LONGREAL;
+PROCEDURE log10l (x: LONGREAL): LONGREAL;
+PROCEDURE sinl   (x: LONGREAL): LONGREAL;
+PROCEDURE cosl   (x: LONGREAL): LONGREAL;
+PROCEDURE tanl   (x: LONGREAL): LONGREAL;
+PROCEDURE fabsl  (x: LONGREAL): LONGREAL;
+PROCEDURE powl   (base, exponent: LONGREAL): LONGREAL;
+
+END Builtins.

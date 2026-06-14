@@ -1,0 +1,11 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 SLongIO — decimal LONGREAL IO over the default channels. *)
+DEFINITION MODULE SLongIO;
+
+PROCEDURE ReadReal   (VAR real: LONGREAL);
+PROCEDURE WriteFloat (real: LONGREAL; sigFigs: CARDINAL; width: CARDINAL);
+PROCEDURE WriteEng   (real: LONGREAL; sigFigs: CARDINAL; width: CARDINAL);
+PROCEDURE WriteFixed (real: LONGREAL; place: INTEGER; width: CARDINAL);
+PROCEDURE WriteReal  (real: LONGREAL; width: CARDINAL);
+
+END SLongIO.

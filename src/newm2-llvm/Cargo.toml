@@ -1,0 +1,28 @@
+[package]
+name = "newm2-llvm"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[features]
+# Opt-in tracing GC; forwards to the runtime's `gc` feature. Off by default.
+default = []
+gc = ["newm2-runtime/gc"]
+
+[dependencies]
+new-asm   = { path = "../../new-asm" }
+newm2-ir = { path = "../newm2-ir" }
+newm2-sema = { path = "../newm2-sema" }
+newm2-runtime = { path = "../newm2-runtime" }
+
+inkwell = { version = "=0.9.0", default-features = false, features = ["llvm22-1", "target-x86"] }
+# llvm-sys piggy-backs on inkwell's LLVM build. Used directly for
+# LLVMCreateMCJITCompilerForModule (custom memory manager for SEH/unwind)
+# and LLVMAddGlobalMapping (bind runtime helper symbols).
+llvm-sys = { version = "=221.0.1", default-features = false, features = ["force-static"] }
+
+[dev-dependencies]
+newm2-loader = { path = "../newm2-loader" }
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"

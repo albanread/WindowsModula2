@@ -1,0 +1,19 @@
+(* StdIO — redirectable character I/O. A clean-room NewModula2
+   implementation: `Read`/`Write` delegate to the ISO simple text module. The
+   push/pop output-redirection stack is not modelled (it needs module-global
+   state); `PushOutput`/`PopOutput` are accepted but inert, so plain `Write`
+   always reaches standard output. *)
+DEFINITION MODULE StdIO;
+
+TYPE
+  ProcWrite = PROCEDURE (CHAR);
+  ProcRead  = PROCEDURE (VAR CHAR);
+
+PROCEDURE Read (VAR ch: CHAR);
+PROCEDURE Write (ch: CHAR);
+PROCEDURE PushOutput (p: ProcWrite);
+PROCEDURE PopOutput;
+PROCEDURE PushInput (p: ProcRead);
+PROCEDURE PopInput;
+
+END StdIO.

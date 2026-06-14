@@ -1,0 +1,200 @@
+﻿; ModuleID = 'STextIO'
+source_filename = "STextIO"
+
+@STextIO.roots_name = constant [8 x i8] c"STextIO\00"
+
+declare void @nm2_register_module_roots(ptr, ptr, ptr, i64)
+
+; Function Attrs: uwtable
+define void @STextIO.init_roots() #0 {
+entry:
+  call void @nm2_register_module_roots(ptr @STextIO.roots_name, ptr null, ptr null, i64 0)
+  ret void
+}
+
+attributes #0 = { uwtable }
+; ModuleID = 'SWholeIO'
+source_filename = "SWholeIO"
+
+@SWholeIO.roots_name = constant [9 x i8] c"SWholeIO\00"
+
+declare void @nm2_register_module_roots(ptr, ptr, ptr, i64)
+
+; Function Attrs: uwtable
+define void @SWholeIO.init_roots() #0 {
+entry:
+  call void @nm2_register_module_roots(ptr @SWholeIO.roots_name, ptr null, ptr null, i64 0)
+  ret void
+}
+
+attributes #0 = { uwtable }
+; ModuleID = 'PerfSieveO2'
+source_filename = "PerfSieveO2"
+
+@PerfSieveO2.roots_name = constant [12 x i8] c"PerfSieveO2\00"
+
+declare i64 @SWholeIO.WriteInt(...)
+
+declare i64 @STextIO.WriteLn(...)
+
+; Function Attrs: uwtable
+define void @PerfSieveO2.body() #0 {
+entry:
+  %local = alloca i64, align 8
+  %local15 = alloca i64, align 8
+  %local16 = alloca i64, align 8
+  %local17 = alloca [4096 x i64], align 8
+  %local18 = alloca i64, align 8
+  %local19 = alloca i64, align 8
+  store i64 0, ptr %local, align 4
+  store i64 0, ptr %local15, align 4
+  br label %while_cond
+
+exit:                                             ; preds = %while_exit
+  ret void
+
+while_cond:                                       ; preds = %if_join13, %entry
+  %load = load i64, ptr %local, align 4
+  %lt = icmp slt i64 %load, 3000
+  br i1 %lt, label %while_body, label %while_exit
+
+while_body:                                       ; preds = %while_cond
+  store i64 0, ptr %local16, align 4
+  br label %while_cond1
+
+while_exit:                                       ; preds = %while_cond
+  %load20 = load i64, ptr %local15, align 4
+  %call = call i64 (...) @SWholeIO.WriteInt(i64 %load20, i64 0)
+  call void @nm2_safepoint()
+  %call21 = call i64 (...) @STextIO.WriteLn()
+  call void @nm2_safepoint()
+  br label %exit
+
+while_cond1:                                      ; preds = %while_body2, %while_body
+  %load22 = load i64, ptr %local16, align 4
+  %le = icmp sle i64 %load22, 4095
+  br i1 %le, label %while_body2, label %while_exit3
+
+while_body2:                                      ; preds = %while_cond1
+  %load23 = load i64, ptr %local16, align 4
+  %idx_ptr = getelementptr inbounds [4096 x i64], ptr %local17, i64 %load23
+  store i64 1, ptr %idx_ptr, align 4
+  %load24 = load i64, ptr %local16, align 4
+  %add = add i64 %load24, 1
+  store i64 %add, ptr %local16, align 4
+  call void @nm2_safepoint()
+  br label %while_cond1
+
+while_exit3:                                      ; preds = %while_cond1
+  %idx_ptr25 = getelementptr inbounds [4096 x i64], ptr %local17, i64 0
+  store i64 0, ptr %idx_ptr25, align 4
+  %idx_ptr26 = getelementptr inbounds [4096 x i64], ptr %local17, i64 1
+  store i64 0, ptr %idx_ptr26, align 4
+  store i64 2, ptr %local16, align 4
+  br label %while_cond4
+
+while_cond4:                                      ; preds = %if_join, %while_exit3
+  %load27 = load i64, ptr %local16, align 4
+  %load28 = load i64, ptr %local16, align 4
+  %mul = mul i64 %load27, %load28
+  %le29 = icmp sle i64 %mul, 4095
+  br i1 %le29, label %while_body5, label %while_exit6
+
+while_body5:                                      ; preds = %while_cond4
+  %load30 = load i64, ptr %local16, align 4
+  %idx_ptr31 = getelementptr inbounds [4096 x i64], ptr %local17, i64 %load30
+  %load32 = load i64, ptr %idx_ptr31, align 4
+  %ne = icmp ne i64 %load32, 0
+  br i1 %ne, label %if_then.0, label %if_join
+
+while_exit6:                                      ; preds = %while_cond4
+  store i64 0, ptr %local18, align 4
+  store i64 2, ptr %local16, align 4
+  br label %while_cond10
+
+if_join:                                          ; preds = %while_exit9, %while_body5
+  %load33 = load i64, ptr %local16, align 4
+  %add34 = add i64 %load33, 1
+  store i64 %add34, ptr %local16, align 4
+  call void @nm2_safepoint()
+  br label %while_cond4
+
+if_then.0:                                        ; preds = %while_body5
+  %load35 = load i64, ptr %local16, align 4
+  %load36 = load i64, ptr %local16, align 4
+  %mul37 = mul i64 %load35, %load36
+  store i64 %mul37, ptr %local19, align 4
+  br label %while_cond7
+
+while_cond7:                                      ; preds = %while_body8, %if_then.0
+  %load38 = load i64, ptr %local19, align 4
+  %le39 = icmp sle i64 %load38, 4095
+  br i1 %le39, label %while_body8, label %while_exit9
+
+while_body8:                                      ; preds = %while_cond7
+  %load40 = load i64, ptr %local19, align 4
+  %idx_ptr41 = getelementptr inbounds [4096 x i64], ptr %local17, i64 %load40
+  store i64 0, ptr %idx_ptr41, align 4
+  %load42 = load i64, ptr %local19, align 4
+  %load43 = load i64, ptr %local16, align 4
+  %add44 = add i64 %load42, %load43
+  store i64 %add44, ptr %local19, align 4
+  call void @nm2_safepoint()
+  br label %while_cond7
+
+while_exit9:                                      ; preds = %while_cond7
+  br label %if_join
+
+while_cond10:                                     ; preds = %while_body11, %while_exit6
+  %load45 = load i64, ptr %local16, align 4
+  %le46 = icmp sle i64 %load45, 4095
+  br i1 %le46, label %while_body11, label %while_exit12
+
+while_body11:                                     ; preds = %while_cond10
+  %load47 = load i64, ptr %local18, align 4
+  %load48 = load i64, ptr %local16, align 4
+  %idx_ptr49 = getelementptr inbounds [4096 x i64], ptr %local17, i64 %load48
+  %load50 = load i64, ptr %idx_ptr49, align 4
+  %add51 = add i64 %load47, %load50
+  store i64 %add51, ptr %local18, align 4
+  %load52 = load i64, ptr %local16, align 4
+  %add53 = add i64 %load52, 1
+  store i64 %add53, ptr %local16, align 4
+  call void @nm2_safepoint()
+  br label %while_cond10
+
+while_exit12:                                     ; preds = %while_cond10
+  %load54 = load i64, ptr %local15, align 4
+  %load55 = load i64, ptr %local18, align 4
+  %add56 = add i64 %load54, %load55
+  store i64 %add56, ptr %local15, align 4
+  %load57 = load i64, ptr %local15, align 4
+  %ge = icmp sge i64 %load57, 1000000000
+  br i1 %ge, label %if_then.014, label %if_join13
+
+if_join13:                                        ; preds = %if_then.014, %while_exit12
+  %load58 = load i64, ptr %local, align 4
+  %add59 = add i64 %load58, 1
+  store i64 %add59, ptr %local, align 4
+  call void @nm2_safepoint()
+  br label %while_cond
+
+if_then.014:                                      ; preds = %while_exit12
+  %load60 = load i64, ptr %local15, align 4
+  %sub = sub i64 %load60, 1000000000
+  store i64 %sub, ptr %local15, align 4
+  br label %if_join13
+}
+
+declare void @nm2_safepoint()
+
+declare void @nm2_register_module_roots(ptr, ptr, ptr, i64)
+
+; Function Attrs: uwtable
+define void @PerfSieveO2.init_roots() #0 {
+entry:
+  call void @nm2_register_module_roots(ptr @PerfSieveO2.roots_name, ptr null, ptr null, i64 0)
+  ret void
+}
+
+attributes #0 = { uwtable }

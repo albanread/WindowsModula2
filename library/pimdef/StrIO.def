@@ -1,0 +1,9 @@
+(* StrIO — PIM string I/O. A clean-room NewModula2 implementation that
+   delegates to the ISO STextIO device, so it works wherever STextIO does. *)
+DEFINITION MODULE StrIO;
+
+PROCEDURE WriteString (s: ARRAY OF CHAR);
+PROCEDURE WriteLn;
+PROCEDURE ReadString (VAR s: ARRAY OF CHAR);
+
+END StrIO.

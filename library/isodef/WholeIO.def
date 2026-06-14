@@ -1,0 +1,13 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 WholeIO — decimal whole-number IO over an explicit
+   channel. SWholeIO is the analogous default-channel module. *)
+DEFINITION MODULE WholeIO;
+
+IMPORT IOChan;
+
+PROCEDURE ReadInt   (cid: IOChan.ChanId; VAR int: INTEGER);
+PROCEDURE WriteInt  (cid: IOChan.ChanId; int: INTEGER;  width: CARDINAL);
+PROCEDURE ReadCard  (cid: IOChan.ChanId; VAR card: CARDINAL);
+PROCEDURE WriteCard (cid: IOChan.ChanId; card: CARDINAL; width: CARDINAL);
+
+END WholeIO.

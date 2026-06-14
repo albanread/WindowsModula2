@@ -1,0 +1,44 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 LowReal — implementation-defined limits and direct bit
+   access for the REAL type. Constants reflect IEEE 754 single
+   precision (32-bit binary32) which matches NewM2's REAL. *)
+DEFINITION MODULE LowReal;
+
+CONST
+  radix      = 2;
+  places     = 32;
+  expoMin    = -126;
+  expoMax    = 127;
+  large      = 3.402823E+38;
+  small      = 1.175494E-38;
+  IEEE       = TRUE;
+  ISO        = FALSE;
+  rounds     = TRUE;
+  gUnderflow = FALSE;
+  exception  = TRUE;
+  extend     = TRUE;
+  nModes     = 6;
+
+TYPE
+  Modes = SET OF [0 .. nModes-1];
+
+PROCEDURE exponent  (x: REAL): INTEGER;
+PROCEDURE fraction  (x: REAL): REAL;
+PROCEDURE sign      (x: REAL): REAL;
+PROCEDURE succ      (x: REAL): REAL;
+PROCEDURE ulp       (x: REAL): REAL;
+PROCEDURE pred      (x: REAL): REAL;
+PROCEDURE intpart   (x: REAL): REAL;
+PROCEDURE fractpart (x: REAL): REAL;
+
+PROCEDURE scale      (x: REAL; n: INTEGER): REAL;
+PROCEDURE trunc      (x: REAL; n: INTEGER): REAL;
+PROCEDURE round      (x: REAL; n: INTEGER): REAL;
+PROCEDURE synthesize (expart: INTEGER; frapart: REAL): REAL;
+
+PROCEDURE setMode     (m: Modes);
+PROCEDURE currentMode (): Modes;
+
+PROCEDURE IsLowException (): BOOLEAN;
+
+END LowReal.

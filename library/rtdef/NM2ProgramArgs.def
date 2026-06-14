@@ -1,0 +1,25 @@
+(* NewM2-internal access to the program's command-line arguments.
+   Not part of ISO 10514-1.
+
+   Bound by name in `src/newm2-llvm/src/lib.rs` to functions in
+   `src/newm2-runtime/src/program_args.rs`. The driver records the
+   arguments (filename plus user-supplied args) before invoking the
+   JIT'd entry body via `nm2_program_args_set` (Rust-side API).
+
+   Portable user code should not import this module. ISO `ProgramArgs`
+   imports it internally to back `ArgChan` / `NextArg` / `IsArgPresent`. *)
+DEFINITION MODULE NM2ProgramArgs;
+
+IMPORT SYSTEM;
+
+(* Number of command-line arguments, including the program name at
+   index 0. *)
+PROCEDURE Count ["NM2.ProgramArgs.Count" EXTERNAL] (): CARDINAL;
+
+(* Copy argument `idx` into the buffer at `addr` (up to `max` bytes).
+   Returns the actual number of bytes copied. Out-of-range `idx`
+   returns 0 with `addr` untouched. *)
+PROCEDURE Copy ["NM2.ProgramArgs.Copy" EXTERNAL]
+              (idx: CARDINAL; addr: SYSTEM.ADDRESS; max: CARDINAL): CARDINAL;
+
+END NM2ProgramArgs.

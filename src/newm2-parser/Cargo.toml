@@ -1,0 +1,9 @@
+[package]
+name = "newm2-parser"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+newm2-lexer = { path = "../newm2-lexer" }
+serde = { version = "1", features = ["derive"] }

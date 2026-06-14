@@ -1,0 +1,32 @@
+DEFINITION MODULE M2EXCEPTION;
+
+(* ISO 10514-1 language exceptions. Raised by the compiler's runtime checks
+   (array index, CASE selector, range, division, …) and catchable in an EXCEPT
+   handler. *)
+
+TYPE
+  M2Exceptions = (
+    indexException,        (* array index out of range *)
+    rangeException,        (* value assigned out of range *)
+    caseSelectException,   (* CASE selector matched no label, no ELSE *)
+    invalidLocation,
+    functionException,
+    wholeValueException,
+    wholeDivException,     (* whole-number division by zero *)
+    realValueException,
+    realDivException,      (* real division by zero *)
+    complexValueException,
+    complexDivException,
+    protException,
+    sysException,
+    coException,
+    exException
+  );
+
+PROCEDURE M2Exception (): M2Exceptions;
+  (* The current language exception. Only meaningful while IsM2Exception(). *)
+
+PROCEDURE IsM2Exception (): BOOLEAN;
+  (* TRUE iff the current exception is an ISO language exception. *)
+
+END M2EXCEPTION.

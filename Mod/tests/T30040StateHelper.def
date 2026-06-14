@@ -1,0 +1,5 @@
+DEFINITION MODULE T30040StateHelper;
+
+PROCEDURE EchoValues(srcInt : INTEGER; srcCard : CARDINAL; srcChar : CHAR; srcFlag : BOOLEAN);
+
+END T30040StateHelper.

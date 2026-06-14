@@ -1,0 +1,12 @@
+[package]
+name = "newm2-compat-tests"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+
+[dev-dependencies]
+newm2-lexer = { path = "../../src/newm2-lexer" }
+newm2-loader = { path = "../../src/newm2-loader" }
+newm2-parser = { path = "../../src/newm2-parser" }

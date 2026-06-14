@@ -1,0 +1,18 @@
+(* MathLib0 — the classic PIM real-maths module. A clean-room NewModula2
+   implementation delegating to ISO RealMath; `pi` is the standard constant and
+   `entier` is the floor of a REAL as an INTEGER. *)
+DEFINITION MODULE MathLib0;
+
+CONST
+  pi = 3.1415926535897932384626433832795028841972;
+
+PROCEDURE sqrt (x: REAL): REAL;
+PROCEDURE exp (x: REAL): REAL;
+PROCEDURE ln (x: REAL): REAL;
+PROCEDURE sin (x: REAL): REAL;
+PROCEDURE cos (x: REAL): REAL;
+PROCEDURE tan (x: REAL): REAL;
+PROCEDURE arctan (x: REAL): REAL;
+PROCEDURE entier (x: REAL): INTEGER;
+
+END MathLib0.

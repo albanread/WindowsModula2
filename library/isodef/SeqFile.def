@@ -1,0 +1,32 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 SeqFile — sequential rewindable files. Like StreamFile
+   but supports Reread/Rewrite to flip the channel between input and
+   output modes against the same underlying file. *)
+DEFINITION MODULE SeqFile;
+
+IMPORT IOChan, ChanConsts;
+
+TYPE
+  ChanId      = IOChan.ChanId;
+  FlagSet     = ChanConsts.FlagSet;
+  OpenResults = ChanConsts.OpenResults;
+
+CONST
+  read  = FlagSet{ChanConsts.readFlag};
+  write = FlagSet{ChanConsts.writeFlag};
+  old   = FlagSet{ChanConsts.oldFlag};
+  text  = FlagSet{ChanConsts.textFlag};
+  raw   = FlagSet{ChanConsts.rawFlag};
+
+PROCEDURE OpenWrite  (VAR cid: ChanId; name: ARRAY OF CHAR; flags: FlagSet;
+                      VAR res: OpenResults);
+PROCEDURE OpenAppend (VAR cid: ChanId; name: ARRAY OF CHAR; flags: FlagSet;
+                      VAR res: OpenResults);
+PROCEDURE OpenRead   (VAR cid: ChanId; name: ARRAY OF CHAR; flags: FlagSet;
+                      VAR res: OpenResults);
+PROCEDURE IsSeqFile  (cid: ChanId): BOOLEAN;
+PROCEDURE Reread     (cid: ChanId);
+PROCEDURE Rewrite    (cid: ChanId);
+PROCEDURE Close      (VAR cid: ChanId);
+
+END SeqFile.

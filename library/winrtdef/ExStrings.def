@@ -1,0 +1,66 @@
+(* ExStrings — extended NUL-terminated string operations (the CHAR-neutral,
+   self-contained subset of the ADW ExStrings module). A clean-room NewModula2
+   recreation.
+
+   Every string is a capacity-bounded `ARRAY OF CHAR` whose logical length runs
+   up to the first NUL (`CHR(0)`); `HIGH(s)` is the last valid index, capacity is
+   `HIGH(s)+1`. Writers bounds-check and re-terminate, silently truncating
+   rather than overflowing ("no-op when full"). All comparisons are against
+   ASCII literals, so the code is CHAR-width-neutral.
+
+   The Ansi/Unicode/UTF-8 conversion family of the original ExStrings depends on
+   WINNLS and the ACHAR/UCHAR dual char types; it is deferred to the Win32 tier
+   (see docs/design/m2winrt-runtime-library.md). *)
+DEFINITION MODULE ExStrings;
+
+TYPE
+  CompareResults = (less, equal, greater);
+
+PROCEDURE Length (s: ARRAY OF CHAR): CARDINAL;
+  (* Logical length: index of the first NUL, or the capacity if none. *)
+
+PROCEDURE CompareI (s1, s2: ARRAY OF CHAR): CompareResults;
+  (* Case-insensitive three-way compare (via CAP). *)
+
+PROCEDURE EqualI (s1, s2: ARRAY OF CHAR): BOOLEAN;
+  (* Case-insensitive equality. *)
+
+PROCEDURE FindNextI (pattern, stringToSearch: ARRAY OF CHAR; startIndex: CARDINAL;
+                     VAR patternFound: BOOLEAN; VAR posOfPattern: CARDINAL);
+  (* Case-insensitive forward substring search from `startIndex`. An empty
+     pattern is reported as not found. *)
+
+PROCEDURE AssignNullTerm (source: ARRAY OF CHAR; VAR destination: ARRAY OF CHAR);
+  (* Copy source -> destination, always NUL-terminating (truncates to capacity). *)
+
+PROCEDURE NullTerminate (VAR str: ARRAY OF CHAR);
+  (* Force a NUL at HIGH(str) (truncates the last slot if it was in use). *)
+
+PROCEDURE Lowercase (VAR str: ARRAY OF CHAR);
+  (* Lower-case 'A'..'Z' in place. *)
+
+PROCEDURE Uppercase (VAR str: ARRAY OF CHAR);
+  (* Upper-case in place (via CAP). *)
+
+PROCEDURE AppendChar (ch: CHAR; VAR str: ARRAY OF CHAR);
+  (* Append ch (no-op if there is no room for ch + terminator). *)
+
+PROCEDURE AppendCharCond (ch: CHAR; VAR str: ARRAY OF CHAR);
+  (* Append ch only if str is non-empty and ch isn't already the last char. *)
+
+PROCEDURE AppendNum (num: CARDINAL; VAR str: ARRAY OF CHAR);
+  (* Append `num` in decimal (truncated if no room). *)
+
+PROCEDURE AppendHex (num, digits: CARDINAL; VAR str: ARRAY OF CHAR);
+  (* Append exactly `digits` hex characters (zero-padded), low digits of num. *)
+
+PROCEDURE FindAndReplace (find, replace: ARRAY OF CHAR;
+                          VAR str: ARRAY OF CHAR): BOOLEAN;
+  (* Replace the first case-sensitive occurrence of `find` in `str`; TRUE if a
+     replacement happened. *)
+
+PROCEDURE FindAndReplaceI (find, replace: ARRAY OF CHAR;
+                           VAR str: ARRAY OF CHAR): BOOLEAN;
+  (* As FindAndReplace, but the search is case-insensitive. *)
+
+END ExStrings.

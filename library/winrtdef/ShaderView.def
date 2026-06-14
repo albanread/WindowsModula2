@@ -1,0 +1,58 @@
+(* ShaderView — a generic full-screen PIXEL-SHADER host on Direct3D11. A demo
+   supplies its own HLSL pixel shader and a constant buffer; ShaderView draws one
+   full-screen triangle per frame and Presents. The fractal/plasma/effect lives
+   entirely in the demo's pixel shader; everything here is the D3D11 plumbing.
+
+   The Direct3D11/DXGI COM interfaces it drives are the winapi-gen-generated,
+   @ordinal-checked ones (no hand-counted vtables). First cut: fixed-size window.
+
+   Usage:
+     ok  := ShaderView.Startup();
+     win := WinShell.CreateAppWindow(title, w, h, Handler);
+     WinShell.Show(win);  WinShell.ClientSize(win, cw, ch);
+     ok  := ShaderView.Attach(win, cw, ch);
+     ok  := ShaderView.SetShader(myPixelHlsl, SIZE(myConstants));
+     ShaderView.RunLoop(BuildConstants);   (* BuildConstants(time) -> ADR(myConstants) *)
+*)
+DEFINITION MODULE ShaderView;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+TYPE
+  (* Called once per frame: given the elapsed time in seconds, fill the demo's
+     constant-buffer record and return its address. *)
+  BuildProc = PROCEDURE (SHORTREAL): ADDRESS;
+
+(* One-time init (the d3d11/d3dcompiler entry points load lazily). *)
+PROCEDURE Startup (): BOOLEAN;
+
+(* Create the device + swapchain + render-target view bound to `hwnd`, and the
+   fixed full-screen-triangle vertex shader. Fixed size. FALSE on failure. *)
+PROCEDURE Attach (hwnd: ADDRESS; w, h: CARDINAL): BOOLEAN;
+
+(* Compile the demo's pixel shader (HLSL source as a normal wide string; entry
+   `main`, target ps_4_0) and create a constant buffer of `cbSize` bytes (round
+   it to a 16-byte multiple). Call after Attach. FALSE on failure. *)
+PROCEDURE SetShader (pixelHlsl: ARRAY OF CHAR; cbSize: CARDINAL): BOOLEAN;
+
+(* The client area size (so a demo can compute an aspect ratio). *)
+PROCEDURE Width (): CARDINAL;
+PROCEDURE Height (): CARDINAL;
+
+(* Render one frame: copy `cbSize` bytes from `constants` into the constant
+   buffer, draw the full-screen triangle, Present(1,0). No-op if not ready. *)
+PROCEDURE Frame (constants: ADDRESS);
+
+(* Continuous loop: pump Win32 messages (WinShell.PumpMessages), advance a time
+   counter, call `build(time)` to get the frame's constants, Frame() them, until
+   WM_QUIT. The demo's window handler updates view state on input; `build` reads
+   it. *)
+PROCEDURE RunLoop (build: BuildProc);
+
+(* Resize hook — STUB (fixed-size window). *)
+PROCEDURE Resize (w, h: CARDINAL);
+
+(* Release all D3D resources. Safe to call repeatedly. *)
+PROCEDURE Shutdown;
+
+END ShaderView.

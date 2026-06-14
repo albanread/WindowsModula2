@@ -1,0 +1,22 @@
+(* TermRender — Direct2D/DirectWrite renderer for the Terminal model (Windows 11
+   modern; no GDI). Pure Modula-2: a Direct2D factory creates an HWND render
+   target over a window; the cell grid in Terminal is painted cell-by-cell with
+   per-cell 24-bit colour using a DirectWrite monospaced text format. All COM
+   interfaces are consumed through the CLASS-as-vtable pattern. *)
+DEFINITION MODULE TermRender;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+(* Create the Direct2D factory and a DirectWrite monospaced text format.
+   Headless-safe (no window needed). *)
+PROCEDURE Startup (fontName: ARRAY OF CHAR; fontSize: SHORTREAL): BOOLEAN;
+PROCEDURE Ready (): BOOLEAN;
+
+(* Create an HWND render target for `hwnd` of pixel size pxW x pxH, with each
+   character cell cellW x cellH pixels. Call after the window exists. *)
+PROCEDURE Attach (hwnd: ADDRESS; pxW, pxH, cellW, cellH: CARDINAL): BOOLEAN;
+
+(* Paint the whole Terminal cell grid to the render target. *)
+PROCEDURE Paint;
+
+END TermRender.

@@ -1,0 +1,19 @@
+DEFINITION MODULE Classes;
+
+(* Minimal OO fixture: every shape NewM2 must lex-parse and represent
+   structurally — forward class, abstract class with INHERIT and
+   REVEAL, abstract methods with VAR parameters and return types. *)
+
+ABSTRACT CLASS IForwardOnly; FORWARD;
+
+ABSTRACT CLASS IBase;
+ABSTRACT PROCEDURE Ping() : BOOLEAN;
+END IBase;
+
+ABSTRACT CLASS IDerived;
+INHERIT IBase;
+REVEAL Ping, DoMore;
+ABSTRACT PROCEDURE DoMore(VAR result : INTEGER; count : CARDINAL) : BOOLEAN;
+END IDerived;
+
+END Classes.

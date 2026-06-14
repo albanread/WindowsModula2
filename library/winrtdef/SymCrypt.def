@@ -1,0 +1,39 @@
+(* SymCrypt — AES-256-GCM authenticated encryption (AEAD) over Windows CNG,
+   called DIRECTLY from M2. Clean-room NewModula2: a thin façade over the
+   BCrypt* cipher APIs — the cipher is the OS's, not roll-your-own. GCM provides
+   confidentiality AND integrity: Decrypt FAILS CLOSED if the tag does not
+   verify (tampered ciphertext / wrong key / wrong nonce / wrong AAD).
+
+   The modernization sweep mandates AEAD: this module exposes ONLY AES-256-GCM —
+   no ECB, no unauthenticated CBC, no legacy ciphers.
+
+   CRITICAL nonce contract: the 12-byte nonce MUST be unique for every message
+   encrypted under a given key. Reusing a (key, nonce) pair under GCM is
+   catastrophic (it leaks the XOR of plaintexts and the authentication key).
+   Draw each nonce fresh from [SecureRandom] (NextCard-derived 96 bits), never
+   from RandomNumbers. Wipe the key with MemUtils.SecureZeroMem after use. *)
+DEFINITION MODULE SymCrypt;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+CONST
+  KeyBytes   = 32;   (* AES-256 *)
+  NonceBytes = 12;   (* 96-bit GCM nonce *)
+  TagBytes   = 16;   (* 128-bit GCM tag *)
+
+PROCEDURE Encrypt (key, nonce, aad: ADDRESS; aadLen: CARDINAL;
+                   plaintext: ADDRESS; ptLen: CARDINAL;
+                   ciphertext, tag: ADDRESS): BOOLEAN;
+  (* Encrypt `ptLen` plaintext bytes under (32-byte `key`, 12-byte `nonce`),
+     optionally authenticating `aadLen` bytes of associated data at `aad`
+     (NIL/0 for none). Writes `ptLen` ciphertext bytes and the 16-byte `tag`.
+     Returns FALSE on a CNG failure. *)
+
+PROCEDURE Decrypt (key, nonce, aad: ADDRESS; aadLen: CARDINAL;
+                   ciphertext: ADDRESS; ctLen: CARDINAL;
+                   tag, plaintext: ADDRESS): BOOLEAN;
+  (* Verify the 16-byte `tag` over (aad, ciphertext) and decrypt. Returns FALSE
+     (fail closed) if the tag does not verify — `plaintext` must NOT be trusted
+     in that case. *)
+
+END SymCrypt.

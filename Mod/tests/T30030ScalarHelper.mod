@@ -1,0 +1,28 @@
+MODULE T30030ScalarHelper;
+
+PROCEDURE BumpInt(n : INTEGER) : INTEGER;
+BEGIN
+  RETURN n + 4
+END BumpInt;
+
+PROCEDURE BumpCard(n : CARDINAL) : CARDINAL;
+BEGIN
+  RETURN n + 9
+END BumpCard;
+
+PROCEDURE NextChar(ch : CHAR) : CHAR;
+BEGIN
+  RETURN ch
+END NextChar;
+
+PROCEDURE Flip(flag : BOOLEAN) : BOOLEAN;
+BEGIN
+  IF flag THEN
+    RETURN FALSE
+  ELSE
+    RETURN TRUE
+  END
+END Flip;
+
+BEGIN
+END T30030ScalarHelper.

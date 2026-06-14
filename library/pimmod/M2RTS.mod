@@ -1,0 +1,20 @@
+IMPLEMENTATION MODULE M2RTS;
+
+IMPORT Strings;
+
+PROCEDURE Length (a: ARRAY OF CHAR) : CARDINAL;
+BEGIN
+  RETURN Strings.Length(a)
+END Length;
+
+PROCEDURE Halt (message: ARRAY OF CHAR; file: ARRAY OF CHAR;
+                function: ARRAY OF CHAR; line: CARDINAL);
+BEGIN
+  HALT
+END Halt;
+
+PROCEDURE ExitOnHalt (code: INTEGER);
+BEGIN
+END ExitOnHalt;
+
+END M2RTS.

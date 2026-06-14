@@ -1,0 +1,11 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 RawIO — uninterpreted byte/LOC IO over an explicit
+   channel. SRawIO is the default-channel analogue. *)
+DEFINITION MODULE RawIO;
+
+IMPORT IOChan, SYSTEM;
+
+PROCEDURE Read  (cid: IOChan.ChanId; VAR to: ARRAY OF SYSTEM.LOC);
+PROCEDURE Write (cid: IOChan.ChanId; from: ARRAY OF SYSTEM.LOC);
+
+END RawIO.

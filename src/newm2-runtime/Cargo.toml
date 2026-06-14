@@ -1,0 +1,27 @@
+[package]
+name = "newm2-runtime"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+# `rlib` for the JIT (the driver binds runtime symbols by linking this crate);
+# `staticlib` produces `newm2_runtime.lib`, a self-contained archive (runtime +
+# Rust std) that AOT-built `.exe`s link against. Both artifacts coexist.
+[lib]
+crate-type = ["rlib", "staticlib"]
+
+[features]
+# The tracing GC is quarantined behind this opt-in feature. The default
+# build is manual-memory only (HeapAlloc-backed `Storage`). Build with
+# `--features gc` to compile the collector back in.
+default = []
+gc = []
+
+[dependencies]
+
+# COM interop glue (CoInitialize / CoGetMalloc / IMalloc) for the OO/COM layer.
+# Our class object layout `{ vtable, fields }` and virtual dispatch already
+# match the COM ABI, so M2 classes can implement and consume COM objects; this
+# crate supplies the OS entry points.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_System_Com", "Win32_Foundation"] }

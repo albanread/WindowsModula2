@@ -1,0 +1,27 @@
+(* NewM2-internal low-level float primitives. Not part of ISO 10514-1.
+
+   Procedures here are bound by name in `src/newm2-llvm/src/lib.rs` to
+   functions in `newm2-runtime/src/fmath.rs`. ISO `LowReal` / `LowLong`
+   import this internally.
+
+   All operations are on LONGREAL. The `LowReal` (REAL-surface) port
+   widens REAL to LONGREAL before calling and narrows the result back,
+   the same pattern the XDS port used against `xMath`. *)
+DEFINITION MODULE NM2LowMath;
+
+(* Split `x` into a normalised fraction in [0.5, 1.0) and a power-of-
+   two exponent such that `x = fraction * 2^exp`. Returns the fraction;
+   the exponent is written into `*expOut`. *)
+PROCEDURE Frexp ["NM2.Math.Frexp" EXTERNAL]
+               (x: LONGREAL; VAR expOut: INTEGER): LONGREAL;
+
+(* `x * 2^n`. *)
+PROCEDURE Ldexp ["NM2.Math.Ldexp" EXTERNAL]
+               (x: LONGREAL; n: INTEGER): LONGREAL;
+
+(* Split `x` into integer and fractional parts (both sharing `x`'s sign).
+   Returns the fractional part; integer part is written to `*intOut`. *)
+PROCEDURE Modf ["NM2.Math.Modf" EXTERNAL]
+              (x: LONGREAL; VAR intOut: LONGREAL): LONGREAL;
+
+END NM2LowMath.

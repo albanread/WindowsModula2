@@ -1,0 +1,41 @@
+(* TimeFunc — calendar / date-time arithmetic over the ISO SysClock.DateTime
+   record. A clean-room NewModula2 recreation: pure proleptic-Gregorian calendar
+   math (no OS calls), so it is a self-contained Tier-C1 utility.
+
+   Provides weekday, DateTime ordering, ANSI-C time_t conversion, and MS-DOS/FAT
+   timestamp packing. NewM2 notes: ADW CARDINAL32/16 -> plain CARDINAL masked
+   with BAND 0FFFFFFFFH / 0FFFFH (no sized 32/16-bit type). All arithmetic is on
+   non-negative values, so Wirth-floored DIV/MOD divide identically to the
+   truncating form the original used.
+
+   Deferred (own follow-up): LocalTimeToUTCTime / UTCTimeToLocalTime — a correct
+   minute-offset shift needs full carry normalisation across day/month/year
+   boundaries; not yet implemented here. *)
+DEFINITION MODULE TimeFunc;
+
+IMPORT SysClock;
+
+TYPE
+  DateTime  = SysClock.DateTime;
+  DayOfWeek = (Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday);
+
+PROCEDURE GetDayOfWeek (dt: DateTime): DayOfWeek;
+  (* Weekday of dt's date (proleptic Gregorian). *)
+
+PROCEDURE CompareTime (left, right: DateTime): INTEGER;
+  (* -1 / 0 / 1 for left <,=,> right, cascading year..fractions. *)
+PROCEDURE DateTimeEqual   (left, right: DateTime): BOOLEAN;
+PROCEDURE DateTimeGreater (left, right: DateTime): BOOLEAN;
+
+PROCEDURE DateTimeToC (dt: DateTime; VAR cdt: CARDINAL);
+  (* dt -> unsigned C seconds since 1970-01-01, masked to 32 bits (to ~2106). *)
+PROCEDURE CToDateTime (cdt: CARDINAL; VAR dt: DateTime);
+  (* Inverse of DateTimeToC (cdt taken as a 32-bit count). Zone/fractions = 0. *)
+
+PROCEDURE DateTimeToDos (dt: DateTime; VAR date, time: CARDINAL);
+  (* dt -> packed MS-DOS/FAT 16-bit date and time words (FAT epoch 1980;
+     2-second resolution). Each result is 0..65535. *)
+PROCEDURE DosToDateTime (date, time: CARDINAL; VAR dt: DateTime);
+  (* Inverse of DateTimeToDos. Zone/fractions = 0. *)
+
+END TimeFunc.

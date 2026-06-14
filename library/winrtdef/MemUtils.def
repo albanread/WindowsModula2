@@ -1,0 +1,62 @@
+(* MemUtils — portable low-level block-memory operations over SYSTEM byte
+   access. A clean-room NewModula2 recreation of the ADW MemUtils *portable*
+   semantics only: no x86 REP-string / ERMSB / CPU-dispatch machinery is
+   recreated (NewM2 wants the portable path). Operates on raw BYTEs, so it is
+   CHAR-width irrelevant.
+
+   Conventions:
+   - Element counts are in ELEMENT units (bytes / words / dwords / qwords);
+     pointer advance is element_size * count.
+   - Multi-byte fill/scan patterns are carried in a 64-bit CARDINAL (only the
+     low 8/16/32/64 bits are used) and laid out in little-endian byte order;
+     fill and scan use the IDENTICAL decomposition, so they are self-consistent.
+   - Counts can be 0 (a no-op); every routine is written with WHILE/DEC loops so
+     a 0 count never underflows the 64-bit index.
+   - Callers own all bounds and pointer validity (these are leaf utilities).
+
+   Two security-hardening primitives are added per the modernization sweep
+   (security-hardening F5/F7): SecureZeroMem (a wipe the optimizer must not
+   elide) and EqualCT (a constant-time byte compare for secrets/MACs). See
+   docs/design/m2winrt-security-checklist.md. *)
+DEFINITION MODULE MemUtils;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+(* ---- Fill: write the element to `num` consecutive elements ---- *)
+PROCEDURE FillMemBYTE  (dest: ADDRESS; numBytes:  CARDINAL; db: BYTE);
+PROCEDURE FillMemWORD  (dest: ADDRESS; numWords:  CARDINAL; dw: CARDINAL);
+PROCEDURE FillMemDWORD (dest: ADDRESS; numDwords: CARDINAL; dd: CARDINAL);
+PROCEDURE FillMemQWORD (dest: ADDRESS; numQwords: CARDINAL; dq: CARDINAL);
+
+(* ---- Zero: fill `numBytes` bytes with 0 (a real wipe, NOT for secrets) ---- *)
+PROCEDURE ZeroMem (dest: ADDRESS; numBytes: CARDINAL);
+
+(* ---- Move: byte copies. MoveMem is overlap-safe; the directional forms
+        require the caller to guarantee the stated direction is safe. ---- *)
+PROCEDURE MoveMem         (dest, src: ADDRESS; numBytes: CARDINAL); (* overlap-safe *)
+PROCEDURE MoveMemForward  (dest, src: ADDRESS; numBytes: CARDINAL); (* need dest<=src or disjoint *)
+PROCEDURE MoveMemBackward (dest, src: ADDRESS; numBytes: CARDINAL); (* need dest>=src or disjoint *)
+
+(* ---- Scan: ELEMENT index of the first element == value (eq) / != value (ne).
+        Returns `num` when not found — and also when num = 0. ---- *)
+PROCEDURE ScanMemBYTE    (dest: ADDRESS; numBytes:  CARDINAL; db: BYTE):     CARDINAL;
+PROCEDURE ScanMemNeBYTE  (dest: ADDRESS; numBytes:  CARDINAL; db: BYTE):     CARDINAL;
+PROCEDURE ScanMemWORD    (dest: ADDRESS; numWords:  CARDINAL; dw: CARDINAL): CARDINAL;
+PROCEDURE ScanMemNeWORD  (dest: ADDRESS; numWords:  CARDINAL; dw: CARDINAL): CARDINAL;
+PROCEDURE ScanMemDWORD   (dest: ADDRESS; numDwords: CARDINAL; dd: CARDINAL): CARDINAL;
+PROCEDURE ScanMemNeDWORD (dest: ADDRESS; numDwords: CARDINAL; dd: CARDINAL): CARDINAL;
+PROCEDURE ScanMemQWORD   (dest: ADDRESS; numQwords: CARDINAL; dq: CARDINAL): CARDINAL;
+PROCEDURE ScanMemNeQWORD (dest: ADDRESS; numQwords: CARDINAL; dq: CARDINAL): CARDINAL;
+
+(* ---- Compare: byte index of first difference, or numBytes if all equal. ---- *)
+PROCEDURE CompMem (dest, src: ADDRESS; numBytes: CARDINAL): CARDINAL;
+
+(* ---- Security hardening (modernization F5/F7) ---- *)
+PROCEDURE SecureZeroMem (dest: ADDRESS; numBytes: CARDINAL);
+  (* Zero `numBytes` bytes so the write is NOT dead-store-eliminated — for
+     wiping keys/IVs/passwords before free. Use this, not ZeroMem, for secrets. *)
+PROCEDURE EqualCT (a, b: ADDRESS; numBytes: CARDINAL): BOOLEAN;
+  (* TRUE iff the two regions are equal, in time depending only on numBytes
+     (no early exit) — for comparing MACs/keys without a timing side channel. *)
+
+END MemUtils.

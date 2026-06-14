@@ -1,0 +1,8 @@
+# Build artifacts from `newm2 build demos/*.mod`
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.lib
+*.manifest
+_*.txt

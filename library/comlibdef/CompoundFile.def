@@ -1,0 +1,120 @@
+(*
+Name:     CompoundFile
+Creation: 21-01-1999
+LastEdit: 24-11-2000
+Author:   Egbert J. van der Haring
+System:   StonyBrook Modula-2
+Remarks:  An interface to structured storage compound files.
+*)
+
+UNSAFEGUARDED DEFINITION MODULE CompoundFile;
+
+IMPORT SYSTEM;
+IMPORT WIN32;
+IMPORT Ole2;
+
+CONST cREAD=      0;
+      cWRITE=     1;
+      cREADWRITE= 2;
+
+TYPE STORAGE;
+     STREAM;
+     CALLBACK= PROCEDURE(SYSTEM.DWORD,ARRAY OF CHAR): BOOLEAN;
+
+PROCEDURE Create(    szName:  ARRAY OF CHAR;
+                 VAR storage: STORAGE): BOOLEAN;
+(* creates a compound file *)
+(* NB: if a file with the same name exists, it is over-written *)
+
+PROCEDURE Create2(    iStorage: Ole2.IStorage;
+                  VAR storage:  STORAGE);
+(* uses an already available iStorage *)
+(* NB: call Dispose to release the used memory *)
+(*     this does not call iStorage.Release *)
+
+PROCEDURE Open(    cMode:   CARDINAL;
+                   szName:  ARRAY OF CHAR;
+               VAR storage: STORAGE): BOOLEAN;
+(* opens a compound file *)
+
+PROCEDURE Dispose(VAR INOUT storage: STORAGE);
+(* disposes of storage, without releasing iStorage *)
+
+PROCEDURE Close(VAR INOUT storage: STORAGE);
+(* closes compound file *)
+
+PROCEDURE WriteClass(storage: STORAGE;
+                     guid:    WIN32.GUID);
+(* writes class GUID to storage *)
+
+PROCEDURE WriteFormat(storage:  STORAGE;
+                      cfFormat: CARDINAL;
+                      szFormat: ARRAY OF CHAR);
+(* writes user type format to storage *)
+
+PROCEDURE CreateStream(    storage: STORAGE;
+                           szName:  ARRAY OF CHAR;
+                       VAR stream:  STREAM): BOOLEAN;
+(* creates a stream in the storage *)
+(* NB: if a stream with the same name exists, the procedure fails *)
+
+PROCEDURE OpenStream(    storage: STORAGE;
+                         cMode:   CARDINAL;
+                         szName:  ARRAY OF CHAR;
+                     VAR stream:  STREAM): BOOLEAN;
+(* opens a stream in the storage *)
+
+PROCEDURE CloseStream(VAR INOUT stream: STREAM);
+(* closes stream *)
+
+PROCEDURE DeleteStream(storage:  STORAGE;
+                       szStream: ARRAY OF CHAR): BOOLEAN;
+(* deletes a stream from the storage *)
+
+PROCEDURE ExistsStream(storage:  STORAGE;
+                       szStream: ARRAY OF CHAR): BOOLEAN;
+(* returns TRUE if szStream exists in storage *)
+
+PROCEDURE EnumStreams(storage:  STORAGE;
+                      dword:    SYSTEM.DWORD;
+                      callback: CALLBACK);
+(* enumerates streams in a storage *)
+(* the callback procedure is called for each stream *)
+(* when callback returns FALSE enumeration is stopped *)
+(* dword can be used to pass information to the callback procedure *)
+
+PROCEDURE EOS(stream: STREAM): BOOLEAN;
+(* returns TRUE if end of stream is reached during read *)
+
+PROCEDURE Write(stream: STREAM;
+                bytes:  ARRAY OF SYSTEM.BYTE);
+(* writes array of bytes to stream *)
+(* NB: uses HIGH(bytes) to determine the number of bytes to write *)
+
+PROCEDURE Read(    stream: STREAM;
+               VAR bytes:  ARRAY OF SYSTEM.BYTE);
+(* reads array of bytes from stream *)
+(* NB: uses HIGH(bytes) to determine the number of bytes to write *)
+
+PROCEDURE WriteText(stream: STREAM;
+                    szText: ARRAY OF CHAR);
+(* writes text to stream *)
+
+PROCEDURE ReadText(    stream: STREAM;
+                   VAR szText: ARRAY OF CHAR);
+(* reads text from stream *)
+
+PROCEDURE WriteBytes(stream: STREAM;
+                     bytes:  ARRAY OF SYSTEM.BYTE;
+                     cCount: CARDINAL): CARDINAL;
+(* writes cCount bytes from array to stream *)
+(* returns actual number of bytes written *)
+
+PROCEDURE ReadBytes(    stream: STREAM;
+                    VAR bytes:  ARRAY OF SYSTEM.BYTE;
+                        cCount: CARDINAL): CARDINAL;
+(* reads cCount bytes from stream to array *)
+(* returns actual number of bytes read *)
+
+
+END CompoundFile.

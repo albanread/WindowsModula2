@@ -1,0 +1,26 @@
+[package]
+name = "newm2-driver"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+newm2-ir = { path = "../newm2-ir" }
+newm2-lexer = { path = "../newm2-lexer" }
+newm2-llvm = { path = "../newm2-llvm" }
+newm2-loader = { path = "../newm2-loader" }
+newm2-parser = { path = "../newm2-parser" }
+newm2-runtime = { path = "../newm2-runtime" }
+newm2-sema = { path = "../newm2-sema" }
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# AOT linking: locate the MSVC linker (link.exe) + its LIB/PATH environment the
+# same way rustc/cc do, via the Windows registry / vswhere. Used by `build`.
+cc = "1"
+
+# Phase 2: cargo features for richer dump-module-graph testing.
+[features]
+default = []
+# Opt-in tracing GC (off by default). Enables the `--gc` mode and pulls the
+# collector into the runtime / codegen.
+gc = ["newm2-llvm/gc", "newm2-runtime/gc"]

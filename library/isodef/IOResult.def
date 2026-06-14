@@ -1,0 +1,15 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 IOResult — last-read result for explicit channels. The
+   ReadResults alias re-exports the IOConsts enumeration so client code
+   can write `IOResult.ReadResults` without importing IOConsts directly.
+*)
+DEFINITION MODULE IOResult;
+
+IMPORT IOConsts, IOChan;
+
+TYPE
+  ReadResults = IOConsts.ReadResults;
+
+PROCEDURE ReadResult (cid: IOChan.ChanId): ReadResults;
+
+END IOResult.

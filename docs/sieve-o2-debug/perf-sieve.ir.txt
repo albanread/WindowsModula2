@@ -1,0 +1,162 @@
+﻿IR MODULE STextIO  [gc]
+
+IR MODULE SWholeIO  [gc]
+
+IR MODULE PerfSieveO2  [gc]
+
+extern fn @SWholeIO.WriteInt
+extern fn @STextIO.WriteLn
+
+fn PerfSieveO2.body()  [gc] {
+  B0:  ; entry
+    v0 = int 0
+    v1 = alloca T2
+    *v1 = v0
+    v2 = int 0
+    v3 = alloca T2
+    *v3 = v2
+    goto B2
+  B1:  ; exit
+    return
+  B2:  ; while_cond
+    v4 = load *v1
+    v5 = int 3000
+    v6 = v4 < v5
+    condbr v6 ÔåÆ B3 | B4
+  B3:  ; while_body
+    v7 = int 0
+    v8 = alloca T2
+    *v8 = v7
+    goto B5
+  B4:  ; while_exit
+    v78 = fn @SWholeIO.WriteInt
+    v79 = load *v3
+    v80 = int 0
+    v81 = call v78(v79, v80)
+    v82 = fn @STextIO.WriteLn
+    v83 = call v82()
+    goto B1
+  B5:  ; while_cond
+    v9 = load *v8
+    v10 = int 4095
+    v11 = v9 <= v10
+    condbr v11 ÔåÆ B6 | B7
+  B6:  ; while_body
+    v12 = int 1
+    v13 = alloca T39
+    v14 = load *v8
+    v15 = &v13[v14]
+    *v15 = v12
+    v16 = load *v8
+    v17 = int 1
+    v18 = v16 + v17
+    *v8 = v18
+    gc.safepoint
+    goto B5
+  B7:  ; while_exit
+    v19 = int 0
+    v20 = int 0
+    v21 = &v13[v20]
+    *v21 = v19
+    v22 = int 0
+    v23 = int 1
+    v24 = &v13[v23]
+    *v24 = v22
+    v25 = int 2
+    *v8 = v25
+    goto B8
+  B8:  ; while_cond
+    v26 = load *v8
+    v27 = load *v8
+    v28 = v26 * v27
+    v29 = int 4095
+    v30 = v28 <= v29
+    condbr v30 ÔåÆ B9 | B10
+  B9:  ; while_body
+    v31 = load *v8
+    v32 = &v13[v31]
+    v33 = load *v32
+    v34 = int 0
+    v35 = v33 # v34
+    condbr v35 ÔåÆ B12 | B11
+  B10:  ; while_exit
+    v52 = int 0
+    v53 = alloca T2
+    *v53 = v52
+    v54 = int 2
+    *v8 = v54
+    goto B16
+  B11:  ; if_join
+    v49 = load *v8
+    v50 = int 1
+    v51 = v49 + v50
+    *v8 = v51
+    gc.safepoint
+    goto B8
+  B12:  ; if_then.0
+    v36 = load *v8
+    v37 = load *v8
+    v38 = v36 * v37
+    v39 = alloca T2
+    *v39 = v38
+    goto B13
+  B13:  ; while_cond
+    v40 = load *v39
+    v41 = int 4095
+    v42 = v40 <= v41
+    condbr v42 ÔåÆ B14 | B15
+  B14:  ; while_body
+    v43 = int 0
+    v44 = load *v39
+    v45 = &v13[v44]
+    *v45 = v43
+    v46 = load *v39
+    v47 = load *v8
+    v48 = v46 + v47
+    *v39 = v48
+    gc.safepoint
+    goto B13
+  B15:  ; while_exit
+    goto B11
+  B16:  ; while_cond
+    v55 = load *v8
+    v56 = int 4095
+    v57 = v55 <= v56
+    condbr v57 ÔåÆ B17 | B18
+  B17:  ; while_body
+    v58 = load *v53
+    v59 = load *v8
+    v60 = &v13[v59]
+    v61 = load *v60
+    v62 = v58 + v61
+    *v53 = v62
+    v63 = load *v8
+    v64 = int 1
+    v65 = v63 + v64
+    *v8 = v65
+    gc.safepoint
+    goto B16
+  B18:  ; while_exit
+    v66 = load *v3
+    v67 = load *v53
+    v68 = v66 + v67
+    *v3 = v68
+    v69 = load *v3
+    v70 = int 1000000000
+    v71 = v69 >= v70
+    condbr v71 ÔåÆ B20 | B19
+  B19:  ; if_join
+    v75 = load *v1
+    v76 = int 1
+    v77 = v75 + v76
+    *v1 = v77
+    gc.safepoint
+    goto B2
+  B20:  ; if_then.0
+    v72 = load *v3
+    v73 = int 1000000000
+    v74 = v72 - v73
+    *v3 = v74
+    goto B19
+}
+

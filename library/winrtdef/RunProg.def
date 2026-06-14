@@ -1,0 +1,46 @@
+(* RunProg — run an external program, synchronously or asynchronously.
+   Clean-room NewM2 recreation of the ADW/Stony Brook win32 helper (per
+   e:\cleanroom\modules\win32\RunProg.md). Pure Modula-2 over the Win32 API
+   (CreateProcessW / WaitForSingleObject / GetExitCodeProcess / TerminateProcess)
+   — no I/O redirection (use a piped-exec helper for that). Higher-level than the
+   raw API: window show-state and priority are selected with a flag set, and
+   PerformCommand runs a command line through the system shell (%COMSPEC% /C). *)
+DEFINITION MODULE RunProg;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+TYPE
+  ExecHandle = ADDRESS;                 (* opaque tracking handle; NIL = none *)
+  ExecFlags  = (ExecAsync, ExecDetached, ExecMinimized, ExecMaximized,
+                ExecHidden, ExecNormalPriority, ExecIdlePriority, ExecHighPriority);
+  ExecFlagSet = SET OF ExecFlags;
+
+CONST
+  SyncExec  = ExecFlagSet{};            (* empty -> wait for the child *)
+  AsyncExec = ExecFlagSet{ExecAsync};
+
+(* Run `name` with argument string `command` in working dir `defaultPath`
+   ("" = inherit current). Synchronous unless ExecAsync is set. `status` is the
+   child's exit code (meaningful only when synchronous) or, on launch failure,
+   GetLastError(). Returns TRUE iff the child was launched. *)
+PROCEDURE RunProgram (name, command, defaultPath: ARRAY OF CHAR;
+                      flags: ExecFlagSet; VAR status: CARDINAL): BOOLEAN;
+
+(* Async launch that retains a tracking handle. Requires ExecAsync (else FALSE).
+   The caller must later TerminateProgram(handle) to free it. *)
+PROCEDURE RunProgramEx (name, command, defaultPath: ARRAY OF CHAR;
+                        flags: ExecFlagSet; VAR handle: ExecHandle): BOOLEAN;
+
+(* The child's exit code, or MAX(CARDINAL) if it is still running. *)
+PROCEDURE GetProgramExitStatus (handle: ExecHandle): CARDINAL;
+
+(* Terminate the child if still running, close its handles, free the record;
+   handle := NIL. *)
+PROCEDURE TerminateProgram (VAR handle: ExecHandle);
+
+(* Run `com` through the command interpreter (%COMSPEC% /C com, or cmd.exe).
+   `status` is the interpreter's exit code. *)
+PROCEDURE PerformCommand (com: ARRAY OF CHAR; flags: ExecFlagSet;
+                          VAR status: CARDINAL): BOOLEAN;
+
+END RunProg.

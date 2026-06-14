@@ -1,0 +1,16 @@
+DefinitionModule Classes
+  AbstractClass IForwardOnly FORWARD
+  AbstractClass IBase
+    AbstractMethod Ping
+      Returns
+        Named BOOLEAN
+  AbstractClass IDerived
+    Inherit IBase
+    Reveal Ping, DoMore
+    AbstractMethod DoMore
+      Param VAR result
+        Named INTEGER
+      Param count
+        Named CARDINAL
+      Returns
+        Named BOOLEAN

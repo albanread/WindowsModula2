@@ -1,0 +1,47 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 IOChan — abstract channel layer. The opaque type ChanId
+   refers to a device table allocated by IOLink; all operations dispatch
+   through the device table's procedure-pointer fields. *)
+DEFINITION MODULE IOChan;
+
+IMPORT IOConsts, ChanConsts, SYSTEM;
+
+TYPE
+  ChanId; (* opaque — IOLink concretizes as DeviceTablePtr *)
+
+PROCEDURE InvalidChan (): ChanId;
+
+PROCEDURE Look      (cid: ChanId; VAR ch: CHAR; VAR res: IOConsts.ReadResults);
+PROCEDURE Skip      (cid: ChanId);
+PROCEDURE SkipLook  (cid: ChanId; VAR ch: CHAR; VAR res: IOConsts.ReadResults);
+PROCEDURE WriteLn   (cid: ChanId);
+PROCEDURE TextRead  (cid: ChanId; to: SYSTEM.ADDRESS; maxChars: CARDINAL;
+                     VAR charsRead: CARDINAL);
+PROCEDURE TextWrite (cid: ChanId; from: SYSTEM.ADDRESS; charsToWrite: CARDINAL);
+PROCEDURE RawRead   (cid: ChanId; to: SYSTEM.ADDRESS; maxLocs: CARDINAL;
+                     VAR locsRead: CARDINAL);
+PROCEDURE RawWrite  (cid: ChanId; from: SYSTEM.ADDRESS; locsToWrite: CARDINAL);
+PROCEDURE GetName   (cid: ChanId; VAR s: ARRAY OF CHAR);
+PROCEDURE Reset     (cid: ChanId);
+PROCEDURE Flush     (cid: ChanId);
+
+PROCEDURE SetReadResult (cid: ChanId; res: IOConsts.ReadResults);
+PROCEDURE ReadResult    (cid: ChanId): IOConsts.ReadResults;
+
+PROCEDURE CurrentFlags (cid: ChanId): ChanConsts.FlagSet;
+
+TYPE
+  ChanExceptions =
+    (wrongDevice, notAvailable, skipAtEnd,
+     softDeviceError, hardDeviceError,
+     textParseError, notAChannel);
+
+PROCEDURE IsChanException (): BOOLEAN;
+PROCEDURE ChanException   (): ChanExceptions;
+
+TYPE
+  DeviceErrNum = INTEGER;
+
+PROCEDURE DeviceError (cid: ChanId): DeviceErrNum;
+
+END IOChan.

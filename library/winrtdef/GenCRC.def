@@ -1,0 +1,39 @@
+(* GenCRC — 32-bit CRC over a byte stream (reflected CRC-32, polynomial
+   0EDB88320H — the zip/gzip/PNG/Ethernet CRC). A clean-room NewModula2
+   recreation: the algorithm and its constants are the public CRC-32 standard
+   itself, not any particular library's expression of it.
+
+   A 256-entry lookup table is built once at module initialisation. The
+   incremental contract is: seed with `CrcPrecondition`, fold data with any mix
+   of `CrcByte`/`CrcBlock`/`CrcBytes` (threading the returned value through),
+   then finalise once with `CrcPostcondition`. `GenCRC` is the one-shot form.
+
+   NewM2 notes: CARDINAL is 64-bit, so a 32-bit CRC lives in a `Crc32`
+   (= CARDINAL) masked to 32 bits after every fold. This operates on raw BYTEs,
+   never on (16-bit) CHARs, so it is CHAR-width irrelevant. *)
+DEFINITION MODULE GenCRC;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+TYPE
+  Crc32 = CARDINAL;   (* a 32-bit CRC value, held in the low 32 bits *)
+
+CONST
+  CrcPrecondition = 0FFFFFFFFH;   (* initial CRC seed: all ones *)
+
+PROCEDURE CrcByte (b: BYTE; crc: Crc32): Crc32;
+  (* Fold one byte into the running CRC; returns the updated CRC. *)
+
+PROCEDURE CrcBlock (data: ARRAY OF BYTE; crc: Crc32): Crc32;
+  (* Fold a whole open byte array (count = HIGH(data)+1). *)
+
+PROCEDURE CrcBytes (data: ADDRESS; numBytes: CARDINAL; crc: Crc32): Crc32;
+  (* Fold `numBytes` raw bytes starting at `data`; the address/length workhorse. *)
+
+PROCEDURE CrcPostcondition (crc: Crc32): Crc32;
+  (* Finalise: returns crc BXOR 0FFFFFFFFH (the standard final inversion). *)
+
+PROCEDURE GenCRC (data: ADDRESS; numBytes: CARDINAL): Crc32;
+  (* One-shot convenience: CrcPostcondition(CrcBytes(data, n, CrcPrecondition)). *)
+
+END GenCRC.

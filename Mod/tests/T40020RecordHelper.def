@@ -1,0 +1,5 @@
+DEFINITION MODULE T40020RecordHelper;
+
+PROCEDURE WriteRecordValues(leftIn : INTEGER; rightIn : CARDINAL; markIn : CHAR);
+
+END T40020RecordHelper.

@@ -1,0 +1,27 @@
+(* InOut — the classic PIM console I/O module. A clean-room NewModula2
+   implementation delegating to the ISO simple text/whole modules; WriteOct and
+   WriteHex format the digits directly. `Done` reflects the last input
+   operation; `termCH` holds the character that terminated the last read. *)
+DEFINITION MODULE InOut;
+
+CONST
+  EOL = CHR(10);
+
+VAR
+  Done:   BOOLEAN;
+  termCH: CHAR;
+
+PROCEDURE Read (VAR ch: CHAR);
+PROCEDURE ReadString (VAR s: ARRAY OF CHAR);
+PROCEDURE ReadInt (VAR n: INTEGER);
+PROCEDURE ReadCard (VAR n: CARDINAL);
+
+PROCEDURE Write (ch: CHAR);
+PROCEDURE WriteLn;
+PROCEDURE WriteString (s: ARRAY OF CHAR);
+PROCEDURE WriteInt (n: INTEGER; w: CARDINAL);
+PROCEDURE WriteCard (n: CARDINAL; w: CARDINAL);
+PROCEDURE WriteOct (n: CARDINAL; w: CARDINAL);
+PROCEDURE WriteHex (n: CARDINAL; w: CARDINAL);
+
+END InOut.

@@ -1,0 +1,38 @@
+(*
+Name:     Moniker
+Creation: 18-02-99
+LastEdit: 18-02-99
+Author:   Egbert J. van der Haring
+System:   StonyBrook Modula-2
+Remarks:  encapsulates monikers, so we can use ARRAY OF CHARs.
+*)
+
+UNSAFEGUARDED DEFINITION MODULE Moniker;
+
+IMPORT Ole2;
+
+PROCEDURE CreateFile(    szFile:   ARRAY OF CHAR;
+                     VAR iMoniker: Ole2.IMoniker): BOOLEAN;
+(* creates a file moniker *)
+
+PROCEDURE CreateItem(    szItem:   ARRAY OF CHAR;
+                     VAR iMoniker: Ole2.IMoniker): BOOLEAN;
+(* creates an item moniker *)
+
+PROCEDURE GetDisplayName(    iMoniker: Ole2.IMoniker;
+                         VAR szName:   ARRAY OF CHAR): BOOLEAN;
+(* returns monikers display name *)
+
+PROCEDURE RegisterAsRunning(    szFile:      ARRAY OF CHAR;
+                                iUnknown:    Ole2.IUnknown;
+                            VAR iMoniker:    Ole2.IMoniker;
+                            VAR cRegistered: CARDINAL): BOOLEAN;
+(* creates a moniker for szFile and registers the file as running *)
+(* iUnknown must point to the object *)
+
+PROCEDURE Revoke(VAR INOUT iMoniker:    Ole2.IMoniker;
+                 VAR INOUT cRegistered: CARDINAL);
+(* revokes registered object and releases moniker *)
+(* NB: iMoniker may be EMPTY, in which case nothing happens *)
+
+END Moniker.

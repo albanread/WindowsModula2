@@ -1,0 +1,26 @@
+(* CryptKey — password-based key derivation (PBKDF2-HMAC-SHA-256) over Windows
+   CNG, called DIRECTLY from M2. Clean-room NewModula2: a thin façade over
+   BCryptDeriveKeyPBKDF2 — Windows does the stretching, not roll-your-own.
+
+   SECURITY: derive keys for NEW passwords with at least `RecommendedIterations`
+   (600,000) and a salt of >= 16 cryptographically random bytes from
+   [SecureRandom] (never RandomNumbers). A lower iteration count is permitted
+   only to re-derive and verify a legacy credential before upgrading it. The
+   derived key is the caller's to wipe (MemUtils.SecureZeroMem) after use. *)
+DEFINITION MODULE CryptKey;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+CONST
+  RecommendedIterations = 600000;   (* floor for new password material *)
+  MinSaltBytes          = 16;
+
+PROCEDURE DeriveKey (password: ADDRESS; passwordLen: CARDINAL;
+                     salt: ADDRESS; saltLen: CARDINAL;
+                     iterations: CARDINAL;
+                     key: ADDRESS; keyLen: CARDINAL): BOOLEAN;
+  (* Derive `keyLen` key bytes from (password, salt) with `iterations` rounds of
+     PBKDF2-HMAC-SHA-256. Returns FALSE on a CNG failure (and the caller should
+     treat `key` as undefined). *)
+
+END CryptKey.

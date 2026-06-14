@@ -1,0 +1,22 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 TextIO — character / string IO over an explicit channel.
+   STextIO is the analogous module bound to the default I/O channel. *)
+DEFINITION MODULE TextIO;
+
+IMPORT IOChan;
+
+(* Read operations (do not consume the next line mark). *)
+PROCEDURE ReadChar     (cid: IOChan.ChanId; VAR ch: CHAR);
+PROCEDURE ReadRestLine (cid: IOChan.ChanId; VAR s: ARRAY OF CHAR);
+PROCEDURE ReadString   (cid: IOChan.ChanId; VAR s: ARRAY OF CHAR);
+PROCEDURE ReadToken    (cid: IOChan.ChanId; VAR s: ARRAY OF CHAR);
+
+(* Consume up to and including the next line mark. *)
+PROCEDURE SkipLine (cid: IOChan.ChanId);
+
+(* Output. *)
+PROCEDURE WriteChar   (cid: IOChan.ChanId; ch: CHAR);
+PROCEDURE WriteLn     (cid: IOChan.ChanId);
+PROCEDURE WriteString (cid: IOChan.ChanId; s: ARRAY OF CHAR);
+
+END TextIO.

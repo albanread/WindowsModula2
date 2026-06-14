@@ -1,0 +1,42 @@
+(* NewM2-internal channel I/O primitives. Not part of ISO 10514-1.
+
+   Bound by name in `src/newm2-llvm/src/lib.rs` to functions in
+   `newm2-runtime/src/io.rs`. No IMPLEMENTATION MODULE is shipped — every
+   procedure has external linkage. The ISO surface (StdChans, TextIO, …)
+   imports this internally to back the device-table procedure-pointer fields
+   with real stdin/stdout/stderr I/O.
+
+   NewModula2's CHAR is a wide (UTF-16) cell, so the text procedures take a
+   CHAR-cell count and the runtime converts to/from UTF-8 at the boundary;
+   `WriteBytes` is the raw (binary) path. *)
+DEFINITION MODULE NM2IO;
+
+IMPORT SYSTEM;
+
+(* ── stdout / stderr text path (CHAR cells, UTF-16 → UTF-8) ───────── *)
+
+(* Write `n` CHAR cells starting at `addr` to stdout / stderr. *)
+PROCEDURE WriteText    ["NM2.IO.WriteText"    EXTERNAL] (addr: SYSTEM.ADDRESS; n: CARDINAL);
+PROCEDURE WriteErrText ["NM2.IO.WriteErrText" EXTERNAL] (addr: SYSTEM.ADDRESS; n: CARDINAL);
+
+(* Raw binary write: `n` bytes at `addr` to stdout (RawIO path). *)
+PROCEDURE WriteBytes   ["NM2.IO.WriteBytes"   EXTERNAL] (addr: SYSTEM.ADDRESS; n: CARDINAL);
+
+(* Flush stdout / stderr. *)
+PROCEDURE Flush    ["NM2.IO.Flush"    EXTERNAL] ();
+PROCEDURE FlushErr ["NM2.IO.FlushErr" EXTERNAL] ();
+
+(* ── stdin read path (CHAR cells) ────────────────────────────────── *)
+
+(* Peek the next stdin CHAR without consuming it. Stores the CHAR into `ch`
+   and an `IOConsts.ReadResults` ordinal into `res` (1 = allRight,
+   4 = endOfLine, 5 = endOfInput). One-cell lookahead behind the scenes. *)
+PROCEDURE PeekChar    ["NM2.IO.PeekChar"    EXTERNAL] (VAR ch: CHAR; VAR res: INTEGER);
+
+(* Discard the most-recently-peeked CHAR. *)
+PROCEDURE ConsumeChar ["NM2.IO.ConsumeChar" EXTERNAL] ();
+
+(* Read up to `max` CHAR cells from stdin into `addr`; actual count via `n`. *)
+PROCEDURE ReadText    ["NM2.IO.ReadText"    EXTERNAL] (addr: SYSTEM.ADDRESS; max: CARDINAL; VAR n: CARDINAL);
+
+END NM2IO.

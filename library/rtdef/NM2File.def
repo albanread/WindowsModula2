@@ -1,0 +1,59 @@
+(* NewM2-internal disk-file primitives. Not part of ISO 10514-1.
+
+   Bound by name in `src/newm2-llvm/src/lib.rs` to functions in
+   `src/newm2-runtime/src/file.rs`. ISO StreamFile / SeqFile / RndFile
+   layer on these shims; the file handle is a 64-bit opaque value
+   (boxed std::fs::File address on the Rust side).
+
+   Open-flag bits — must match `flags` in src/newm2-runtime/src/file.rs:
+     bit 0 = READ
+     bit 1 = WRITE
+     bit 2 = OLD   (must exist; without this, WRITE will create)
+     bit 3 = NEW   (create / truncate)
+*)
+DEFINITION MODULE NM2File;
+
+IMPORT SYSTEM;
+
+CONST
+  ReadFlag  = 1;
+  WriteFlag = 2;
+  OldFlag   = 4;
+  NewFlag   = 8;
+
+(* Open a file. `name_ptr` must point to a NUL-terminated path.
+   Returns a non-zero handle on success, 0 on failure. *)
+PROCEDURE Open ["NM2.File.Open" EXTERNAL]
+              (name_ptr: SYSTEM.ADDRESS; flags: CARDINAL64): CARDINAL64;
+
+PROCEDURE Close ["NM2.File.Close" EXTERNAL] (h: CARDINAL64);
+
+(* Read up to `max` bytes into `addr`; returns actual bytes read
+   (0 on EOF or error). *)
+PROCEDURE Read ["NM2.File.Read" EXTERNAL]
+              (h: CARDINAL64; addr: SYSTEM.ADDRESS; max: CARDINAL64): CARDINAL64;
+
+(* Write `n` bytes from `addr`; returns bytes written (= n on success,
+   0 on error). *)
+PROCEDURE Write ["NM2.File.Write" EXTERNAL]
+               (h: CARDINAL64; addr: SYSTEM.ADDRESS; n: CARDINAL64): CARDINAL64;
+
+(* Absolute seek to `offset` bytes from the start. Returns 0 on
+   success, non-zero on error. *)
+PROCEDURE Seek ["NM2.File.Seek" EXTERNAL]
+              (h: CARDINAL64; offset: CARDINAL64): CARDINAL64;
+
+PROCEDURE Tell ["NM2.File.Tell" EXTERNAL] (h: CARDINAL64): CARDINAL64;
+
+PROCEDURE Size ["NM2.File.Size" EXTERNAL] (h: CARDINAL64): CARDINAL64;
+
+PROCEDURE Flush ["NM2.File.Flush" EXTERNAL] (h: CARDINAL64);
+
+(* Wide text path: CHAR cells (UTF-16) <-> UTF-8 on disk. WriteText writes
+   `n` CHAR cells; ReadText reads up to `max` cells. RawIO uses Read/Write. *)
+PROCEDURE WriteText ["NM2.File.WriteText" EXTERNAL]
+                   (h: CARDINAL64; addr: SYSTEM.ADDRESS; n: CARDINAL64): CARDINAL64;
+PROCEDURE ReadText ["NM2.File.ReadText" EXTERNAL]
+                  (h: CARDINAL64; addr: SYSTEM.ADDRESS; max: CARDINAL64): CARDINAL64;
+
+END NM2File.

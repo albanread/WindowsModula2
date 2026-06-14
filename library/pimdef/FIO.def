@@ -1,0 +1,26 @@
+(* FIO — file I/O. A clean-room NewModula2 implementation covering the
+   console-output surface the corpus exercises: the standard `StdOut`/`StdErr`/
+   `StdIn` handles plus the buffered write operations, which delegate to the ISO
+   simple text/whole modules. Real on-disk files (OpenToRead/OpenToWrite) return
+   a sentinel and the buffered ops still reach standard output — enough for the
+   StdOut-driven tests; full file backing is a later step. *)
+DEFINITION MODULE FIO;
+
+TYPE
+  File = CARDINAL;
+
+VAR
+  StdIn, StdOut, StdErr: File;
+
+PROCEDURE WriteChar (f: File; ch: CHAR);
+PROCEDURE WriteString (f: File; s: ARRAY OF CHAR);
+PROCEDURE WriteLine (f: File);
+PROCEDURE WriteCardinal (f: File; c: CARDINAL);
+PROCEDURE FlushBuffer (f: File);
+PROCEDURE Close (f: File);
+PROCEDURE IsNoError (f: File): BOOLEAN;
+PROCEDURE EOF (f: File): BOOLEAN;
+PROCEDURE OpenToWrite (fname: ARRAY OF CHAR): File;
+PROCEDURE OpenToRead (fname: ARRAY OF CHAR): File;
+
+END FIO.

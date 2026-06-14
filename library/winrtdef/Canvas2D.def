@@ -1,0 +1,57 @@
+(* Canvas2D — a small immediate-mode 2-D drawing surface on Direct2D, the shape
+   sibling of ShaderView (which is the GPU/pixel-shader host). A program creates
+   a window, Attaches a canvas to it, then each frame calls Begin, issues filled
+   rectangles / ellipses / text, and Flush()es. The Direct2D/DirectWrite COM
+   interfaces it drives are the winapi-gen-generated, @ordinal-checked ones (the
+   same path TermRender proves) — no hand-counted vtables.
+
+   Colours are packed 0x00RRGGBB CARDINALs (as in Terminal). Coordinates are in
+   device-independent pixels as REAL; they are converted to the f32 the Direct2D
+   ABI wants internally.
+
+   Usage:
+     ok  := Canvas2D.Startup();                       (* factory + a text format *)
+     win := WinShell.CreateAppWindow(title, w, h, Handler);
+     WinShell.Show(win);  WinShell.ClientSize(win, cw, ch);
+     ok  := Canvas2D.Attach(win, cw, ch);
+     ...
+     Canvas2D.Begin;
+     Canvas2D.Clear(0H);
+     Canvas2D.FillCircle(100.0, 100.0, 40.0, 0FFFFFFH);
+     Canvas2D.Flush;
+*)
+DEFINITION MODULE Canvas2D;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+(* One-time init: the Direct2D factory and a default DirectWrite text format
+   used by DrawText. FALSE on failure. *)
+PROCEDURE Startup (): BOOLEAN;
+
+(* Create the HWND render target (pxW x pxH device pixels) and a reusable brush
+   bound to `hwnd`. Call after the window exists. FALSE on failure. *)
+PROCEDURE Attach (hwnd: ADDRESS; pxW, pxH: CARDINAL): BOOLEAN;
+
+PROCEDURE Width  (): CARDINAL;
+PROCEDURE Height (): CARDINAL;
+
+(* Frame bracket: Begin starts a batch, Flush ends + presents it. Every draw
+   call must sit between a Begin and the matching Flush. *)
+PROCEDURE Begin;
+PROCEDURE Flush;
+
+(* Paint the whole surface `rgb`. *)
+PROCEDURE Clear (rgb: CARDINAL);
+
+(* Filled primitives in `rgb`. FillCircle is FillEllipse with rx = ry. *)
+PROCEDURE FillRect    (x, y, w, h: REAL; rgb: CARDINAL);
+PROCEDURE FillEllipse (cx, cy, rx, ry: REAL; rgb: CARDINAL);
+PROCEDURE FillCircle  (cx, cy, r: REAL; rgb: CARDINAL);
+
+(* `s` laid out (left/top) within the rectangle (x,y,w,h), in `rgb`. *)
+PROCEDURE DrawText (x, y, w, h: REAL; rgb: CARDINAL; s: ARRAY OF CHAR);
+
+(* Release all Direct2D resources. Safe to call repeatedly. *)
+PROCEDURE Shutdown;
+
+END Canvas2D.

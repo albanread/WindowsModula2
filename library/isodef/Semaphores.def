@@ -1,0 +1,17 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 Semaphores — counting semaphores layered on the
+   Processes scheduler. *)
+DEFINITION MODULE Semaphores;
+
+TYPE
+  SEMAPHORE;
+
+PROCEDURE Create  (VAR s: SEMAPHORE; initialCount: CARDINAL);
+PROCEDURE Destroy (VAR s: SEMAPHORE);
+PROCEDURE Claim   (s: SEMAPHORE);
+PROCEDURE Release (s: SEMAPHORE);
+
+PROCEDURE CondClaim           (s: SEMAPHORE): BOOLEAN;
+PROCEDURE IsSemaphoreException (): BOOLEAN;
+
+END Semaphores.

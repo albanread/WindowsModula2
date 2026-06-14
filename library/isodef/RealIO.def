@@ -1,0 +1,14 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 RealIO — decimal REAL number IO over an explicit
+   channel. SRealIO is the default-channel analogue. *)
+DEFINITION MODULE RealIO;
+
+IMPORT IOChan;
+
+PROCEDURE ReadReal   (cid: IOChan.ChanId; VAR real: REAL);
+PROCEDURE WriteFloat (cid: IOChan.ChanId; real: REAL; sigFigs: CARDINAL; width: CARDINAL);
+PROCEDURE WriteEng   (cid: IOChan.ChanId; real: REAL; sigFigs: CARDINAL; width: CARDINAL);
+PROCEDURE WriteFixed (cid: IOChan.ChanId; real: REAL; place: INTEGER; width: CARDINAL);
+PROCEDURE WriteReal  (cid: IOChan.ChanId; real: REAL; width: CARDINAL);
+
+END RealIO.

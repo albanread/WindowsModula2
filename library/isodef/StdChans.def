@@ -1,0 +1,30 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 StdChans — accessor for the standard (StdIn/Out/Err) and
+   default I/O channels. The default channels start equal to the
+   standards but may be redirected by user code via Set*Chan. *)
+DEFINITION MODULE StdChans;
+
+IMPORT IOChan;
+
+TYPE
+  ChanId = IOChan.ChanId;
+
+(* Standard channels — fixed for the lifetime of the program. *)
+PROCEDURE StdInChan  (): ChanId;
+PROCEDURE StdOutChan (): ChanId;
+PROCEDURE StdErrChan (): ChanId;
+PROCEDURE NullChan   (): ChanId;
+
+(* Current default channels — redirectable. *)
+PROCEDURE InChan  (): ChanId;
+PROCEDURE OutChan (): ChanId;
+PROCEDURE ErrChan (): ChanId;
+
+PROCEDURE SetInChan  (cid: ChanId);
+PROCEDURE SetOutChan (cid: ChanId);
+PROCEDURE SetErrChan (cid: ChanId);
+
+(* XDS extension: resync stdout/stderr offsets after external writes. *)
+PROCEDURE Synchronize (): BOOLEAN;
+
+END StdChans.

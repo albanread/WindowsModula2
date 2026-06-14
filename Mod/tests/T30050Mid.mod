@@ -1,0 +1,11 @@
+MODULE T30050Mid;
+
+FROM T30050Leaf IMPORT LeafValue;
+
+PROCEDURE MidValue(n : INTEGER) : INTEGER;
+BEGIN
+  RETURN LeafValue(n) + 5
+END MidValue;
+
+BEGIN
+END T30050Mid.

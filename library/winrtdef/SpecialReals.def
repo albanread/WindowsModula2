@@ -1,0 +1,44 @@
+(* SpecialReals — IEEE-754 double (REAL = f64) special values and classifying
+   predicates. A clean-room NewModula2 recreation: the bit patterns are the
+   IEEE-754 binary64 standard itself (sign bit 63, exponent bits 62..52,
+   fraction bits 51..0), not any library's expression of them.
+
+   All logic is pure bit inspection via SYSTEM.CAST between REAL and a 64-bit
+   CARDINAL; the only genuine floating-point comparisons are the two
+   signed-infinity helpers (valid because +/-inf order against 0 correctly).
+
+   NewM2 notes: ADW LONGREAL maps to NewM2 REAL (f64); ADW CARDINAL64 to
+   CARDINAL (64-bit). The special values are exported as CONST built with
+   CAST(REAL, <bit pattern>) — NewM2 const-folds the cast to the target type and
+   codegen bit-reinterprets, so the exact bits survive. The ADW `BITSET64`
+   companion type is intentionally NOT re-exported: NewM2 sets are 256-bit
+   regardless of element range, so a `SET OF [0..63]` would not be a faithful
+   64-bit bitset; revisit if/when range-sized sets land. *)
+DEFINITION MODULE SpecialReals;
+
+FROM SYSTEM IMPORT CAST;
+
+CONST
+  Infinity      = CAST(REAL, 7FF0000000000000H);   (* +inf *)
+  MinusInfinity = CAST(REAL, 0FFF0000000000000H);  (* -inf *)
+  NaN           = CAST(REAL, 7FFFFFFFFFFFFFFFH);    (* NaN, all fraction bits set *)
+  QNaN          = NaN;                              (* quiet NaN (quiet bit set) *)
+  SNaN          = CAST(REAL, 7FF7FFFFFFFFFFFFH);    (* signalling NaN (quiet bit clear) *)
+  MinusZero     = CAST(REAL, 8000000000000000H);    (* -0.0 *)
+
+PROCEDURE IsFinite (R: REAL): BOOLEAN;
+  (* TRUE unless R is inf or NaN (exponent field not all-ones). *)
+PROCEDURE IsNaN (R: REAL): BOOLEAN;
+  (* TRUE iff exponent all-ones AND fraction <> 0. *)
+PROCEDURE IsQNaN (R: REAL): BOOLEAN;
+  (* TRUE iff exponent all-ones AND the quiet bit (51) is set. *)
+PROCEDURE IsSNaN (R: REAL): BOOLEAN;
+  (* TRUE iff exponent all-ones AND fraction <> 0 AND quiet bit clear. *)
+PROCEDURE IsInfinity (R: REAL): BOOLEAN;
+  (* TRUE iff exponent all-ones AND fraction = 0 (either sign). *)
+PROCEDURE IsPositiveInfinity (R: REAL): BOOLEAN;
+PROCEDURE IsNegativeInfinity (R: REAL): BOOLEAN;
+PROCEDURE IsMinusZero (R: REAL): BOOLEAN;
+  (* Exact bit-pattern test (ordinary R = 0.0 also matches +0.0). *)
+
+END SpecialReals.

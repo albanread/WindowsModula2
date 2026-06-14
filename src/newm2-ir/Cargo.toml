@@ -1,0 +1,12 @@
+[package]
+name = "newm2-ir"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+new-asm      = { path = "../../new-asm" }
+newm2-loader = { path = "../newm2-loader" }
+newm2-lexer  = { path = "../newm2-lexer" }
+newm2-parser = { path = "../newm2-parser" }
+newm2-sema   = { path = "../newm2-sema" }

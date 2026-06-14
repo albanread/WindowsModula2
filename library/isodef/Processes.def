@@ -1,0 +1,41 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 Processes — cooperative single-thread coroutine
+   processes layered on SYSTEM.PROCESS. Not preemptive threading;
+   that lives in COROUTINES / Semaphores. *)
+DEFINITION MODULE Processes;
+
+IMPORT SYSTEM;
+
+TYPE
+  ProcessId;
+  Parameter           = SYSTEM.ADDRESS;
+  Body                = PROC;
+  Urgency             = INTEGER;
+  Sources             = CARDINAL;
+  ProcessesExceptions = (passiveProgram, processError);
+
+PROCEDURE Create (procBody: Body; extraSpace: CARDINAL; procUrg: Urgency;
+                  procParams: Parameter; VAR procId: ProcessId);
+PROCEDURE Start  (procBody: Body; extraSpace: CARDINAL; procUrg: Urgency;
+                  procParams: Parameter; VAR procId: ProcessId);
+
+PROCEDURE StopMe                ();
+PROCEDURE SuspendMe             ();
+PROCEDURE Activate              (procId: ProcessId);
+PROCEDURE SuspendMeAndActivate  (procId: ProcessId);
+PROCEDURE Switch                (procId: ProcessId; VAR info: Parameter);
+PROCEDURE Wait                  ();
+
+PROCEDURE Attach     (eventSource: Sources);
+PROCEDURE Detach     (eventSource: Sources);
+PROCEDURE IsAttached (eventSource: Sources): BOOLEAN;
+PROCEDURE Handler    (eventSource: Sources): ProcessId;
+
+PROCEDURE Me        (): ProcessId;
+PROCEDURE MyParam   (): Parameter;
+PROCEDURE UrgencyOf (procId: ProcessId): Urgency;
+
+PROCEDURE ProcessesException   (): ProcessesExceptions;
+PROCEDURE IsProcessesException (): BOOLEAN;
+
+END Processes.

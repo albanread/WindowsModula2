@@ -1,0 +1,38 @@
+(* FileFunc — a small binary file abstraction over the Windows file W-APIs,
+   called DIRECTLY from M2. Clean-room NewModula2. A File is an opaque OS handle;
+   create/open returns one, IsValid checks it, and the byte operations read/write
+   raw memory. Paths are wide (ARRAY OF CHAR = WCHAR).
+
+   This is the focused core: create / open-read / read / write / seek /
+   size / close / delete / exists. The richer ADW FileFunc surface (buffered
+   line I/O, FindFirst/Next enumeration, attributes, locking, temp-file naming)
+   layers on top of this. *)
+DEFINITION MODULE FileFunc;
+
+FROM SYSTEM IMPORT ADDRESS;
+FROM WIN32 IMPORT HANDLE;
+
+TYPE
+  File = HANDLE;   (* opaque OS file handle *)
+
+PROCEDURE IsValid (f: File): BOOLEAN;
+  (* TRUE unless `f` is the invalid handle returned by a failed Create/OpenRead. *)
+
+PROCEDURE Create (path: ARRAY OF CHAR): File;
+  (* Create (or truncate) `path` for read+write. Check the result with IsValid. *)
+PROCEDURE OpenRead (path: ARRAY OF CHAR): File;
+  (* Open an existing `path` for reading. Check the result with IsValid. *)
+PROCEDURE Close (f: File);
+
+PROCEDURE WriteBytes (f: File; buf: ADDRESS; count: CARDINAL): CARDINAL;
+  (* Write `count` bytes from `buf`; returns the number actually written. *)
+PROCEDURE ReadBytes (f: File; buf: ADDRESS; count: CARDINAL): CARDINAL;
+  (* Read up to `count` bytes into `buf`; returns the number actually read. *)
+
+PROCEDURE Size (f: File): CARDINAL;             (* file size in bytes *)
+PROCEDURE Seek (f: File; pos: CARDINAL): BOOLEAN; (* move the file pointer from the start *)
+
+PROCEDURE Delete (path: ARRAY OF CHAR): BOOLEAN;
+PROCEDURE Exists (path: ARRAY OF CHAR): BOOLEAN;
+
+END FileFunc.

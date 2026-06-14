@@ -1,0 +1,22 @@
+(* ASCII — the named ASCII control characters. A clean-room NewModula2
+   definition module: the constant values are the ASCII standard itself
+   (nul = 0, tab = 9, lf = 10, cr = 13, esc = 27, del = 127, ...), not any
+   particular library's expression. `nl`/`EOL` are the newline (line feed);
+   `eof` is the conventional End-Of-Transmission control. *)
+DEFINITION MODULE ASCII;
+
+CONST
+  nul = CHR(0);     (* NUL  *)
+  bs  = CHR(8);     (* backspace *)
+  tab = CHR(9);     (* horizontal tab *)
+  lf  = CHR(10);    (* line feed *)
+  nl  = CHR(10);    (* newline = line feed *)
+  ff  = CHR(12);    (* form feed *)
+  cr  = CHR(13);    (* carriage return *)
+  nak = CHR(21);    (* negative acknowledge *)
+  esc = CHR(27);    (* escape *)
+  del = CHR(127);   (* delete *)
+  eof = CHR(4);     (* end of transmission, used as end-of-file marker *)
+  EOL = CHR(10);    (* end of line = line feed *)
+
+END ASCII.

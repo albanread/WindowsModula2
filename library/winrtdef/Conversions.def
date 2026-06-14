@@ -1,0 +1,40 @@
+(* Conversions — whole-number <-> text, decimal and arbitrary base 2..16, with
+   exact (pre-emptive) overflow detection. A clean-room NewModula2 recreation:
+   the conversion contract is the obvious arithmetic one, not any particular
+   library's expression of it.
+
+   Every family offers a low-level "into a buffer at `pos` with minimum field
+   width" form and a whole-string convenience. Parsers skip leading spaces,
+   accept a leading '+' (and '-' for the signed forms), stop at the first
+   non-digit, and report success in `done`/the return flag — the accumulator is
+   never allowed to overflow. Formatters right-justify with leading spaces and
+   never truncate the number.
+
+   NewM2 notes: CARDINAL/INTEGER are 64-bit. Digit extraction runs on the value
+   magnitude (sign captured first), so it only ever divides non-negative
+   numbers — identical under floored or truncating DIV/MOD. CHAR is 16-bit but
+   the code only ever compares against ASCII literals, so it is width-neutral. *)
+DEFINITION MODULE Conversions;
+
+(* --- unsigned decimal (CARDINAL) --- *)
+PROCEDURE StringToCard (str: ARRAY OF CHAR; VAR pos: CARDINAL;
+                        VAR num: CARDINAL; VAR done: BOOLEAN);
+PROCEDURE StrToCard    (buf: ARRAY OF CHAR; VAR num: CARDINAL): BOOLEAN;
+PROCEDURE CardToString (num, size: CARDINAL; VAR str: ARRAY OF CHAR;
+                        VAR pos: CARDINAL; VAR done: BOOLEAN);
+PROCEDURE CardToStr    (num: CARDINAL; VAR str: ARRAY OF CHAR): BOOLEAN;
+
+(* --- signed decimal (INTEGER) --- *)
+PROCEDURE StringToInt  (str: ARRAY OF CHAR; VAR pos: CARDINAL;
+                        VAR num: INTEGER; VAR done: BOOLEAN);
+PROCEDURE StrToInt     (buf: ARRAY OF CHAR; VAR num: INTEGER): BOOLEAN;
+PROCEDURE IntToString  (num: INTEGER; size: CARDINAL; VAR str: ARRAY OF CHAR;
+                        VAR pos: CARDINAL; VAR done: BOOLEAN);
+PROCEDURE IntToStr     (num: INTEGER; VAR str: ARRAY OF CHAR): BOOLEAN;
+
+(* --- unsigned arbitrary base 2..16 (CARDINAL) --- *)
+PROCEDURE StrBaseToCard (str: ARRAY OF CHAR; base: CARDINAL;
+                         VAR num: CARDINAL): BOOLEAN;
+PROCEDURE CardBaseToStr (num, base: CARDINAL; VAR str: ARRAY OF CHAR): BOOLEAN;
+
+END Conversions.

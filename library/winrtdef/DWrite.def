@@ -1,0 +1,17 @@
+(* DWrite — minimal DirectWrite access for the modern Terminal renderer. Pure
+   Modula-2: the DWrite factory is created via the DWriteCreateFactory entry
+   point, and IDWriteFactory is consumed through the CLASS-as-COM-interface
+   pattern (NewM2's class layout is the COM vtable ABI). This first cut creates
+   a text format — which also proves a *FLOAT* argument (the font size) passes
+   correctly through a virtual COM call, the key unknown for Direct2D/DirectWrite
+   rendering from M2. *)
+DEFINITION MODULE DWrite;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+PROCEDURE Startup (): BOOLEAN;          (* create the shared DWrite factory *)
+PROCEDURE Ready (): BOOLEAN;
+PROCEDURE CreateFormat (fontName: ARRAY OF CHAR; size: SHORTREAL): ADDRESS;
+  (* an IDWriteTextFormat* for the named font at `size` DIP, or NIL on failure *)
+
+END DWrite.

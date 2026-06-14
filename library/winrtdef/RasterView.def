@@ -1,0 +1,61 @@
+(* RasterView — a general-purpose RGBA software framebuffer presented to a window.
+   You own every pixel: draw with the software primitives below into an in-memory
+   32-bit buffer (0x00RRGGBB per pixel), then Present() blits it to the window in
+   one call (GDI SetDIBitsToDevice). Because all drawing is pure Modula-2 over a
+   plain array, output is fully reproducible and testable headlessly — and SaveBMP
+   exports the exact same image to a .bmp file (e.g. "export chart to image").
+
+   It is the raster sibling of Canvas2D (Direct2D vector) and ShaderView (GPU): use
+   RasterView for high-resolution business graphics, charts, plots, and any custom
+   rasterisation where you want direct pixel control. Colours are packed
+   0x00RRGGBB CARDINALs (as in Terminal / Canvas2D). Coordinates are signed; out-of-
+   bounds writes are clipped.
+
+   Usage:
+     ok  := RasterView.Startup();
+     win := WinShell.CreateAppWindow(title, w, h, Handler);
+     WinShell.Show(win);  WinShell.ClientSize(win, cw, ch);
+     ok  := RasterView.Attach(win, cw, ch);
+     RasterView.Clear(0FFFFFFH);
+     RasterView.FillRect(20, 20, 100, 40, 02E8B57H);
+     RasterView.Text(20, 80, 2, 0H, "HELLO");
+     RasterView.Present;
+*)
+DEFINITION MODULE RasterView;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+(* One-time init (no window needed). *)
+PROCEDURE Startup (): BOOLEAN;
+
+(* Bind a `w` x `h` pixel framebuffer to `hwnd`. FALSE if larger than the maximum
+   supported surface. *)
+PROCEDURE Attach (hwnd: ADDRESS; w, h: CARDINAL): BOOLEAN;
+
+PROCEDURE Width  (): CARDINAL;
+PROCEDURE Height (): CARDINAL;
+
+(* --- drawing (all clipped to the surface) --- *)
+PROCEDURE Clear    (rgb: CARDINAL);
+PROCEDURE Pixel    (x, y: INTEGER; rgb: CARDINAL);
+PROCEDURE HLine    (x, y, len: INTEGER; rgb: CARDINAL);
+PROCEDURE VLine    (x, y, len: INTEGER; rgb: CARDINAL);
+PROCEDURE FillRect (x, y, w, h: INTEGER; rgb: CARDINAL);
+PROCEDURE Rect     (x, y, w, h: INTEGER; rgb: CARDINAL);          (* 1px outline *)
+PROCEDURE Line     (x0, y0, x1, y1: INTEGER; rgb: CARDINAL);      (* Bresenham *)
+PROCEDURE ThickLine(x0, y0, x1, y1, t: INTEGER; rgb: CARDINAL);   (* t px wide *)
+PROCEDURE Disc     (cx, cy, r: INTEGER; rgb: CARDINAL);           (* filled circle *)
+PROCEDURE Circle   (cx, cy, r: INTEGER; rgb: CARDINAL);          (* 1px outline *)
+
+(* Bitmap text (5x7 cell, `scale` px per cell pixel). Covers 0-9, A-Z (lowercase
+   folds to upper), space and . , - : / % + ( ). Unknown glyphs render blank. *)
+PROCEDURE Text      (x, y, scale: INTEGER; rgb: CARDINAL; s: ARRAY OF CHAR);
+PROCEDURE TextWidth (scale: INTEGER; s: ARRAY OF CHAR): INTEGER;
+
+(* Blit the framebuffer to the bound window. *)
+PROCEDURE Present;
+
+(* Write the framebuffer to a 32-bpp .bmp file. FALSE on I/O failure. *)
+PROCEDURE SaveBMP (name: ARRAY OF CHAR): BOOLEAN;
+
+END RasterView.

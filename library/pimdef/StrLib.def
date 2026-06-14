@@ -1,0 +1,9 @@
+(* StrLib — PIM string library. A clean-room NewModula2 implementation that
+   delegates to the ISO Strings module. *)
+DEFINITION MODULE StrLib;
+
+PROCEDURE StrEqual (a, b: ARRAY OF CHAR) : BOOLEAN;
+PROCEDURE StrLen (s: ARRAY OF CHAR) : CARDINAL;
+PROCEDURE StrCopy (src: ARRAY OF CHAR; VAR dest: ARRAY OF CHAR);
+
+END StrLib.

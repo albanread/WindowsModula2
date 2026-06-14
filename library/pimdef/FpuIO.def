@@ -1,0 +1,22 @@
+(* FpuIO — PIM floating-point / long-integer I/O and string conversion.
+   A clean-room NewModula2 implementation that delegates to the ISO real,
+   long-real and whole-number modules. `WriteReal`/`WriteLongReal` are
+   fixed-format (field width, fraction digits); the `*ToStr`/`StrTo*` pairs are
+   the ISO fixed/whole conversions. *)
+DEFINITION MODULE FpuIO;
+
+PROCEDURE ReadReal (VAR x: REAL);
+PROCEDURE WriteReal (x: REAL; TotalWidth, FractionWidth: CARDINAL);
+PROCEDURE RealToStr (x: REAL; TotalWidth, FractionWidth: CARDINAL; VAR str: ARRAY OF CHAR);
+PROCEDURE StrToReal (str: ARRAY OF CHAR; VAR x: REAL);
+
+PROCEDURE ReadLongReal (VAR x: LONGREAL);
+PROCEDURE WriteLongReal (x: LONGREAL; TotalWidth, FractionWidth: CARDINAL);
+PROCEDURE LongRealToStr (x: LONGREAL; TotalWidth, FractionWidth: CARDINAL; VAR str: ARRAY OF CHAR);
+PROCEDURE StrToLongReal (str: ARRAY OF CHAR; VAR x: LONGREAL);
+
+PROCEDURE WriteLongInt (x: LONGINT; TotalWidth: CARDINAL);
+PROCEDURE LongIntToStr (x: LONGINT; TotalWidth: CARDINAL; VAR str: ARRAY OF CHAR);
+PROCEDURE StrToLongInt (str: ARRAY OF CHAR; VAR x: LONGINT);
+
+END FpuIO.

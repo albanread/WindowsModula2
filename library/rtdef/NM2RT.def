@@ -1,0 +1,59 @@
+(* NewM2 runtime support — exception primitives.
+
+   Not an ISO module: this is the thin surface the ISO EXCEPTIONS module (and
+   codegen's EXCEPT/FINALLY lowering) call into. Every procedure is backed by a
+   Rust runtime entry point bound under its `NM2RT.<Proc>` qualified name. The
+   ABI is uniform CARDINAL (64-bit) so M2 callers need no width adaptation. *)
+DEFINITION MODULE NM2RT;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+TYPE
+  ExceptionSource = CARDINAL;   (* opaque source id; 0 means "no source" *)
+
+PROCEDURE AllocateExceptionSource (): ExceptionSource;
+  (* A fresh, process-unique non-zero source id. *)
+
+PROCEDURE Raise (source: ExceptionSource; number: CARDINAL; message: ARRAY OF CHAR);
+  (* Raise an exception carrying (source, number, message); never returns. *)
+
+PROCEDURE Reraise ();
+  (* Re-raise the current exception; never returns. *)
+
+PROCEDURE CurrentExceptionNumber (): CARDINAL;
+PROCEDURE CurrentExceptionSource (): ExceptionSource;
+PROCEDURE M2Source (): ExceptionSource;
+  (* The fixed source id of ISO M2EXCEPTION language exceptions. *)
+PROCEDURE IsCurrentExceptionSource (source: ExceptionSource): BOOLEAN;
+PROCEDURE IsExceptionalExecution (): BOOLEAN;
+PROCEDURE ExceptionHandled ();
+PROCEDURE GetExceptionMessage (VAR text: ARRAY OF CHAR);
+
+(* COM interop. NewM2's class object layout and virtual dispatch match the COM
+   ABI, so an M2 class declaring an interface's methods (in IUnknown order) can
+   consume a real OS COM object held in a class variable. *)
+PROCEDURE ComInit (): INTEGER;
+  (* CoInitializeEx(NULL, APARTMENTTHREADED); returns the HRESULT. *)
+PROCEDURE ComUninit ();
+PROCEDURE ComGetMalloc (): ADDRESS;
+  (* The process COM task allocator IMalloc, or NIL on failure. *)
+PROCEDURE GuidEq (a, b: ADDRESS): BOOLEAN;
+  (* IsEqualGUID: compare two 16-byte GUIDs, for QueryInterface dispatch. *)
+PROCEDURE ComDrive (punk: ADDRESS; d: INTEGER): INTEGER;
+  (* Drive an M2-implemented COM object (server proof): load the vtable from
+     `punk` and call QueryInterface/AddRef/Bump/Release through the COM ABI,
+     exactly as an external COM client would. Returns a packed witness
+     qi_ok*1000 + addref*100 + release (expected 1201). The object must declare
+     QueryInterface, AddRef, Release, Bump (in that order) and start at refs=1. *)
+
+TYPE CompareProc = PROCEDURE (INTEGER, INTEGER): INTEGER;
+PROCEDURE SortInts (arr: ADDRESS; n: CARDINAL; cmp: CompareProc);
+  (* Sort `n` INTEGERs at `arr` in place (native-callback proof): the runtime
+     calls back into the M2 comparator `cmp` for every comparison, exactly as a
+     C `qsort` would. `cmp(a,b) < 0` orders a before b. *)
+
+(* Termination state, backing the ISO TERMINATION module. *)
+PROCEDURE HasHalted (): BOOLEAN;
+PROCEDURE IsTerminating (): BOOLEAN;
+
+END NM2RT.

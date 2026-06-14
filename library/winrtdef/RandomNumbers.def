@@ -1,0 +1,48 @@
+(* RandomNumbers — a fast, reproducible, NON-CRYPTOGRAPHIC pseudo-random integer
+   generator (55-word additive lagged-Fibonacci). A clean-room NewModula2
+   recreation: the generator structure and constants are the classic Knuth
+   lagged-Fibonacci scheme, not any particular library's expression of it.
+
+   *** SECURITY WARNING — READ BEFORE USE ********************************
+   *  THIS GENERATOR IS NOT CRYPTOGRAPHICALLY SECURE. Do NOT use it for  *
+   *  ANY security purpose: keys, primes, nonces, IVs, salts, tokens,    *
+   *  password material, OAEP seeds, PSS salts, or session identifiers.  *
+   *                                                                     *
+   *  Its entire internal state (and so all future output) is            *
+   *  reconstructable from a short run of consecutive outputs, and the   *
+   *  auto-seed (seed = 0) is clock-derived with only tens of bits of    *
+   *  real entropy. For ALL security randomness use the OS CSPRNG —      *
+   *  see the M2WINRT SecureRandom module (BCryptGenRandom). This is     *
+   *  cryptography-audit Finding F9 (Severity: Critical).                *
+   *                                                                     *
+   *  Intended use ONLY: simulations, Monte-Carlo sampling, shuffles,    *
+   *  jitter/backoff, procedural content, reproducible test data.        *
+   ********************************************************************** *)
+DEFINITION MODULE RandomNumbers;
+
+(* ---- global (implicit) stream — not thread-safe ---- *)
+PROCEDURE Randomize (seed: CARDINAL);
+  (* Seed the global stream. A non-zero seed gives a fully reproducible
+     sequence; seed = 0 means "auto-seed from the system clock" (still NOT
+     secure). The global stream is auto-seeded once at module load. *)
+PROCEDURE Rnd (range: CARDINAL): CARDINAL;
+  (* Next global draw. range = 0 returns the raw 64-bit word (0..MAX(CARDINAL));
+     range > 0 returns word MOD range (0..range-1, modulo-biased by design). *)
+PROCEDURE Random (low, high: CARDINAL): CARDINAL;
+  (* Next global draw in the inclusive interval low..high (low <= high). *)
+
+(* ---- explicit, independent streams (caller-owned value record, no heap) ----
+   Declare a RandomStream, SeedStream it once, then draw with RndStream /
+   RangeStream. There is nothing to dispose. *)
+TYPE
+  RandomStream =
+    RECORD
+      i, j     : CARDINAL;                     (* the two rotating lag indices *)
+      oldStuff : ARRAY [1 .. 55] OF CARDINAL;  (* the 55-word circular state *)
+    END;
+
+PROCEDURE SeedStream  (VAR s: RandomStream; seed: CARDINAL);
+PROCEDURE RndStream   (VAR s: RandomStream; range: CARDINAL): CARDINAL;
+PROCEDURE RangeStream (VAR s: RandomStream; low, high: CARDINAL): CARDINAL;
+
+END RandomNumbers.

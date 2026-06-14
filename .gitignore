@@ -1,0 +1,85 @@
+# Rust build artifacts (workspace + vendored new-asm crate).
+/target/
+**/target/
+
+# Archives / large blobs.
+*.zip
+
+# C#/.NET build artifacts (windows_api tooling, when present).
+**/obj/
+**/bin/
+
+# Regenerable WinMD binding pack (rebuilt from windows_api/def_out on demand).
+/packs/*.pack
+/packs/*.tmp*
+
+# Incremental module registry + symbol-file cache (regenerable; see plan rule 12).
+/newm2.db
+/.newm2-cache/
+
+# Local test results DB + crash leftovers (regenerated on each test run).
+/tests/newm2-tests/test-results.db
+/tests/newm2-tests/*.bin
+
+# Phase-dump artifacts and ad-hoc logs.
+*.log
+*.ll
+/app_ir.txt
+/build_output.txt
+/out.log
+/out.txt
+
+# DocCrate test-render snapshots (regenerable).
+/tools/doccrate/snaps/
+/docs/screen.png
+
+# Editor / OS junk.
+*.swp
+.DS_Store
+Thumbs.db
+
+# External reference trees are NOT vendored here — they live outside the repo
+# (ADW reference, the WinMD database under e:\windows_api). Guard against an
+# accidental copy being committed:
+/ADW reference/
+/windows_api/
+
+# External GPL conformance corpus — used only as compiler input, never committed.
+/vendor/
+# ADW reference modules (GPL) — opt-in only.
+/library/ADW/
+/packs/*.index
+
+# Internal conformance tooling + planning (measures the compiler against the
+# external GPL corpus / internal phase plan). Not part of the public toolchain;
+# kept on disk locally only.
+/tests/newm2-conformance/
+/scripts/fetch-*-tests.ps1
+/docs/conformance.md
+/docs/conformance-audit.md
+/docs/design/iso-library-and-io.md
+/NewM2_PLAN.md
+
+# Runtime output written by demos/tests when run from the repo root
+/notepad.txt
+/*.tmp
+/f
+
+# Agent-generated review artifact (kept locally, not vendored)
+/backlog_suggestions.md
+
+# Generated images from demos/tests run at the repo root
+/*.bmp
+/*.png
+
+# File-I/O test scratch (created when the raw/seq file tests run)
+*.tmp
+
+# Native build artifacts left next to a source by `newm2 build`
+*.obj
+*.exe
+
+# GPL-licensed third-party modules — excluded from this MIT/Apache repo (unused
+# here; kept on disk only). The Splitter Control is GPL-2.
+/library/win32def/SplitterControl.def
+/library/win32mod/SplitterControl.mod

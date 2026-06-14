@@ -1,0 +1,12 @@
+[package]
+name = "newm2-sema"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+newm2-lexer = { path = "../newm2-lexer" }
+newm2-parser = { path = "../newm2-parser" }
+newm2-loader = { path = "../newm2-loader" }
+serde = { version = "1", features = ["derive"] }
+bincode = "1.3"

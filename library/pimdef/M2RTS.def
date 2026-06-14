@@ -1,0 +1,12 @@
+(* M2RTS — the run-time support surface the conformance corpus uses. A clean-room
+   NewModula2 implementation: Length delegates to ISO Strings; Halt maps to the
+   NewModula2 HALT (it appears only in assertion-failure paths); ExitOnHalt is a
+   no-op (NewModula2 reports the halt status through its own termination). *)
+DEFINITION MODULE M2RTS;
+
+PROCEDURE Length (a: ARRAY OF CHAR) : CARDINAL;
+PROCEDURE Halt (message: ARRAY OF CHAR; file: ARRAY OF CHAR;
+                function: ARRAY OF CHAR; line: CARDINAL);
+PROCEDURE ExitOnHalt (code: INTEGER);
+
+END M2RTS.

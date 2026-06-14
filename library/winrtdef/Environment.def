@@ -1,0 +1,26 @@
+(* Environment — process environment, command line and executable path. A
+   clean-room NewModula2 Win32-helper that calls the Windows W-APIs DIRECTLY
+   from M2 (no Rust shim). NewM2's 16-bit CHAR is the Windows WCHAR, so an
+   ARRAY OF CHAR is passed straight to the wide APIs as a string buffer.
+
+   Unicode-only (W APIs) by design — the modernization sweep deprecates the
+   ANSI build. *)
+DEFINITION MODULE Environment;
+
+PROCEDURE GetVar (name: ARRAY OF CHAR; VAR value: ARRAY OF CHAR): BOOLEAN;
+  (* Read environment variable `name` into `value`. FALSE if it does not exist
+     or `value` is too small (then `value` is left empty / NUL-terminated). *)
+
+PROCEDURE SetVar (name, value: ARRAY OF CHAR): BOOLEAN;
+  (* Set `name` = `value` in this process's environment. *)
+
+PROCEDURE RemoveVar (name: ARRAY OF CHAR): BOOLEAN;
+  (* Delete `name` from this process's environment. *)
+
+PROCEDURE GetExePath (VAR path: ARRAY OF CHAR): BOOLEAN;
+  (* Full path of the running executable. FALSE if `path` is too small. *)
+
+PROCEDURE GetCommandLine (VAR cmd: ARRAY OF CHAR);
+  (* The full command line of this process (truncated to `cmd`'s capacity). *)
+
+END Environment.

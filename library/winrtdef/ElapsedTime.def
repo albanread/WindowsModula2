@@ -1,0 +1,25 @@
+(* ElapsedTime — high-resolution elapsed-interval timing and an approximate
+   delay, over the Windows performance counter. A clean-room NewModula2 module
+   that calls QueryPerformanceCounter / QueryPerformanceFrequency and Sleep
+   DIRECTLY from M2 (the Win32 def-pack bindings) — no Rust shim.
+
+   A Timer captures a start tick; ElapsedMillis/ElapsedMicros report the time
+   since StartTimer. The counter is monotonic, so intervals never go backward. *)
+DEFINITION MODULE ElapsedTime;
+
+TYPE
+  Timer = RECORD start: INTEGER64 END;   (* an opaque start tick *)
+
+PROCEDURE StartTimer (VAR t: Timer);
+  (* Record "now" as the timer's origin. *)
+
+PROCEDURE ElapsedMillis (t: Timer): CARDINAL;
+  (* Whole milliseconds since StartTimer(t). *)
+
+PROCEDURE ElapsedMicros (t: Timer): CARDINAL;
+  (* Whole microseconds since StartTimer(t). *)
+
+PROCEDURE Delay (millis: CARDINAL);
+  (* Sleep at least `millis` milliseconds (subject to OS timer resolution). *)
+
+END ElapsedTime.

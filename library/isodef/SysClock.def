@@ -1,0 +1,36 @@
+(* Ported to NewM2 2026-05-14 from XDS 2.60 lib/src/isodef. Apache-2.0.
+   ISO 10514-1 SysClock — wall-clock date/time. The runtime provides
+   GetClock / SetClock via the host OS time API (GetSystemTime on
+   Windows, clock_gettime on POSIX); the rest is pure validation. *)
+DEFINITION MODULE SysClock;
+
+CONST
+  maxSecondParts = 99;
+
+TYPE
+  Month    = [1..12];
+  Day      = [1..31];
+  Hour     = [0..23];
+  Min      = [0..59];
+  Sec      = [0..59];
+  Fraction = [0..maxSecondParts];
+  UTCDiff  = [-780..720];
+  DateTime = RECORD
+    year           : CARDINAL;
+    month          : Month;
+    day            : Day;
+    hour           : Hour;
+    minute         : Min;
+    second         : Sec;
+    fractions      : Fraction;
+    zone           : UTCDiff;
+    SummerTimeFlag : BOOLEAN;
+  END;
+
+PROCEDURE CanGetClock     (): BOOLEAN;
+PROCEDURE CanSetClock     (): BOOLEAN;
+PROCEDURE IsValidDateTime (userData: DateTime): BOOLEAN;
+PROCEDURE GetClock        (VAR userData: DateTime);
+PROCEDURE SetClock        (userData: DateTime);
+
+END SysClock.

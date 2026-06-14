@@ -1,0 +1,57 @@
+(*
+Name:     ClassFactory
+Creation: 01-02-1999
+LastEdit: 08-03-2000
+Author:   Egbert J. van der Haring
+System:   StonyBrook Modula-2
+Remarks:  Implements a basic class factory, your application should
+          contain a class factory that inherits one of the classes
+          from this module and implements the other methods. That
+          is CreateInstance for a class C, and also GetLicInfo,
+          RequestLicKey and CreateInstanceKey for C2.
+*)
+
+UNSAFEGUARDED DEFINITION MODULE ClassFactory;
+
+IMPORT WIN32;
+IMPORT Ole2;
+IMPORT OleC;
+
+<*/PUSH*>
+<*/NOPACK*>
+<*/ALIGN:8*>
+<*/NOHIGH*>
+<*/CALLS:WIN32SYSTEM*>
+CLASS C;
+  INHERIT Ole2.IClassFactory;
+
+  OVERRIDE PROCEDURE QueryInterface(    iid:       WIN32.IID;
+                                    VAR interface: Ole2.IUnknown): WIN32.HRESULT;
+  OVERRIDE PROCEDURE AddRef(): WIN32.ULONG;
+  OVERRIDE PROCEDURE Release(): WIN32.ULONG;
+  OVERRIDE PROCEDURE LockServer(bLock: WIN32.BOOL): WIN32.HRESULT;
+END C;
+
+CLASS C2;
+  INHERIT OleC.IClassFactory2;
+
+  OVERRIDE PROCEDURE QueryInterface(    iid:       WIN32.IID;
+                                    VAR interface: Ole2.IUnknown): WIN32.HRESULT;
+  OVERRIDE PROCEDURE AddRef(): WIN32.ULONG;
+  OVERRIDE PROCEDURE Release(): WIN32.ULONG;
+  OVERRIDE PROCEDURE LockServer(bLock: WIN32.BOOL): WIN32.HRESULT;
+END C2;
+<*/POP*>
+
+
+PROCEDURE Lock;
+(* locks server *)
+
+PROCEDURE UnLock;
+(* unlocks server *)
+
+PROCEDURE CanUnload(): WIN32.HRESULT;
+(* returns S_OK, when server can be unloaded *)
+
+
+END ClassFactory.

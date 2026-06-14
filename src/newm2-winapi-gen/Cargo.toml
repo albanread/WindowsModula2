@@ -1,0 +1,18 @@
+[package]
+name = "newm2-winapi-gen"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[[bin]]
+name = "newm2-winapi-gen"
+path = "src/main.rs"
+
+[lib]
+name = "newm2_winapi_gen"
+path = "src/lib.rs"
+
+[dependencies]
+newm2-parser = { path = "../newm2-parser" }
+newm2-lexer = { path = "../newm2-lexer" }
+rusqlite = { version = "0.32", features = ["bundled"] }

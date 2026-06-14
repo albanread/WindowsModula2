@@ -1,0 +1,14 @@
+DEFINITION MODULE T90Feed;
+(* Regression helper for the cross-module enum VAR-param store bug.
+   `Res` is an enumeration DEFINED HERE; an importing module sizes it as
+   a 4-byte slot, so a store of an enum member compiled in THIS module
+   must also be 4 bytes — not the default i64 register width. Mirrors the
+   ISO channel stack (IOChan.Look dispatching through a device record's
+   procedure pointer). See t-90-010-enum-var-store.mod. *)
+TYPE Dev;
+TYPE DevPtr = POINTER TO Dev;
+TYPE Res = (rOk, rEnd, rEol);
+PROCEDURE chan(): DevPtr;
+PROCEDURE Look(d: DevPtr; VAR ch: CHAR; VAR res: Res);
+PROCEDURE Skip(d: DevPtr);
+END T90Feed.

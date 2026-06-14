@@ -1,0 +1,8 @@
+IMPLEMENTATION MODULE T90Mid;
+
+PROCEDURE eight (): CARDINAL;
+BEGIN
+  RETURN T90Leaf.seven() + 1
+END eight;
+
+END T90Mid.
