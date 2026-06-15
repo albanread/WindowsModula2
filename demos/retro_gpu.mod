@@ -16,6 +16,7 @@ FROM GameViewGpu IMPORT Startup, Attach, LoadDefaultPalette, SetColour, CyclePal
 FROM Graphics_Gdi IMPORT ValidateRect;
 FROM WIN32 IMPORT BOOL;
 FROM STextIO IMPORT WriteString, WriteLn;
+IMPORT Audio, WaveOut;
 
 CONST
   FBW = 240; FBH = 160; Scale = 4;
@@ -77,7 +78,8 @@ BEGIN
   handled := FALSE; RETURN 0
 END Handler;
 
-VAR cw, ch, i, phase: CARDINAL; ok: BOOLEAN; starAngle: REAL;
+VAR cw, ch, i, phase, v: CARDINAL; ok: BOOLEAN; starAngle: REAL;
+    gCoin, gPower: Audio.Sound;
 BEGIN
   ok := Startup();
   gWin := CreateAppWindow("NewM2 GameView GPU", FBW*Scale + 16, FBH*Scale + 39, Handler);
@@ -103,6 +105,13 @@ BEGIN
   Place(StarInst, 1, 120.0, 78.0);
   SetScale(StarInst, 2.5);
 
+  (* audio: synthesize a coin + powerup, play a fanfare, chime as the coins spin *)
+  Audio.InitEngine(12345);
+  Audio.Coin(gCoin, 0.4);
+  Audio.Powerup(gPower, 0.5);
+  ok := WaveOut.Startup();
+  IF ok THEN v := WaveOut.Play(gPower, 0.7, 0.0) END;
+
   phase := 0; starAngle := 0.0; UpdateSky(0); BuildScene;
   LOOP
     IF NOT PumpMessages() THEN EXIT END;
@@ -110,6 +119,8 @@ BEGIN
     INC(phase); UpdateSky(phase);
     CyclePalette(32, 63);
     SetRotation(StarInst, starAngle); starAngle := starAngle + 3.0;
+    IF ok AND (phase MOD 80 = 0) THEN v := WaveOut.Play(gCoin, 0.5, 0.0) END;   (* coin chime *)
     Present
-  END
+  END;
+  IF ok THEN WaveOut.Shutdown END
 END RetroGPU.
