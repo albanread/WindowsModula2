@@ -1,0 +1,31 @@
+(* Dialogs — the classic Windows common dialogs (Open / Save File, Choose Colour)
+   and message boxes, wrapped as plain Modula-2 over the generated Win32 bindings
+   (COMDLG32 GetOpenFileNameW / GetSaveFileNameW / ChooseColorW, USER32 MessageBoxW).
+   Strings are wide ARRAY OF CHAR; a file path round-trips in place through `path`. *)
+DEFINITION MODULE Dialogs;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+(* Standard Open-File dialog. `path` is in/out: pass "" or an initial name; on TRUE
+   it holds the chosen full path (so size it generously, >= 260). `filter` is a
+   '|'-separated list of description/pattern pairs, e.g.
+   "Modula-2|*.mod|All files|*.*"  ("" = show everything). `title` is the
+   caption ("" = system default). `owner` = NIL for no parent window. *)
+PROCEDURE OpenFile (owner: ADDRESS; VAR path: ARRAY OF CHAR;
+                    filter, title: ARRAY OF CHAR): BOOLEAN;
+
+(* Standard Save-File dialog (prompts before overwriting). `defExt` (e.g. "mod",
+   no dot) is appended when the user types a name with no extension. *)
+PROCEDURE SaveFile (owner: ADDRESS; VAR path: ARRAY OF CHAR;
+                    filter, title, defExt: ARRAY OF CHAR): BOOLEAN;
+
+(* Standard colour picker. `rgb` is in/out as a COLORREF (0x00BBGGRR). *)
+PROCEDURE ChooseColour (owner: ADDRESS; VAR rgb: CARDINAL): BOOLEAN;
+
+(* Information box with a single OK button. *)
+PROCEDURE Message (owner: ADDRESS; text, title: ARRAY OF CHAR);
+
+(* Yes / No question. Returns TRUE iff the user chose Yes. *)
+PROCEDURE Confirm (owner: ADDRESS; text, title: ARRAY OF CHAR): BOOLEAN;
+
+END Dialogs.

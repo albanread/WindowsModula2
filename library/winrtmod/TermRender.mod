@@ -75,6 +75,17 @@ BEGIN
   RETURN SUCCEEDED(hr) AND (gBrush # NIL)
 END Attach;
 
+PROCEDURE Resize (pxW, pxH: CARDINAL): BOOLEAN;
+  VAR rt: ID2D1HwndRenderTarget; su: SizeU; hr: INTEGER;
+BEGIN
+  IF gRT = NIL THEN RETURN FALSE END;
+  rt := gRT;
+  su.w := VAL(DWORD, pxW);
+  su.h := VAL(DWORD, pxH);
+  hr := rt.Resize(ADR(su));                         (* ID2D1HwndRenderTarget.Resize @58 *)
+  RETURN SUCCEEDED(hr)
+END Resize;
+
 PROCEDURE Paint;
   VAR rt: ID2D1HwndRenderTarget; br: ID2D1SolidColorBrush; cf: ColorF; rc: RectF;
       col, row, cols, rows: CARDINAL; ch: CHAR; s: ARRAY [0..1] OF CHAR; hr: INTEGER;

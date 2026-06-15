@@ -16,6 +16,12 @@ PROCEDURE Ready (): BOOLEAN;
    character cell cellW x cellH pixels. Call after the window exists. *)
 PROCEDURE Attach (hwnd: ADDRESS; pxW, pxH, cellW, cellH: CARDINAL): BOOLEAN;
 
+(* Resize the render target to a new client pixel size (in place, no realloc of
+   the COM target). Call from a WM_SIZE handler so the grid keeps its native cell
+   size and the visible text area grows instead of the glyphs being scaled. The
+   cell size is unchanged; grow the Terminal grid (Terminal.Init) separately. *)
+PROCEDURE Resize (pxW, pxH: CARDINAL): BOOLEAN;
+
 (* Paint the whole Terminal cell grid to the render target. *)
 PROCEDURE Paint;
 

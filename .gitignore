@@ -65,6 +65,10 @@ Thumbs.db
 /*.tmp
 /f
 
+# FastM2 IDE scratch files (the edited buffer + captured compiler output)
+/projects/FastM2/fastm2_work.mod
+/projects/FastM2/fastm2_out.txt
+
 # Agent-generated review artifact (kept locally, not vendored)
 /backlog_suggestions.md
 
