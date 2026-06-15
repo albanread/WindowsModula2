@@ -53,8 +53,15 @@ TermRender makes it look modern. So FastM2 is "more of a GUI" via Direct2D rende
 ## Features (v1)
 
 - **Editor** — type / Enter / Backspace / Del, arrows / Home / End / PgUp / PgDn,
-  vertical + horizontal scroll, click to place the cursor, a line-number gutter.
-  Buffer is a `TextRope`.
+  vertical + horizontal scroll, a line-number gutter. Buffer is a `TextRope`.
+- **Selection + clipboard** — Shift+move or mouse click/drag selects (highlighted,
+  spans line breaks); Cut / Copy / Paste / Select-All over the Windows clipboard
+  (a `Clipboard` runtime module, CF_UNICODETEXT); typing/paste replaces the selection.
+- **Search** — Find (case-insensitive, wraps), Replace (replace-all), and Goto-line,
+  all via a status-line prompt; Ctrl+F / Ctrl+R / Ctrl+G.
+- **Source > Format** — a structural re-indenter (two spaces per nesting level from
+  the M2 block keywords; not a full pretty-printer).
+- **Recent files** — an MRU list persisted to `fastm2_recent.txt`, shown in File.
 - **Syntax highlighting** — a small Modula-2 tokeniser colours each visible line
   (keywords, `(* *)` comments incl. multi-line, `"…"`/`'…'` strings, numbers).
 - **File** — New, Open…, Save, Save As… via the classic Windows common dialogs
@@ -64,14 +71,17 @@ TermRender makes it look modern. So FastM2 is "more of a GUI" via Direct2D rende
   show the captured output; on a `file:line: error`, move the cursor to that line.
 - **Run (F5)** — compile, and if clean run the program and show its output (GUI
   programs are launched detached).
-- **Menus** — File / Build / Help drop-downs via `Terminal`'s `HandleKey`/`NextEvent`
-  state machine, activated with **F10** (the Turbo-Pascal muscle memory), plus the
-  F-key shortcuts.
-- **Resizing** — the window resizes without scaling: on `WM_SIZE` the grid is
-  re-`Init`-ed to fit the client area at native cell size (via a new
-  `TermRender.Resize` that resizes the Direct2D target in place), so the text area
-  grows/shrinks. Layout is recomputed from the live grid each time.
-- **Status bar** — file name + modified flag, `Ln/Col`, and the key hints.
+- **Menus** — File / Edit / Search / Source / Build / Help drop-downs via `Terminal`'s
+  `HandleKey`/`NextEvent` state machine, opened with **F10**, an **Alt** accelerator,
+  or the **mouse** (new `Terminal.MenuBarHit`/`MenuPopupHit` hit-testing), plus the
+  F-key + Ctrl-key shortcuts.
+- **Resizing + split** — the window resizes without scaling: on `WM_SIZE` the grid
+  is re-`Init`-ed to fit the client area at native cell size (via `TermRender.Resize`,
+  which resizes the Direct2D target in place), so the text area grows/shrinks; layout
+  is recomputed from the live grid. The editor/output split is draggable (grab the
+  Output bar).
+- **Status bar** — file name + modified flag, `Ln/Col`, key hints; doubles as the
+  Find/Replace/Goto input line.
 
 ## Module structure
 
@@ -91,7 +101,7 @@ TermRender makes it look modern. So FastM2 is "more of a GUI" via Direct2D rende
 The compiler path + library path are CONSTs at the top (default `target\debug\
 newm2-driver.exe` and the repo `library`), so FastM2 is run from the repo root for now.
 
-## Not in v1 (kept simple, well-trodden ground)
+## Not yet (kept simple, well-trodden ground)
 
-Multiple files/tabs, find/replace, undo/redo, project files, a debugger. The
-editor buffer is a rope, so undo and large files are cheap to add later.
+Multiple files/tabs, undo/redo, project files, a debugger, and a strings/comments-
+aware formatter. The editor buffer is a rope, so undo is cheap to add next.

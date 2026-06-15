@@ -30,6 +30,7 @@ VAR
   gMenu: ARRAY [0..MaxMenu-1] OF MenuRec;
   gMenuCount, gMenuSel: CARDINAL;
   gMenuOpen: BOOLEAN;
+  gMenuFocused: BOOLEAN;         (* highlight the selected title only when focused *)
   gItemSel: CARDINAL;            (* highlighted item in the open drop-down *)
 
   (* cells the open drop-down covers, saved so MenuClose can restore them *)
@@ -102,6 +103,7 @@ BEGIN
   gCols := cols; gRows := rows;
   gCurFg := White; gCurBg := Black;
   gMenuCount := 0; gMenuSel := 0; gMenuOpen := FALSE; gItemSel := 0;
+  gMenuFocused := TRUE;          (* default on, for consumers that don't manage focus *)
   gSaveValid := FALSE;
   gEvHead := 0; gEvLen := 0;
   Clear
@@ -315,6 +317,32 @@ BEGIN
   END
 END DrawDropdown;
 
+PROCEDURE MenuBarHit (col: CARDINAL): CARDINAL;
+  VAR i: CARDINAL;
+BEGIN
+  MenuLayout;
+  i := 0;
+  WHILE i < gMenuCount DO
+    IF (col >= gMenu[i].colAt) AND (col < gMenu[i].colAt + StrLen(gMenu[i].title) + 2) THEN
+      RETURN i
+    END;
+    INC(i)
+  END;
+  RETURN MAX(CARDINAL)
+END MenuBarHit;
+
+PROCEDURE MenuPopupHit (col, row: CARDINAL): CARDINAL;
+  VAR px, py, pw, ph: CARDINAL;
+BEGIN
+  IF NOT gMenuOpen THEN RETURN MAX(CARDINAL) END;
+  PopupGeom(px, py, pw, ph);
+  IF (row >= py + 1) AND (row <= py + gMenu[gMenuSel].nItems) AND
+     (col >= px) AND (col < px + pw) THEN
+    RETURN row - (py + 1)
+  END;
+  RETURN MAX(CARDINAL)
+END MenuPopupHit;
+
 PROCEDURE MenuClose;
   VAR r, c: CARDINAL;
 BEGIN
@@ -360,6 +388,9 @@ BEGIN
   gMenuOpen := TRUE
 END MenuOpen;
 
+PROCEDURE MenuSetFocus (on: BOOLEAN);
+BEGIN gMenuFocused := on END MenuSetFocus;
+
 PROCEDURE MenuRender;
   VAR i, col, j, tl: CARDINAL; fg, bg: Colour;
 BEGIN
@@ -369,7 +400,7 @@ BEGIN
   i := 0;
   WHILE i < gMenuCount DO
     IF NOT gMenu[i].enabled THEN fg := Gray; bg := Silver
-    ELSIF i = gMenuSel THEN fg := White; bg := Navy
+    ELSIF (i = gMenuSel) AND gMenuFocused THEN fg := White; bg := Navy
     ELSE fg := Black; bg := Silver END;
     col := gMenu[i].colAt;
     IF col < gCols THEN SetCell(0, col, ' ', fg, bg) END;
@@ -759,6 +790,7 @@ BEGIN
   gCols := 80; gRows := 25; gCurX := 0; gCurY := 0;
   gCurFg := White; gCurBg := Black;
   gMenuCount := 0; gMenuSel := 0; gMenuOpen := FALSE; gItemSel := 0;
+  gMenuFocused := TRUE;          (* default on, for consumers that don't manage focus *)
   gSaveValid := FALSE;
   gEvHead := 0; gEvLen := 0
 END Terminal.

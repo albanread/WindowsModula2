@@ -4,12 +4,12 @@ FROM SYSTEM IMPORT ADDRESS, ADR, CAST, SIZE;
 FROM UI_WindowsAndMessaging IMPORT
   WNDCLASSEXW, MSG, RegisterClassExW, CreateWindowExW, DefWindowProcW,
   SendMessageW, DestroyWindow, ShowWindow, GetMessageW, PeekMessageW,
-  TranslateMessage, DispatchMessageW, PostQuitMessage, GetClientRect,
+  TranslateMessage, DispatchMessageW, PostQuitMessage, GetClientRect, LoadCursorW,
   WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, SW_SHOW, PM_REMOVE, WM_QUIT;
 FROM Graphics_Gdi IMPORT InvalidateRect;
 FROM Foundation IMPORT RECT;
 FROM System_LibraryLoader IMPORT GetModuleHandleW;
-FROM WIN32 IMPORT HWND, HINSTANCE, WPARAM, LPARAM, LRESULT, DWORD, BOOL, WORD;
+FROM WIN32 IMPORT HWND, HINSTANCE, WPARAM, LPARAM, LRESULT, DWORD, BOOL, WORD, PWSTR;
 FROM MemUtils IMPORT ZeroMem;
 
 CONST MsgParentBits = 2;     (* HWND_MESSAGE = -3 = MAX(CARDINAL) - 2 *)
@@ -43,7 +43,8 @@ BEGIN
     wc.cbSize := VAL(DWORD, SIZE(wc));
     wc.lpfnWndProc := CAST(ADDRESS, WndProc);    (* M2 proc as a native WNDPROC *)
     wc.hInstance := hInst;
-    wc.lpszClassName := ADR(className);
+    wc.hCursor := LoadCursorW(NIL, CAST(PWSTR, 32512));   (* IDC_ARROW — else the *)
+    wc.lpszClassName := ADR(className);          (* launch "busy" cursor sticks   *)
     atom := RegisterClassExW(ADR(wc));
     gRegistered := TRUE
   END;

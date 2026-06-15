@@ -1,0 +1,17 @@
+(* Clipboard — the Windows system clipboard for Unicode text, wrapped as plain
+   Modula-2 over the generated Win32 bindings (USER32 Open/Close/Empty/Get/Set
+   ClipboardData with CF_UNICODETEXT, KERNEL32 GlobalAlloc/Lock/Unlock). Text is
+   wide ARRAY OF CHAR (CHAR is UTF-16). *)
+DEFINITION MODULE Clipboard;
+
+(* Replace the clipboard contents with `s` (Unicode text). TRUE on success. *)
+PROCEDURE SetText (s: ARRAY OF CHAR): BOOLEAN;
+
+(* Fetch the clipboard's Unicode text into `s` (truncated to fit, NUL-terminated).
+   FALSE if the clipboard holds no text or could not be read. *)
+PROCEDURE GetText (VAR s: ARRAY OF CHAR): BOOLEAN;
+
+(* TRUE iff the clipboard currently holds Unicode text. *)
+PROCEDURE HasText (): BOOLEAN;
+
+END Clipboard.

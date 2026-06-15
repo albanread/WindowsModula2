@@ -52,6 +52,7 @@ const GLOBAL_FLAGS: &[&str] = &[
     "--win-source",
     "--no-runtime-checks",
     "--strict",
+    "--gui",
     "--opt",
     "--no-gc",
     "--gc",
@@ -99,6 +100,10 @@ struct DriverOptions {
     /// index proven out of bounds). OFF by default — the dialect is deliberately
     /// lenient; lenient builds still catch these at run time.
     strict: bool,
+    /// `--gui`: link the `.exe` for the Windows GUI subsystem (no console window
+    /// is allocated when it runs). Keeps the normal `main` entry via
+    /// `/ENTRY:mainCRTStartup`. Off by default (console apps). For windowed apps.
+    gui: bool,
     /// `--out PATH`: output file for `build` (the `.exe`). Defaults to the
     /// entry file's stem with a `.exe` suffix.
     out: Option<PathBuf>,
@@ -122,6 +127,7 @@ impl DriverOptions {
         let mut library_paths = Vec::new();
         let mut runtime_checks = true;
         let mut strict = false;
+        let mut gui = false;
         let mut out: Option<PathBuf> = None;
         let mut m2_heap = false;
         let mut cache = false;
@@ -145,6 +151,9 @@ impl DriverOptions {
                 index += 1;
             } else if raw_args[index] == "--strict" {
                 strict = true;
+                index += 1;
+            } else if raw_args[index] == "--gui" {
+                gui = true;
                 index += 1;
             } else if raw_args[index] == "--m2-heap" {
                 m2_heap = true;
@@ -195,6 +204,7 @@ impl DriverOptions {
             library_paths,
             runtime_checks,
             strict,
+            gui,
             out,
             m2_heap,
             cache,
@@ -1170,7 +1180,7 @@ fn run_build(paths: &[PathBuf], raw_args: &[String], options: &DriverOptions) ->
     }
 
     let import_libs = collect_import_libs(&lowered);
-    match link_executable(&obj_path, &exe_path, &[], &import_libs) {
+    match link_executable(&obj_path, &exe_path, &[], &import_libs, options.gui) {
         Ok(()) => {
             println!("newm2: wrote {}", exe_path.display());
             ExitCode::SUCCESS
@@ -1261,7 +1271,7 @@ fn build_against_stdlib(
     import_libs.sort();
     import_libs.dedup();
 
-    match link_executable(&obj_path, &exe_path, &[stdlib_lib.as_path()], &import_libs) {
+    match link_executable(&obj_path, &exe_path, &[stdlib_lib.as_path()], &import_libs, options.gui) {
         Ok(()) => {
             println!(
                 "newm2: wrote {} ({} program modules, {} from stdlib)",
@@ -1344,6 +1354,7 @@ fn link_executable(
     exe: &Path,
     extra_libs: &[&Path],
     import_libs: &[String],
+    gui: bool,
 ) -> Result<(), String> {
     let runtime_lib = locate_runtime_lib()?;
 
@@ -1355,7 +1366,16 @@ fn link_executable(
         })?;
 
     cmd.arg("/NOLOGO");
-    cmd.arg("/SUBSYSTEM:CONSOLE");
+    if gui {
+        // GUI subsystem: Windows does not allocate a console for the process.
+        // Keep the ordinary `main` entry (the C runtime's mainCRTStartup) so the
+        // program runs unchanged — only the PE subsystem flag differs from a
+        // console build, which otherwise would need a WinMain.
+        cmd.arg("/SUBSYSTEM:WINDOWS");
+        cmd.arg("/ENTRY:mainCRTStartup");
+    } else {
+        cmd.arg("/SUBSYSTEM:CONSOLE");
+    }
     cmd.arg(format!("/OUT:{}", exe.display()));
     cmd.arg(obj);
     // Prebuilt static libraries to link first (e.g. a prebuilt stdlib.lib), so

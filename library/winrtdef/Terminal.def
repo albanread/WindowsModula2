@@ -69,6 +69,7 @@ PROCEDURE MenuClear;
 PROCEDURE MenuAdd (title: ARRAY OF CHAR);
 PROCEDURE MenuCount (): CARDINAL;
 PROCEDURE MenuRender;                                     (* paints the bar + open drop-down *)
+PROCEDURE MenuSetFocus (on: BOOLEAN);                     (* highlight the selected title only when focused *)
 
 (* selection + navigation *)
 PROCEDURE MenuSelect (index: CARDINAL);
@@ -99,6 +100,11 @@ PROCEDURE MenuItemSelected (): CARDINAL;   (* highlighted item in the open drop-
 PROCEDURE MenuItemSelect (item: CARDINAL);
 PROCEDURE MenuItemNext (): BOOLEAN;
 PROCEDURE MenuItemPrev (): BOOLEAN;
+
+(* Mouse hit-testing for the menu (for click-to-select). Both return
+   MAX(CARDINAL) when the cell is not on a menu. *)
+PROCEDURE MenuBarHit (col: CARDINAL): CARDINAL;        (* top-menu index at bar column (row 0) *)
+PROCEDURE MenuPopupHit (col, row: CARDINAL): CARDINAL; (* item index in the open drop-down *)
 
 (* ---- events: semantic things the controlling app responds to. Produced by the
    HandleKey / FieldHandleKey dispatchers (and postable directly). Drain them in
