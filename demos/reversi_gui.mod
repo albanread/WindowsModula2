@@ -1,4 +1,5 @@
 MODULE ReversiGUI;
+<*GUI*>   (* windowed app: GUI subsystem, no console *)
 (*
  * Reversi / Othello — the graphical cousin of demos/reversi.mod (which renders on
  * the text cell grid). Same game and AI, but drawn with real Direct2D shapes via

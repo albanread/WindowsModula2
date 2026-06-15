@@ -1180,7 +1180,8 @@ fn run_build(paths: &[PathBuf], raw_args: &[String], options: &DriverOptions) ->
     }
 
     let import_libs = collect_import_libs(&lowered);
-    match link_executable(&obj_path, &exe_path, &[], &import_libs, options.gui) {
+    let gui = options.gui || entry_has_gui_pragma(&graph);
+    match link_executable(&obj_path, &exe_path, &[], &import_libs, gui) {
         Ok(()) => {
             println!("newm2: wrote {}", exe_path.display());
             ExitCode::SUCCESS
@@ -1271,7 +1272,8 @@ fn build_against_stdlib(
     import_libs.sort();
     import_libs.dedup();
 
-    match link_executable(&obj_path, &exe_path, &[stdlib_lib.as_path()], &import_libs, options.gui) {
+    let gui = options.gui || entry_has_gui_pragma(graph);
+    match link_executable(&obj_path, &exe_path, &[stdlib_lib.as_path()], &import_libs, gui) {
         Ok(()) => {
             println!(
                 "newm2: wrote {} ({} program modules, {} from stdlib)",
@@ -1343,6 +1345,21 @@ fn collect_import_libs(lowered: &[newm2_ir::IrModule]) -> Vec<String> {
         }
     }
     libs.into_iter().collect()
+}
+
+/// True if the entry program module carries a `<*GUI*>` pragma — at the module
+/// header (`Module.pragmas`) or as a top-level declaration (`Decl::Pragma`). Such
+/// a program is linked for the Windows GUI subsystem (no console), exactly like
+/// `--gui`. The entry is always `ModuleId(0)` (the loader's first module); an
+/// imported library carrying the pragma must NOT flip the whole program.
+fn entry_has_gui_pragma(graph: &newm2_loader::ModuleGraph) -> bool {
+    let node = graph.get(newm2_loader::ModuleId(0));
+    let Some(m) = node.impl_ast.as_ref().or(node.def_ast.as_ref()) else {
+        return false;
+    };
+    let is_gui = |body: &str| body.trim().eq_ignore_ascii_case("GUI");
+    m.pragmas.iter().any(|p| is_gui(&p.body))
+        || m.decls.iter().any(|d| matches!(d, Decl::Pragma(p) if is_gui(&p.body)))
 }
 
 /// Link `obj` + the runtime static library + system libraries into `exe` using

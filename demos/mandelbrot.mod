@@ -1,4 +1,5 @@
 MODULE Mandelbrot;
+<*GUI*>   (* windowed app: GUI subsystem, no console *)
 (*
  * GUI Mandelbrot zoomer, in pure Modula-2 — a real program that exercises the
  * compiler (LONGREAL inner loop, the COM-backed Direct2D render path, a Win32

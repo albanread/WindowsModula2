@@ -266,6 +266,10 @@ impl<'a> Parser<'a> {
         let mut pragmas = start_pragmas;
         pragmas.extend(self.collect_pragmas());
         self.expect_kind(TokenKind::Semicolon, "';'")?;
+        // Module-level pragmas on the line(s) just after the header `;` (e.g.
+        // `MODULE Foo;` then `<*GUI*>`) — capture them before IMPORT parsing,
+        // which would otherwise discard stray pragmas.
+        pragmas.extend(self.collect_pragmas());
         // IMPORT clauses.
         let imports = self.parse_imports()?;
         // DEFINITION modules: declarations only, no body.

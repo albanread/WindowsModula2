@@ -1,4 +1,5 @@
 MODULE Reversi;
+<*GUI*>   (* windowed app: GUI subsystem, no console *)
 (*
  * Reversi / Othello — a mouse-driven GUI game in pure Modula-2 on the Terminal
  * cell grid (Direct2D/DirectWrite via TermRender, window + loop via WinShell).

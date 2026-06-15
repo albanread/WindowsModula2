@@ -1,4 +1,5 @@
 MODULE RaymarchGPU;
+<*GUI*>   (* windowed app: GUI subsystem, no console *)
 (*
  * Raymarched 3-D scene on the GPU — a client of the generic ShaderView pixel-
  * shader host. Each pixel sphere-traces a signed-distance field (a rotating

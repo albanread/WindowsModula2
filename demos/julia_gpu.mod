@@ -1,4 +1,5 @@
 MODULE JuliaGPU;
+<*GUI*>   (* windowed app: GUI subsystem, no console *)
 (*
  * Animated Julia set on the GPU — a client of the generic ShaderView pixel-shader
  * host. Each pixel iterates z = z^2 + c starting from its own position, with c a

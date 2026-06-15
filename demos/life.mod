@@ -1,4 +1,5 @@
 MODULE Life;
+<*GUI*>   (* windowed app: GUI subsystem, no console *)
 (*
  * Conway's Game of Life — a text-mode (Terminal cell grid) animation in pure
  * Modula-2. The board is a torus (edges wrap), the classic B3/S23 rule runs each

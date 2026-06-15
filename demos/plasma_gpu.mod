@@ -1,4 +1,5 @@
 MODULE PlasmaGPU;
+<*GUI*>   (* windowed app: GUI subsystem, no console *)
 (*
  * Animated plasma on the GPU — a client of the generic ShaderView pixel-shader
  * host. A few summed sine waves over screen space, swept by time, give the

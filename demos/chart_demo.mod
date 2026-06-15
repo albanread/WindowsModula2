@@ -1,4 +1,5 @@
 MODULE ChartDemo;
+<*GUI*>   (* windowed app: GUI subsystem, no console *)
 (*
  * A business-graphics dashboard, drawn on the RasterView RGBA framebuffer with
  * the Chart library: a bar chart, a line chart, a pie chart and a legend, blitted

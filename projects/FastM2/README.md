@@ -11,15 +11,17 @@ modern GUI rather than VGA text mode. See [DESIGN.md](DESIGN.md) for the archite
 ## Build & run
 
 ```
-newm2 build projects/FastM2/FastM2.mod --library library --gui
+newm2 build projects/FastM2/FastM2.mod --library library
 projects\FastM2\FastM2.exe
 ```
 
-`--gui` links the `.exe` for the Windows GUI subsystem so **no console window**
-opens when it runs (a windowed program). Drop it for console programs. The
-toolchain/library/work-file paths are CONSTs at the top of `FastM2.mod`
-(`Compiler`, `LibPath`, `WorkFile`, `OutFile`) — edit them for your tree. They
-default to this repo's layout under `e:\NewModula2`.
+FastM2 declares itself a windowed program with a **`<*GUI*>` pragma** at the top of
+`FastM2.mod`, so it links for the Windows GUI subsystem (**no console window**) with
+no build flag — `newm2` reads the pragma. (The `--gui` flag still works and forces
+the same thing for a program without the pragma.) The toolchain/library/work-file
+paths are CONSTs at the top of `FastM2.mod` (`Compiler`, `LibPath`, `WorkFile`,
+`OutFile`) — edit them for your tree. They default to this repo's layout under
+`e:\NewModula2`.
 
 ## Keys
 

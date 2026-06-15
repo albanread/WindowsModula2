@@ -1,4 +1,5 @@
 MODULE MandelbrotGPU;
+<*GUI*>   (* windowed app: GUI subsystem, no console *)
 (*
  * GPU Mandelbrot zoomer — a client of the generic ShaderView pixel-shader host.
  * The escape-time iteration runs in this module's HLSL PIXEL SHADER (one

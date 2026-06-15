@@ -1,4 +1,5 @@
 MODULE Editor;
+<*GUI*>   (* windowed app: GUI subsystem, no console *)
 (*
  * A notepad-like text editor in pure Modula-2, on the Terminal cell grid
  * (Direct2D/DirectWrite via TermRender, window + loop via WinShell). The document

@@ -1,4 +1,5 @@
 MODULE Calculator;
+<*GUI*>   (* windowed app: GUI subsystem, no console *)
 (*
  * A scientific calculator drawn with the Canvas2D Direct2D host. The interesting
  * part is the evaluator: a hand-written RECURSIVE-DESCENT parser over the typed

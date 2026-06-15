@@ -1,4 +1,5 @@
 MODULE SimdParticles;
+<*GUI*>   (* windowed app: GUI subsystem, no console *)
 (*
  * A SIMD particle swirl — hundreds of particles pulled toward a moving attractor,
  * with the physics done four particles at a time in REAL32X4 lane vectors (the

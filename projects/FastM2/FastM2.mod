@@ -1,4 +1,5 @@
 MODULE FastM2;
+<*GUI*>   (* a windowed app: link for the Windows GUI subsystem, no console *)
 (*
  * FastM2 — a single-window Modula-2 IDE in the spirit of Turbo Pascal / QuickBASIC,
  * written in Modula-2 on the WindowsModula2 stack it edits. A menu bar (F10 or

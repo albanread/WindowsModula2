@@ -5816,7 +5816,8 @@ fn check_pragma_known(ctx: &mut Ctx, pr: &ast::Pragma) {
         || body.starts_with("IF")
         || body.starts_with("ELSIF")
         || body.starts_with("ELSE")
-        || body.starts_with("END");
+        || body.starts_with("END")
+        || body.eq_ignore_ascii_case("GUI"); // <*GUI*> — link as a Windows GUI app (driver reads it)
     if !is_known {
         ctx.warning(pr.span, format!("unknown pragma: <*{body}*>"));
     }

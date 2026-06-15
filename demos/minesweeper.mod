@@ -1,4 +1,5 @@
 MODULE Minesweeper;
+<*GUI*>   (* windowed app: GUI subsystem, no console *)
 (*
  * Minesweeper — a mouse-driven GUI game in pure Modula-2, rendered on the
  * Terminal cell grid (Direct2D/DirectWrite via TermRender, window + message

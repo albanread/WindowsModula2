@@ -1,4 +1,5 @@
 MODULE Worms;
+<*GUI*>   (* windowed app: GUI subsystem, no console *)
 (*
  * Worms — a multi-worm "snake" on a large Terminal cell grid. You are the GREEN
  * worm (arrow keys). The RED and BLUE worms are the computer.

@@ -1,4 +1,5 @@
 MODULE TermDemo;
+<*GUI*>   (* windowed app: GUI subsystem, no console *)
 (*
  * A live TUI terminal, rendered with Direct2D/DirectWrite (no GDI), in pure
  * Modula-2. Shows the whole stack working together:
