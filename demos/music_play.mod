@@ -26,22 +26,38 @@ BEGIN
   abc[n] := CHR(10); INC(n); abc[n] := 0C
 END App;
 
+VAR i, chMask: CARDINAL;
+
 BEGIN
   n := 0;
   App("X:1");
-  App("T:Ode to Joy");
+  App("T:Ode to Joy (2 voices)");
   App("M:4/4");
   App("L:1/4");
-  App("Q:140");
-  App("%%MIDI program 0");
+  App("Q:135");
   App("K:C");
+  App("V:1");                                  (* melody on a piano *)
+  App("%%MIDI program 0");
   App("EEFG GFED|CCDE E2D2|");
+  App("V:2");                                  (* bass on a different channel + instrument *)
+  App("%%MIDI program 32");
+  App("C,2C,2 G,,2G,,2|C,2C,2 G,,2C,2|");
 
   WriteString("Parsing ABC..."); WriteLn;
   IF NOT Abc.ParseTune(abc, tune) THEN WriteString("parse produced no notes"); WriteLn; HALT END;
   WriteString("  events="); WriteInt(VAL(INTEGER, tune.count), 1);
   WriteString("  bpm="); WriteInt(VAL(INTEGER, tune.bpm), 1);
   WriteString("  length="); WriteInt(VAL(INTEGER, tune.endMs), 1); WriteString("ms"); WriteLn;
+  (* report channels that have note-ons + the program changes *)
+  chMask := 0;
+  FOR i := 0 TO tune.count-1 DO
+    IF tune.ev[i].status = 90H THEN chMask := chMask BOR (1 SHL tune.ev[i].chan) END;
+    IF tune.ev[i].status = 0C0H THEN
+      WriteString("  channel "); WriteInt(VAL(INTEGER, tune.ev[i].chan), 1);
+      WriteString(" -> program "); WriteInt(VAL(INTEGER, tune.ev[i].d1), 1); WriteLn
+    END
+  END;
+  WriteString("  channels with notes mask="); WriteInt(VAL(INTEGER, chMask), 1); WriteLn;
 
   IF NOT MidiOut.Startup() THEN WriteString("midiOut open failed"); WriteLn; HALT END;
   WriteString("Playing through midiOut (GM synth)..."); WriteLn;

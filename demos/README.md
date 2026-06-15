@@ -111,9 +111,11 @@ it is **headless-testable** like `RasterView`; `WavFile` exports/imports canonic
 from M2 — open `waveOut`, double-buffer a few blocks, software-mix the active voices with
 per-voice gain/pan/fade). `audio_sfx` (render to .wav) and `audio_play` (live) show it off.
 For music, **`Abc`** parses ABC notation (notes/octaves/accidentals-in-bar/key/durations/
-broken-rhythm/ties/chords/tuplets/rests/bars/repeats/tempo/meter/inline-fields/`%%MIDI`) to a
-flat array of absolute-ms MIDI events, and **`MidiOut`** plays them through WinMM `midiOut`
-on a 1 ms scheduler thread — `music_play` is the showcase.
+broken-rhythm/ties/chords/tuplets/rests/bars/repeats/tempo/meter/inline-fields, **multiple
+voices** `V:` each on its own channel + instrument, `%%MIDI program/channel/transpose/drum`)
+to a flat array of absolute-ms MIDI events, and **`MidiOut`** plays them through WinMM
+`midiOut` on a 1 ms scheduler thread — so a game can score melody + bass + drums. `music_play`
+plays a two-voice (piano + bass) arrangement.
 
 Prebuilt `.exe`s sit next to each source (`newm2 build demos/<name>.mod` rebuilds);
 the `.exe`/`.obj` are git-ignored.

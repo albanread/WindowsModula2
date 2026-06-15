@@ -15,7 +15,19 @@ CONST
   MaxSrc = 16384; MaxLine = 2048;
   Velocity = 80;
 
-TYPE PTune = POINTER TO Tune;
+CONST MaxVoices = 16;
+
+TYPE
+  PTune = POINTER TO Tune;
+  (* saved per-voice state (the working globals snapshot a voice into/out of) *)
+  VoiceState = RECORD
+    used: BOOLEAN;
+    name: ARRAY [0..15] OF CHAR;
+    channel, instrument: INTEGER;
+    curMs: REAL;
+    keySharps, unitN, unitD, tsN, tsD, transpose: INTEGER;
+    barAcc: ARRAY [0..6] OF INTEGER;  barSet: ARRAY [0..6] OF BOOLEAN;
+  END;
 
 VAR
   gSrc:  ARRAY [0..MaxSrc-1] OF CHAR;  gSrcLen: CARDINAL;
@@ -24,10 +36,15 @@ VAR
   gT:    PTune;
   gInBody: BOOLEAN;
   gCurMs, gMsPerWhole: REAL;
-  gBpm, gUnitN, gUnitD, gTsN, gTsD: INTEGER;
-  gKeySharps, gTranspose, gProgram: INTEGER;
+  gBpm, gUnitN, gUnitD, gTsN, gTsD: INTEGER;          (* working = current voice *)
+  gKeySharps, gTranspose: INTEGER;
+  gChan, gInstrument: INTEGER;
   gBarAcc: ARRAY [0..6] OF INTEGER;  gBarSet: ARRAY [0..6] OF BOOLEAN;
   gTupN, gTupD, gTupRem: INTEGER;
+  (* voices *)
+  gVoices: ARRAY [0..MaxVoices-1] OF VoiceState;
+  gNVoices, gCur, gNextChan: INTEGER;
+  gDefKey, gDefUnitN, gDefUnitD, gDefTsN, gDefTsD, gDefInstr: INTEGER;
 
 (* ---- char helpers ------------------------------------------------------ *)
 PROCEDURE Up (c: CHAR): CHAR;
@@ -58,8 +75,8 @@ PROCEDURE EmitNote (midi: INTEGER; durWholes: REAL);
   VAR startMs, endMs: CARDINAL;
 BEGIN
   startMs := Round(gCurMs); endMs := Round(gCurMs + durWholes * gMsPerWhole);
-  Push(startMs, 90H, 0, VAL(CARDINAL, midi), Velocity);
-  Push(endMs,   80H, 0, VAL(CARDINAL, midi), 0)
+  Push(startMs, 90H, VAL(CARDINAL, gChan), VAL(CARDINAL, midi), Velocity);
+  Push(endMs,   80H, VAL(CARDINAL, gChan), VAL(CARDINAL, midi), 0)
 END EmitNote;
 
 (* ---- pitch / duration -------------------------------------------------- *)
@@ -178,7 +195,7 @@ END SkipGrace;
 
 (* ---- the note sequence loop (parser.rs:427-680, single voice) ---------- *)
 PROCEDURE ParseSeq (VAR ln: ARRAY OF CHAR; len: CARDINAL);
-  VAR pos, start: CARDINAL; midi, dn, dd, p2, p3, q, r: INTEGER;
+  VAR pos, start, ie: CARDINAL; midi, dn, dd, p2, p3, q, r: INTEGER;
       durW: REAL; brokenLonger, hasBroken: BOOLEAN;
       nmidi, ndn, ndd: INTEGER; cnt: CARDINAL;
       cmidi: ARRAY [0..15] OF INTEGER; cn: CARDINAL;
@@ -191,12 +208,17 @@ BEGIN
     IF ln[pos] = '{' THEN
       IF SkipGrace(ln, len, pos) THEN END
     ELSIF (ln[pos]='[') AND (pos+2 < len) AND IsAlpha(ln[pos+1]) AND (ln[pos+2]=':') THEN
-      (* inline bracket field [K:..]/[Q:..]: apply, skip to ] *)
-      start := pos+3;
-      pos := pos+3;
-      WHILE (pos < len) AND (ln[pos] # ']') DO INC(pos) END;
-      ApplyInline(Up(ln[start-2]), ln, start, pos);
-      IF pos < len THEN INC(pos) END
+      start := pos+3; pos := pos+3;
+      IF Up(ln[start-2]) = 'V' THEN              (* [V:id] -> voice switch *)
+        ie := pos; WHILE (ie<len) AND (ln[ie]#']') AND (ln[ie]#' ') AND (ln[ie]#CHR(9)) DO INC(ie) END;
+        WHILE (pos < len) AND (ln[pos] # ']') DO INC(pos) END;
+        SwitchVoice(ln, start, ie);
+        IF pos < len THEN INC(pos) END
+      ELSE                                       (* [K:..]/[Q:..]/[M:..]/[L:..] *)
+        WHILE (pos < len) AND (ln[pos] # ']') DO INC(pos) END;
+        ApplyInline(Up(ln[start-2]), ln, start, pos);
+        IF pos < len THEN INC(pos) END
+      END
     ELSIF ln[pos] = '"' THEN
       INC(pos);                                    (* guitar chord: skip "..." (silent) *)
       WHILE (pos < len) AND (ln[pos] # '"') DO INC(pos) END;
@@ -392,18 +414,27 @@ BEGIN
   ELSE END
 END ParseHeader;
 
-(* %%MIDI program N -> set the channel program *)
+(* %%MIDI program/channel/transpose/drum -> apply to the CURRENT voice *)
 PROCEDURE ParseMidiDir (VAR s: ARRAY OF CHAR; n: CARDINAL);
-  VAR i, num: CARDINAL; isProg: BOOLEAN;
+  VAR i, num: CARDINAL; neg: BOOLEAN; c0, c1: CHAR;
 BEGIN
-  (* s is the whole "%%MIDI program N" line; skip the 6-char "%%MIDI" prefix *)
   IF n < 6 THEN RETURN END;
   i := 6; WHILE (i < n) AND ((s[i]=' ')OR(s[i]=CHR(9))) DO INC(i) END;
-  isProg := (i+6 < n) AND (Up(s[i])='P') AND (Up(s[i+1])='R') AND (Up(s[i+2])='O');
-  IF isProg THEN
-    WHILE (i < n) AND (NOT IsDigit(s[i])) DO INC(i) END;
-    num := 0; WHILE (i < n) AND IsDigit(s[i]) DO num := num*10 + (ORD(s[i])-ORD('0')); INC(i) END;
-    IF num <= 127 THEN gProgram := VAL(INTEGER, num) END
+  IF i >= n THEN RETURN END;
+  c0 := Lower(s[i]); IF i+1 < n THEN c1 := Lower(s[i+1]) ELSE c1 := ' ' END;
+  (* advance to the numeric argument *)
+  WHILE (i < n) AND (s[i]#' ') AND (s[i]#CHR(9)) DO INC(i) END;
+  WHILE (i < n) AND ((s[i]=' ')OR(s[i]=CHR(9))) DO INC(i) END;
+  neg := FALSE; IF (i < n) AND (s[i]='-') THEN neg := TRUE; INC(i) END;
+  num := 0; WHILE (i < n) AND IsDigit(s[i]) DO num := num*10 + (ORD(s[i])-ORD('0')); INC(i) END;
+  IF (c0='p') AND (c1='r') THEN                              (* program *)
+    IF num <= 127 THEN gInstrument := VAL(INTEGER, num) END
+  ELSIF (c0='c') AND (c1='h') THEN                           (* channel (1..16) *)
+    IF (num >= 1) AND (num <= 16) THEN gChan := VAL(INTEGER, num) - 1 END
+  ELSIF (c0='t') THEN                                        (* transpose *)
+    IF neg THEN gTranspose := -VAL(INTEGER, num) ELSE gTranspose := VAL(INTEGER, num) END
+  ELSIF (c0='d') OR (c0='p') THEN                            (* drum / percussion *)
+    gChan := 9
   END
 END ParseMidiDir;
 
@@ -432,6 +463,105 @@ BEGIN
   FOR k := e2+2 TO n-1 DO dst[dn] := src[k]; INC(dn) END        (* after :| *)
 END ExpandRepeat;
 
+(* ---- voices ------------------------------------------------------------ *)
+PROCEDURE SaveCur;
+  VAR i: CARDINAL;
+BEGIN
+  IF (gCur >= 0) AND (gCur < gNVoices) THEN
+    gVoices[gCur].curMs := gCurMs; gVoices[gCur].keySharps := gKeySharps;
+    gVoices[gCur].unitN := gUnitN; gVoices[gCur].unitD := gUnitD;
+    gVoices[gCur].tsN := gTsN; gVoices[gCur].tsD := gTsD;
+    gVoices[gCur].transpose := gTranspose;
+    gVoices[gCur].channel := gChan; gVoices[gCur].instrument := gInstrument;
+    FOR i := 0 TO 6 DO gVoices[gCur].barAcc[i] := gBarAcc[i]; gVoices[gCur].barSet[i] := gBarSet[i] END
+  END
+END SaveCur;
+
+PROCEDURE LoadCur;
+  VAR i: CARDINAL;
+BEGIN
+  gCurMs := gVoices[gCur].curMs; gKeySharps := gVoices[gCur].keySharps;
+  gUnitN := gVoices[gCur].unitN; gUnitD := gVoices[gCur].unitD;
+  gTsN := gVoices[gCur].tsN; gTsD := gVoices[gCur].tsD;
+  gTranspose := gVoices[gCur].transpose;
+  gChan := gVoices[gCur].channel; gInstrument := gVoices[gCur].instrument;
+  FOR i := 0 TO 6 DO gBarAcc[i] := gVoices[gCur].barAcc[i]; gBarSet[i] := gVoices[gCur].barSet[i] END;
+  Recompute
+END LoadCur;
+
+PROCEDURE AssignChannel (): INTEGER;
+  VAR ch: INTEGER;
+BEGIN
+  ch := gNextChan; IF ch = 9 THEN ch := 10 END; IF ch > 15 THEN ch := 15 END;
+  gNextChan := ch + 1; IF gNextChan = 9 THEN gNextChan := 10 END;
+  RETURN ch
+END AssignChannel;
+
+PROCEDURE NameEq (VAR vname: ARRAY OF CHAR; VAR ident: ARRAY OF CHAR; from, to: CARDINAL): BOOLEAN;
+  VAR vlen, i: CARDINAL;
+BEGIN
+  vlen := 0; WHILE (vlen <= HIGH(vname)) AND (vname[vlen] # 0C) DO INC(vlen) END;
+  IF vlen # (to - from) THEN RETURN FALSE END;
+  IF vlen > 0 THEN FOR i := 0 TO vlen-1 DO IF vname[i] # ident[from+i] THEN RETURN FALSE END END END;
+  RETURN TRUE
+END NameEq;
+
+PROCEDURE FindVoice (VAR ident: ARRAY OF CHAR; from, to: CARDINAL): INTEGER;
+  VAR i: CARDINAL;
+BEGIN
+  i := 0;
+  WHILE i < VAL(CARDINAL, gNVoices) DO
+    IF gVoices[i].used AND NameEq(gVoices[i].name, ident, from, to) THEN RETURN VAL(INTEGER, i) END;
+    INC(i)
+  END;
+  RETURN -1
+END FindVoice;
+
+PROCEDURE CreateVoice (VAR ident: ARRAY OF CHAR; from, to: CARDINAL): INTEGER;
+  VAR idx, k, i: CARDINAL;
+BEGIN
+  IF gNVoices >= MaxVoices THEN RETURN gCur END;
+  idx := VAL(CARDINAL, gNVoices); INC(gNVoices);
+  gVoices[idx].used := TRUE;
+  k := 0; FOR i := from TO to-1 DO IF k < 15 THEN gVoices[idx].name[k] := ident[i]; INC(k) END END;
+  gVoices[idx].name[k] := 0C;
+  gVoices[idx].channel := AssignChannel(); gVoices[idx].instrument := gDefInstr;
+  gVoices[idx].curMs := 0.0; gVoices[idx].keySharps := gDefKey;
+  gVoices[idx].unitN := gDefUnitN; gVoices[idx].unitD := gDefUnitD;
+  gVoices[idx].tsN := gDefTsN; gVoices[idx].tsD := gDefTsD; gVoices[idx].transpose := 0;
+  FOR i := 0 TO 6 DO gVoices[idx].barSet[i] := FALSE; gVoices[idx].barAcc[i] := 0 END;
+  RETURN VAL(INTEGER, idx)
+END CreateVoice;
+
+PROCEDURE SwitchVoice (VAR ident: ARRAY OF CHAR; from, to: CARDINAL);
+  VAR i: INTEGER;
+BEGIN
+  IF to <= from THEN RETURN END;
+  SaveCur;
+  i := FindVoice(ident, from, to);
+  IF i < 0 THEN i := CreateVoice(ident, from, to) END;
+  gCur := i; LoadCur
+END SwitchVoice;
+
+PROCEDURE Lower (c: CHAR): CHAR;
+BEGIN IF (c >= 'A') AND (c <= 'Z') THEN RETURN CHR(ORD(c)+32) ELSE RETURN c END END Lower;
+
+PROCEDURE HandleVoiceLine (VAR ln: ARRAY OF CHAR; n: CARDINAL);
+  VAR i, idStart, idEnd: CARDINAL;
+BEGIN
+  i := 2; WHILE (i < n) AND ((ln[i]=' ')OR(ln[i]=CHR(9))) DO INC(i) END;
+  idStart := i;
+  WHILE (i < n) AND (ln[i]#' ') AND (ln[i]#CHR(9)) DO INC(i) END;
+  idEnd := i;
+  SwitchVoice(ln, idStart, idEnd)
+END HandleVoiceLine;
+
+PROCEDURE SnapshotDefaults;
+BEGIN
+  gDefKey := gKeySharps; gDefUnitN := gUnitN; gDefUnitD := gUnitD;
+  gDefTsN := gTsN; gDefTsD := gTsD; gDefInstr := gInstrument
+END SnapshotDefaults;
+
 PROCEDURE ProcessLine (VAR ln: ARRAY OF CHAR; n: CARDINAL);
   VAR en: CARDINAL;
 BEGIN
@@ -441,15 +571,16 @@ BEGIN
     ParseMidiDir(ln, n); RETURN
   END;
   IF ln[0] = '%' THEN RETURN END;
+  IF (n >= 2) AND (Up(ln[0])='V') AND (ln[1]=':') THEN HandleVoiceLine(ln, n); RETURN END;
   IF (n >= 2) AND IsAlpha(ln[0]) AND (ln[1]=':') THEN
     IF gInBody THEN ApplyInline(Up(ln[0]), ln, 2, n)
     ELSE
       ParseHeader(ln, n);
-      IF Up(ln[0]) = 'K' THEN gInBody := TRUE; Recompute END
+      IF Up(ln[0]) = 'K' THEN gInBody := TRUE; SnapshotDefaults; Recompute END
     END;
     RETURN
   END;
-  IF NOT gInBody THEN gInBody := TRUE; Recompute END;
+  IF NOT gInBody THEN gInBody := TRUE; SnapshotDefaults; Recompute END;
   ExpandRepeat(ln, n, gExp, en);
   ParseSeq(gExp, en)
 END ProcessLine;
@@ -476,8 +607,12 @@ BEGIN
   gT^.count := 0;
   gInBody := FALSE; gCurMs := 0.0; gMsPerWhole := 2000.0;
   gBpm := 120; gUnitN := 1; gUnitD := 8; gTsN := 4; gTsD := 4;
-  gKeySharps := 0; gTranspose := 0; gProgram := -1;
+  gKeySharps := 0; gTranspose := 0; gChan := 0; gInstrument := 0;
+  gDefKey := 0; gDefUnitN := 1; gDefUnitD := 8; gDefTsN := 4; gDefTsD := 4; gDefInstr := 0;
   ResetBar; gTupN := 1; gTupD := 1; gTupRem := 0;
+  gNVoices := 1; gCur := 0; gNextChan := 1;          (* default voice "1" on channel 0 *)
+  gVoices[0].used := TRUE; gVoices[0].name[0] := '1'; gVoices[0].name[1] := 0C;
+  gVoices[0].channel := 0; gVoices[0].instrument := 0;
   (* copy source *)
   gSrcLen := 0;
   i := 0;
@@ -494,7 +629,10 @@ BEGIN
     ProcessLine(gLine, ll);
     INC(ls)                                        (* skip the newline *)
   END;
-  IF gProgram >= 0 THEN Push(0, 0C0H, 0, VAL(CARDINAL, gProgram), 0) END;
+  SaveCur;                                           (* flush current voice's instrument *)
+  FOR i := 0 TO VAL(CARDINAL, gNVoices)-1 DO
+    Push(0, 0C0H, VAL(CARDINAL, gVoices[i].channel), VAL(CARDINAL, gVoices[i].instrument), 0)
+  END;
   Sort;
   maxEnd := 0;
   FOR i := 0 TO gT^.count-1 DO IF gT^.ev[i].timeMs > maxEnd THEN maxEnd := gT^.ev[i].timeMs END END;
@@ -503,5 +641,5 @@ BEGIN
 END ParseTune;
 
 BEGIN
-  gSrcLen := 0; gProgram := -1
+  gSrcLen := 0; gNVoices := 1; gCur := 0
 END Abc.
