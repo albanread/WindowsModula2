@@ -47,6 +47,8 @@ newm2 build demos/<name>.mod      # AOT — writes <name>.exe next to the source
 | `lut_gpu.mod`        | GPU | ✅ | **GPU palette-LUT present** — the indexed mode on the GPU: the index buffer is an `R8_UINT` texture, palettes are LUT textures, and a pixel shader resolves index→RGBA. Full **per-line palette** (indices 0..15 from each scanline's own LUT → copper bars / smooth gradients; 16..255 global) + palette cycling, all as tiny per-frame LUT re-uploads; the GPU upscales for free. `Esc` quits. |
 | `sprite_gpu.mod`     | GPU | ✅ | **GPU sprite layer** — three instances of one 16×16 indexed sprite (its own palette, index 0 transparent) alpha-blended over a gradient background: solid, alpha-pulsing, and rotating. Proves the second-pass quad compositing (dynamic VB + input layout + blend state + sprite VS/PS). `Esc` quits. |
 | `retro_gpu.mod`      | GPU | ✅ | **GameView GPU showcase** — the full retro mode on **`GameViewGpu`**: an indexed background with an animated per-line palette (raster bars) + a palette-cycled rainbow strip, and a sprite layer of **frame-animated** spinning coins + a rotating star, composited on the GPU. `Esc` quits. |
+| `scroll_gpu.mod`     | GPU | ✅ | **Smooth GPU scrolling** — a 640-wide *world* index buffer with a 240-wide *view*; `SetScroll` pans the viewport over the over-allocated world (pure GPU sampling, no redraw). Spinning coins sit at world positions and scroll in/out of view. `Esc` quits. |
+| `parallax_gpu.mod`   | GPU | ✅ | **Parallax via blit** — far/mid/near background layers pre-rendered into off-screen indexed buffers, then `Blit`/`BlitTrans`-composited into the display each frame at different scroll rates; a frame-animated bird flies over. `Esc` quits. |
 
 The GPU demos share a reusable host — **`ShaderView`** (`library/winrtmod`), a
 generic full-screen pixel-shader renderer on Direct3D11: a demo calls
@@ -91,7 +93,11 @@ alpha-over. Sprites are two-level: a **definition** is art (a strip of equal-siz
 **instance** places a definition with position / rotation / scale / alpha / flip /
 z-priority and auto-animates its frames at an FPS (`Tick` advances them). The GPU does
 the upscale, the alpha blending, and the per-sprite palette lookup; `Present` draws
-the background then the sprite layer in one pass each. `retro_gpu` is the showcase.
+the background then the sprite layer in one pass each. For scrolling games the index
+buffer is a **world** bigger than the **view**: `SetScroll` pans the viewport over it
+on the GPU (no redraw), and there are several indexed buffers so you can pre-render
+backgrounds / parallax layers and `Blit`/`BlitTrans` regions between them. `retro_gpu`
+(scene), `scroll_gpu` (smooth world scroll) and `parallax_gpu` (blit layers) show it off.
 
 Prebuilt `.exe`s sit next to each source (`newm2 build demos/<name>.mod` rebuilds);
 the `.exe`/`.obj` are git-ignored.

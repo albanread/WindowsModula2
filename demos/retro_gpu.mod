@@ -83,7 +83,7 @@ BEGIN
   gWin := CreateAppWindow("NewM2 GameView GPU", FBW*Scale + 16, FBH*Scale + 39, Handler);
   Show(gWin);
   ClientSize(gWin, cw, ch);
-  IF NOT Attach(gWin, FBW, FBH, cw, ch) THEN WriteString("Attach failed"); WriteLn; HALT END;
+  IF NOT Attach(gWin, FBW, FBH, FBW, FBH, cw, ch) THEN WriteString("Attach failed"); WriteLn; HALT END;
   SetupPalette;
 
   (* spinning coin: 4-frame strip (frame 3 = frame 1) *)

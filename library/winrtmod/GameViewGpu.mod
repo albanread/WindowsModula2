@@ -1,32 +1,38 @@
 IMPLEMENTATION MODULE GameViewGpu;
 
-(* The CPU model behind the GPU retro present. The background is an index buffer
-   (gFb, 1 byte/pixel) resolved through a global palette (gPal, indices 16..255) and
-   a per-scanline palette (gLine, indices 0..15) by ShaderView's LUT shader. Sprites
-   are definitions (art packed into a shared atlas gAtlas + a 16-colour palette row
-   in gSPal) and instances (gInst) baked into a vertex buffer each frame and drawn
-   alpha-over the background by ShaderView's sprite pass. Frame animation advances on
-   Tick; draw order is by instance priority. *)
+(* The CPU model behind the GPU retro present. There are NBuf indexed buffers
+   (gBuf), each a WORLD of gFbW x gFbH index bytes — bigger than the visible VIEW
+   (gViewW x gViewH) so scrolling is smooth: the LUT shader samples a view-sized
+   window of the displayed buffer at (gScrollX, gScrollY). You draw into a selected
+   buffer (gDraw) with the indexed primitives, Blit regions between buffers (for
+   parallax layers / pre-rendered backgrounds), and present a chosen buffer
+   (gDisplay). Indices 16..255 use the global palette gPal; 0..15 use the per-view-
+   scanline palette gLine. Sprites are definitions (art in a shared atlas + own
+   16-colour palette + frames) and instances (transform/alpha/flip/priority/frame),
+   baked to a vertex buffer each frame and drawn alpha-over by ShaderView. *)
 
 FROM SYSTEM IMPORT ADDRESS, ADR;
 FROM RealMath IMPORT sin, cos;
 IMPORT ShaderView;
 
 CONST
-  MaxW = 512; MaxH = 384;
+  MaxWorldW = 1280; MaxWorldH = 512; MaxWorld = MaxWorldW*MaxWorldH;
+  NBuf = 4;                          (* buffer 0 = display by default; 1..3 = scratch/layers *)
   AtlasW = 512; AtlasH = 512;
   MaxDefs = 64; MaxFrames = 16; MaxInst = 256;
-  MaxSlots = 64;                     (* sprite palette rows *)
-  FrameDim = 64;                     (* max frame side *)
+  MaxSlots = 64; FrameDim = 64;
 
-  (* background LUT shader: index 0..15 -> per-line palette row p.y, else global *)
-  LutShader = "struct VSOut { float4 pos:SV_Position; float2 uv:TEXCOORD0; }; Texture2D<uint> gIdx:register(t0); Texture2D<float4> gPal:register(t1); Texture2D<float4> gLine:register(t2); float4 main(VSOut i):SV_Target { uint w,h; gIdx.GetDimensions(w,h); int2 p=int2(i.uv*float2(w,h)); p=clamp(p,int2(0,0),int2(int(w)-1,int(h)-1)); uint c=gIdx.Load(int3(p,0)); float4 col; if(c<16u) col=gLine.Load(int3(int(c),p.y,0)); else col=gPal.Load(int3(int(c),0,0)); return float4(col.rgb,1.0); }";
+  (* background LUT shader. The constant buffer carries scroll + view so the GPU
+     samples a view-sized window of the (world-sized) index texture: smooth scroll.
+     index 0..15 -> per-VIEW-scanline palette; 16..255 -> global palette. *)
+  LutShader = "cbuffer P:register(b0){ float scrollX; float scrollY; float viewW; float viewH; }; struct VSOut { float4 pos:SV_Position; float2 uv:TEXCOORD0; }; Texture2D<uint> gIdx:register(t0); Texture2D<float4> gPal:register(t1); Texture2D<float4> gLine:register(t2); float4 main(VSOut i):SV_Target { int px=int(scrollX + i.uv.x*viewW); int py=int(scrollY + i.uv.y*viewH); uint c=gIdx.Load(int3(px,py,0)); int sy=int(i.uv.y*viewH); if(sy<0) sy=0; if(sy>=int(viewH)) sy=int(viewH)-1; float4 col; if(c<16u) col=gLine.Load(int3(int(c),sy,0)); else col=gPal.Load(int3(int(c),0,0)); return float4(col.rgb,1.0); }";
 
 TYPE
+  CB = RECORD scrollX, scrollY, viewW, viewH: SHORTREAL END;
   SpriteDef = RECORD
     used: BOOLEAN;
     w, h, frameCount, slot: CARDINAL;
-    fx, fy: ARRAY [0..MaxFrames-1] OF CARDINAL;   (* each frame's atlas origin *)
+    fx, fy: ARRAY [0..MaxFrames-1] OF CARDINAL;
   END;
   Instance = RECORD
     active, visible, flipH, flipV: BOOLEAN;
@@ -35,36 +41,85 @@ TYPE
   END;
 
 VAR
-  gFb:    ARRAY [0..MaxW*MaxH-1] OF BYTE;
+  gBuf:   ARRAY [0..NBuf-1] OF ARRAY [0..MaxWorld-1] OF BYTE;
   gPal:   ARRAY [0..255] OF CARDINAL32;
-  gLine:  ARRAY [0..16*MaxH-1] OF CARDINAL32;
+  gLine:  ARRAY [0..16*MaxWorldH-1] OF CARDINAL32;
   gAtlas: ARRAY [0..AtlasW*AtlasH-1] OF BYTE;
   gSPal:  ARRAY [0..16*MaxSlots-1] OF CARDINAL32;
   gDefs:  ARRAY [0..MaxDefs-1] OF SpriteDef;
   gInst:  ARRAY [0..MaxInst-1] OF Instance;
   gVerts: ARRAY [0..MaxInst*36-1] OF SHORTREAL;
-  gFrame: ARRAY [0..FrameDim*FrameDim-1] OF BYTE;    (* scratch for one parsed frame *)
-  gFbW, gFbH: INTEGER;
+  gFrame: ARRAY [0..FrameDim*FrameDim-1] OF BYTE;
+  gFbW, gFbH: INTEGER;                               (* WORLD dims (drawable) *)
   gFbWR, gFbHR: REAL;
-  gShelfX, gShelfY, gShelfH: CARDINAL;               (* atlas shelf packer *)
-  gNextSlot: CARDINAL;
+  gViewW, gViewH: INTEGER;                           (* visible VIEW dims *)
+  gViewWR, gViewHR: REAL;
+  gScrollX, gScrollY: INTEGER;
+  gScrollXR, gScrollYR: REAL;
+  gDraw, gDisplay: CARDINAL;
+  gShelfX, gShelfY, gShelfH, gNextSlot: CARDINAL;
   gAtlasDirty, gSPalDirty: BOOLEAN;
-  gNF: CARDINAL;                                     (* floats baked this frame *)
-  gBcx, gBcy, gBca, gBsa, gBalpha, gBslot: REAL;     (* bake temps *)
-  gCBdata: ARRAY [0..15] OF BYTE;
+  gNF: CARDINAL;
+  gBcx, gBcy, gBca, gBsa, gBalpha, gBslot: REAL;
+  gCB: CB;
   gGlyph: ARRAY [0..127] OF ARRAY [0..6] OF CARDINAL;
   BV: ARRAY [0..4] OF CARDINAL;
 
 PROCEDURE Width  (): CARDINAL; BEGIN RETURN VAL(CARDINAL, gFbW) END Width;
 PROCEDURE Height (): CARDINAL; BEGIN RETURN VAL(CARDINAL, gFbH) END Height;
+PROCEDURE ViewWidth  (): CARDINAL; BEGIN RETURN VAL(CARDINAL, gViewW) END ViewWidth;
+PROCEDURE ViewHeight (): CARDINAL; BEGIN RETURN VAL(CARDINAL, gViewH) END ViewHeight;
+PROCEDURE NumBuffers (): CARDINAL; BEGIN RETURN NBuf END NumBuffers;
 
 PROCEDURE IAbs (a: INTEGER): INTEGER; BEGIN IF a < 0 THEN RETURN -a ELSE RETURN a END END IAbs;
+
+(* ---- buffers + scroll ------------------------------------------------- *)
+
+PROCEDURE SelectBuffer (n: CARDINAL);   BEGIN IF n < NBuf THEN gDraw := n END END SelectBuffer;
+PROCEDURE DisplayBuffer (n: CARDINAL);  BEGIN IF n < NBuf THEN gDisplay := n END END DisplayBuffer;
+
+PROCEDURE SetScroll (x, y: INTEGER);
+BEGIN
+  IF x < 0 THEN x := 0 END;
+  IF x > gFbW - gViewW THEN x := gFbW - gViewW END;
+  IF y < 0 THEN y := 0 END;
+  IF y > gFbH - gViewH THEN y := gFbH - gViewH END;
+  gScrollX := x; gScrollY := y;
+  gScrollXR := VAL(REAL, x); gScrollYR := VAL(REAL, y)
+END SetScroll;
+
+PROCEDURE ScrollX (): INTEGER; BEGIN RETURN gScrollX END ScrollX;
+PROCEDURE ScrollY (): INTEGER; BEGIN RETURN gScrollY END ScrollY;
+
+PROCEDURE BlitImpl (src: CARDINAL; sx, sy, w, h: INTEGER; dst: CARDINAL; dx, dy: INTEGER; trans: BOOLEAN);
+  VAR r, c, px, py, qx, qy: INTEGER; v: CARDINAL;
+BEGIN
+  IF (src >= NBuf) OR (dst >= NBuf) THEN RETURN END;
+  r := 0;
+  WHILE r < h DO
+    c := 0;
+    WHILE c < w DO
+      px := sx+c; py := sy+r; qx := dx+c; qy := dy+r;
+      IF (px >= 0) AND (px < gFbW) AND (py >= 0) AND (py < gFbH)
+         AND (qx >= 0) AND (qx < gFbW) AND (qy >= 0) AND (qy < gFbH) THEN
+        v := VAL(CARDINAL, gBuf[src][VAL(CARDINAL, py*gFbW + px)]) BAND 0FFH;
+        IF (NOT trans) OR (v # 0) THEN gBuf[dst][VAL(CARDINAL, qy*gFbW + qx)] := VAL(BYTE, v) END
+      END;
+      INC(c)
+    END;
+    INC(r)
+  END
+END BlitImpl;
+
+PROCEDURE Blit (src: CARDINAL; srcX, srcY, w, h: INTEGER; dst: CARDINAL; dstX, dstY: INTEGER);
+BEGIN BlitImpl(src, srcX, srcY, w, h, dst, dstX, dstY, FALSE) END Blit;
+PROCEDURE BlitTrans (src: CARDINAL; srcX, srcY, w, h: INTEGER; dst: CARDINAL; dstX, dstY: INTEGER);
+BEGIN BlitImpl(src, srcX, srcY, w, h, dst, dstX, dstY, TRUE) END BlitTrans;
 
 (* ---- palettes --------------------------------------------------------- *)
 
 PROCEDURE SetColour (index, rgb: CARDINAL);
 BEGIN IF index <= 255 THEN gPal[index] := VAL(CARDINAL32, rgb BAND 0FFFFFFH) END END SetColour;
-
 PROCEDURE SetRGB (index, r, g, b: CARDINAL);
 BEGIN SetColour(index, ((r BAND 0FFH)*65536) + ((g BAND 0FFH)*256) + (b BAND 0FFH)) END SetRGB;
 
@@ -88,36 +143,35 @@ END CyclePalette;
 
 PROCEDURE SetLineColour (y, index, rgb: CARDINAL);
 BEGIN
-  IF (index <= 15) AND (y < VAL(CARDINAL, gFbH)) THEN
+  IF (index <= 15) AND (y < VAL(CARDINAL, gViewH)) THEN
     gLine[y*16 + index] := VAL(CARDINAL32, rgb BAND 0FFFFFFH)
   END
 END SetLineColour;
-
 PROCEDURE SetLineRGB (y, index, r, g, b: CARDINAL);
 BEGIN SetLineColour(y, index, ((r BAND 0FFH)*65536)+((g BAND 0FFH)*256)+(b BAND 0FFH)) END SetLineRGB;
 
 PROCEDURE SeedLinePalette;
   VAR y, idx: CARDINAL;
 BEGIN
-  IF gFbH <= 0 THEN RETURN END;
-  FOR y := 0 TO VAL(CARDINAL, gFbH)-1 DO
+  IF gViewH <= 0 THEN RETURN END;
+  FOR y := 0 TO VAL(CARDINAL, gViewH)-1 DO
     FOR idx := 0 TO 15 DO gLine[y*16 + idx] := gPal[idx] END
   END
 END SeedLinePalette;
 
-(* ---- indexed background drawing (clipped) ----------------------------- *)
+(* ---- indexed drawing (into the selected buffer, clipped to the world) - *)
 
 PROCEDURE Pset (x, y: INTEGER; index: CARDINAL);
 BEGIN
   IF (x >= 0) AND (x < gFbW) AND (y >= 0) AND (y < gFbH) THEN
-    gFb[VAL(CARDINAL, y*gFbW + x)] := VAL(BYTE, index BAND 0FFH)
+    gBuf[gDraw][VAL(CARDINAL, y*gFbW + x)] := VAL(BYTE, index BAND 0FFH)
   END
 END Pset;
 
 PROCEDURE Pget (x, y: INTEGER): CARDINAL;
 BEGIN
   IF (x >= 0) AND (x < gFbW) AND (y >= 0) AND (y < gFbH) THEN
-    RETURN VAL(CARDINAL, gFb[VAL(CARDINAL, y*gFbW + x)]) BAND 0FFH
+    RETURN VAL(CARDINAL, gBuf[gDraw][VAL(CARDINAL, y*gFbW + x)]) BAND 0FFH
   END;
   RETURN 0
 END Pget;
@@ -126,26 +180,20 @@ PROCEDURE Cls (index: CARDINAL);
   VAR i, n: CARDINAL; v: BYTE;
 BEGIN
   v := VAL(BYTE, index BAND 0FFH); n := VAL(CARDINAL, gFbW*gFbH); i := 0;
-  WHILE i < n DO gFb[i] := v; INC(i) END
+  WHILE i < n DO gBuf[gDraw][i] := v; INC(i) END
 END Cls;
 
 PROCEDURE HLine (x, y, len: INTEGER; index: CARDINAL);
   VAR i: INTEGER;
 BEGIN i := 0; WHILE i < len DO Pset(x+i, y, index); INC(i) END END HLine;
-
 PROCEDURE VLine (x, y, len: INTEGER; index: CARDINAL);
   VAR i: INTEGER;
 BEGIN i := 0; WHILE i < len DO Pset(x, y+i, index); INC(i) END END VLine;
-
 PROCEDURE FillRect (x, y, w, h: INTEGER; index: CARDINAL);
   VAR j: INTEGER;
 BEGIN j := 0; WHILE j < h DO HLine(x, y+j, w, index); INC(j) END END FillRect;
-
 PROCEDURE Rect (x, y, w, h: INTEGER; index: CARDINAL);
-BEGIN
-  HLine(x, y, w, index); HLine(x, y+h-1, w, index);
-  VLine(x, y, h, index); VLine(x+w-1, y, h, index)
-END Rect;
+BEGIN HLine(x,y,w,index); HLine(x,y+h-1,w,index); VLine(x,y,h,index); VLine(x+w-1,y,h,index) END Rect;
 
 PROCEDURE Line (x0, y0, x1, y1: INTEGER; index: CARDINAL);
   VAR dx, dy, sx, sy, err, e2: INTEGER;
@@ -168,8 +216,7 @@ PROCEDURE Disc (cx, cy, r: INTEGER; index: CARDINAL);
 BEGIN
   dy := -r;
   WHILE dy <= r DO
-    span := 0;
-    WHILE span*span + dy*dy <= r*r DO INC(span) END;
+    span := 0; WHILE span*span + dy*dy <= r*r DO INC(span) END;
     HLine(cx-span+1, cy+dy, 2*span-1, index); INC(dy)
   END
 END Disc;
@@ -218,7 +265,6 @@ BEGIN
   RETURN 0
 END RowIndex;
 
-(* parse rows into gFrame; returns w,h (0 on error) *)
 PROCEDURE ParseFrame (rows: ARRAY OF CHAR; VAR w, h: CARDINAL): BOOLEAN;
   VAR i, n, col, row: CARDINAL; ch: CHAR;
 BEGIN
@@ -231,23 +277,18 @@ BEGIN
   FOR i := 0 TO n-1 DO
     ch := rows[i];
     IF ch = '/' THEN INC(row); col := 0
-    ELSE
-      IF (row < FrameDim) AND (col < w) THEN gFrame[row*w + col] := VAL(BYTE, RowIndex(ch)) END;
-      INC(col)
-    END
+    ELSE IF (row < FrameDim) AND (col < w) THEN gFrame[row*w + col] := VAL(BYTE, RowIndex(ch)) END; INC(col) END
   END;
   h := row + 1;
   IF h > FrameDim THEN RETURN FALSE END;
   RETURN TRUE
 END ParseFrame;
 
-(* shelf-pack a w x h rect into the atlas; FALSE if it does not fit *)
 PROCEDURE AllocAtlas (w, h: CARDINAL; VAR ax, ay: CARDINAL): BOOLEAN;
 BEGIN
   IF gShelfX + w > AtlasW THEN gShelfX := 0; gShelfY := gShelfY + gShelfH; gShelfH := 0 END;
   IF gShelfY + h > AtlasH THEN RETURN FALSE END;
-  ax := gShelfX; ay := gShelfY;
-  gShelfX := gShelfX + w;
+  ax := gShelfX; ay := gShelfY; gShelfX := gShelfX + w;
   IF h > gShelfH THEN gShelfH := h END;
   RETURN TRUE
 END AllocAtlas;
@@ -255,9 +296,7 @@ END AllocAtlas;
 PROCEDURE BlitFrameToAtlas (ax, ay, w, h: CARDINAL);
   VAR r, c: CARDINAL;
 BEGIN
-  FOR r := 0 TO h-1 DO
-    FOR c := 0 TO w-1 DO gAtlas[(ay+r)*AtlasW + (ax+c)] := gFrame[r*w + c] END
-  END;
+  FOR r := 0 TO h-1 DO FOR c := 0 TO w-1 DO gAtlas[(ay+r)*AtlasW + (ax+c)] := gFrame[r*w + c] END END;
   gAtlasDirty := TRUE
 END BlitFrameToAtlas;
 
@@ -268,12 +307,10 @@ BEGIN
   IF NOT ParseFrame(rows, w, h) THEN RETURN FALSE END;
   IF NOT AllocAtlas(w, h, ax, ay) THEN RETURN FALSE END;
   BlitFrameToAtlas(ax, ay, w, h);
-  gDefs[id].used := TRUE;
-  gDefs[id].w := w; gDefs[id].h := h; gDefs[id].frameCount := 1;
+  gDefs[id].used := TRUE; gDefs[id].w := w; gDefs[id].h := h; gDefs[id].frameCount := 1;
   gDefs[id].fx[0] := ax; gDefs[id].fy[0] := ay;
   gDefs[id].slot := gNextSlot;
   IF gNextSlot < MaxSlots-1 THEN INC(gNextSlot) END;
-  (* default palette for this slot: 1=white, others mild — caller overrides *)
   FOR i := 0 TO 15 DO gSPal[gDefs[id].slot*16 + i] := gPal[i] END;
   gSPalDirty := TRUE;
   RETURN TRUE
@@ -289,19 +326,16 @@ BEGIN
   IF (w # gDefs[id].w) OR (h # gDefs[id].h) THEN RETURN FALSE END;
   IF NOT AllocAtlas(w, h, ax, ay) THEN RETURN FALSE END;
   BlitFrameToAtlas(ax, ay, w, h);
-  gDefs[id].fx[fc] := ax; gDefs[id].fy[fc] := ay;
-  gDefs[id].frameCount := fc + 1;
+  gDefs[id].fx[fc] := ax; gDefs[id].fy[fc] := ay; gDefs[id].frameCount := fc + 1;
   RETURN TRUE
 END AddFrame;
 
 PROCEDURE SpriteColour (id, index, rgb: CARDINAL);
 BEGIN
   IF (id < MaxDefs) AND gDefs[id].used AND (index <= 15) THEN
-    gSPal[gDefs[id].slot*16 + index] := VAL(CARDINAL32, rgb BAND 0FFFFFFH);
-    gSPalDirty := TRUE
+    gSPal[gDefs[id].slot*16 + index] := VAL(CARDINAL32, rgb BAND 0FFFFFFH); gSPalDirty := TRUE
   END
 END SpriteColour;
-
 PROCEDURE SpriteRGB (id, index, r, g, b: CARDINAL);
 BEGIN SpriteColour(id, index, ((r BAND 0FFH)*65536)+((g BAND 0FFH)*256)+(b BAND 0FFH)) END SpriteRGB;
 
@@ -326,32 +360,29 @@ BEGIN
 END Place;
 
 PROCEDURE MoveTo (inst: CARDINAL; x, y: REAL);
-BEGIN IF (inst < MaxInst) THEN gInst[inst].x := x; gInst[inst].y := y END END MoveTo;
+BEGIN IF inst < MaxInst THEN gInst[inst].x := x; gInst[inst].y := y END END MoveTo;
 PROCEDURE SetScale (inst: CARDINAL; s: REAL);
-BEGIN IF (inst < MaxInst) THEN gInst[inst].scale := s END END SetScale;
+BEGIN IF inst < MaxInst THEN gInst[inst].scale := s END END SetScale;
 PROCEDURE SetRotation (inst: CARDINAL; degrees: REAL);
-BEGIN IF (inst < MaxInst) THEN gInst[inst].rot := degrees * 3.14159265358979 / 180.0 END END SetRotation;
+BEGIN IF inst < MaxInst THEN gInst[inst].rot := degrees * 3.14159265358979 / 180.0 END END SetRotation;
 PROCEDURE SetAlpha (inst: CARDINAL; a: REAL);
 BEGIN
-  IF (inst < MaxInst) THEN
-    IF a < 0.0 THEN a := 0.0 END; IF a > 1.0 THEN a := 1.0 END;
-    gInst[inst].alpha := a
+  IF inst < MaxInst THEN
+    IF a < 0.0 THEN a := 0.0 END; IF a > 1.0 THEN a := 1.0 END; gInst[inst].alpha := a
   END
 END SetAlpha;
 PROCEDURE SetFlip (inst: CARDINAL; h, v: BOOLEAN);
-BEGIN IF (inst < MaxInst) THEN gInst[inst].flipH := h; gInst[inst].flipV := v END END SetFlip;
+BEGIN IF inst < MaxInst THEN gInst[inst].flipH := h; gInst[inst].flipV := v END END SetFlip;
 PROCEDURE SetPriority (inst, p: CARDINAL);
-BEGIN IF (inst < MaxInst) THEN gInst[inst].priority := p END END SetPriority;
+BEGIN IF inst < MaxInst THEN gInst[inst].priority := p END END SetPriority;
 PROCEDURE SetFrame (inst, frame: CARDINAL);
-BEGIN IF (inst < MaxInst) THEN gInst[inst].frame := frame END END SetFrame;
+BEGIN IF inst < MaxInst THEN gInst[inst].frame := frame END END SetFrame;
 PROCEDURE Animate (inst: CARDINAL; fps: REAL);
-BEGIN IF (inst < MaxInst) THEN gInst[inst].fps := fps; gInst[inst].acc := 0.0 END END Animate;
-PROCEDURE Show (inst: CARDINAL);
-BEGIN IF (inst < MaxInst) THEN gInst[inst].visible := TRUE END END Show;
-PROCEDURE Hide (inst: CARDINAL);
-BEGIN IF (inst < MaxInst) THEN gInst[inst].visible := FALSE END END Hide;
+BEGIN IF inst < MaxInst THEN gInst[inst].fps := fps; gInst[inst].acc := 0.0 END END Animate;
+PROCEDURE Show (inst: CARDINAL); BEGIN IF inst < MaxInst THEN gInst[inst].visible := TRUE END END Show;
+PROCEDURE Hide (inst: CARDINAL); BEGIN IF inst < MaxInst THEN gInst[inst].visible := FALSE END END Hide;
 PROCEDURE Remove (inst: CARDINAL);
-BEGIN IF (inst < MaxInst) THEN gInst[inst].active := FALSE; gInst[inst].visible := FALSE END END Remove;
+BEGIN IF inst < MaxInst THEN gInst[inst].active := FALSE; gInst[inst].visible := FALSE END END Remove;
 
 PROCEDURE Tick (dt: REAL);
   VAR i, fc: CARDINAL;
@@ -370,15 +401,15 @@ BEGIN
   END
 END Tick;
 
-(* ---- bake + present --------------------------------------------------- *)
+(* ---- bake + present (sprites are in WORLD coords; scroll is subtracted) - *)
 
 PROCEDURE EmitVert (lx, ly, u, v: REAL);
   VAR fx, fy: REAL;
 BEGIN
   fx := gBcx + lx*gBca - ly*gBsa;
   fy := gBcy + lx*gBsa + ly*gBca;
-  gVerts[gNF]   := VAL(SHORTREAL, fx/gFbWR*2.0 - 1.0);
-  gVerts[gNF+1] := VAL(SHORTREAL, 1.0 - fy/gFbHR*2.0);
+  gVerts[gNF]   := VAL(SHORTREAL, (fx - gScrollXR)/gViewWR*2.0 - 1.0);
+  gVerts[gNF+1] := VAL(SHORTREAL, 1.0 - (fy - gScrollYR)/gViewHR*2.0);
   gVerts[gNF+2] := VAL(SHORTREAL, u);
   gVerts[gNF+3] := VAL(SHORTREAL, v);
   gVerts[gNF+4] := VAL(SHORTREAL, gBslot);
@@ -389,8 +420,7 @@ END EmitVert;
 PROCEDURE EmitInstance (ix: CARDINAL);
   VAR d, frame, w, h: CARDINAL; hw, hh, u0, u1, v0, v1, tmp: REAL;
 BEGIN
-  d := gInst[ix].def;
-  frame := gInst[ix].frame;
+  d := gInst[ix].def; frame := gInst[ix].frame;
   IF frame >= gDefs[d].frameCount THEN frame := 0 END;
   w := gDefs[d].w; h := gDefs[d].h;
   hw := VAL(REAL, w) * gInst[ix].scale * 0.5;
@@ -413,31 +443,28 @@ BEGIN
   FOR i := 0 TO MaxInst-1 DO
     IF gInst[i].active AND gInst[i].visible THEN order[n] := i; INC(n) END
   END;
-  (* insertion-sort by priority ascending (lower drawn first) *)
   IF n >= 2 THEN
     FOR i := 1 TO n-1 DO
       key := order[i]; kp := gInst[key].priority; j := i;
-      WHILE (j >= 1) AND (gInst[order[j-1]].priority > kp) DO
-        order[j] := order[j-1]; DEC(j)
-      END;
+      WHILE (j >= 1) AND (gInst[order[j-1]].priority > kp) DO order[j] := order[j-1]; DEC(j) END;
       order[j] := key
     END
   END;
   gNF := 0;
-  IF n >= 1 THEN
-    FOR i := 0 TO n-1 DO EmitInstance(order[i]) END
-  END
+  IF n >= 1 THEN FOR i := 0 TO n-1 DO EmitInstance(order[i]) END END
 END Sync;
 
 PROCEDURE Present;
 BEGIN
-  ShaderView.UploadTexture(0, ADR(gFb), VAL(CARDINAL, gFbW));
+  ShaderView.UploadTexture(0, ADR(gBuf[gDisplay][0]), VAL(CARDINAL, gFbW));
   ShaderView.UploadTexture(1, ADR(gPal), 1024);
   ShaderView.UploadTexture(2, ADR(gLine), 64);
   IF gAtlasDirty THEN ShaderView.UploadAtlas(ADR(gAtlas), AtlasW); gAtlasDirty := FALSE END;
   IF gSPalDirty THEN ShaderView.UploadSpritePalette(ADR(gSPal), 16*4); gSPalDirty := FALSE END;
+  gCB.scrollX := VAL(SHORTREAL, gScrollXR); gCB.scrollY := VAL(SHORTREAL, gScrollYR);
+  gCB.viewW := VAL(SHORTREAL, gViewWR);     gCB.viewH := VAL(SHORTREAL, gViewHR);
   Sync;
-  ShaderView.BeginFrame(ADR(gCBdata));
+  ShaderView.BeginFrame(ADR(gCB));
   IF gNF > 0 THEN ShaderView.DrawSprites(ADR(gVerts), gNF DIV 6) END;
   ShaderView.EndFrame
 END Present;
@@ -452,9 +479,8 @@ PROCEDURE G (ch: CHAR; r0, r1, r2, r3, r4, r5, r6: ARRAY OF CHAR);
   VAR i: CARDINAL;
 BEGIN
   i := ORD(ch); IF i > 127 THEN RETURN END;
-  gGlyph[i][0] := RowBits(r0); gGlyph[i][1] := RowBits(r1); gGlyph[i][2] := RowBits(r2);
-  gGlyph[i][3] := RowBits(r3); gGlyph[i][4] := RowBits(r4); gGlyph[i][5] := RowBits(r5);
-  gGlyph[i][6] := RowBits(r6)
+  gGlyph[i][0]:=RowBits(r0); gGlyph[i][1]:=RowBits(r1); gGlyph[i][2]:=RowBits(r2);
+  gGlyph[i][3]:=RowBits(r3); gGlyph[i][4]:=RowBits(r4); gGlyph[i][5]:=RowBits(r5); gGlyph[i][6]:=RowBits(r6)
 END G;
 
 PROCEDURE BuildFont;
@@ -515,26 +541,33 @@ BEGIN
   FOR i := 0 TO MaxDefs-1 DO gDefs[i].used := FALSE END;
   FOR i := 0 TO MaxInst-1 DO gInst[i].active := FALSE; gInst[i].visible := FALSE END;
   gShelfX := 0; gShelfY := 0; gShelfH := 0; gNextSlot := 0;
+  gDraw := 0; gDisplay := 0; gScrollX := 0; gScrollY := 0; gScrollXR := 0.0; gScrollYR := 0.0;
   gAtlasDirty := TRUE; gSPalDirty := TRUE;
   RETURN ShaderView.Startup()
 END Startup;
 
-PROCEDURE Attach (hwnd: ADDRESS; w, h, surfW, surfH: CARDINAL): BOOLEAN;
+PROCEDURE Attach (hwnd: ADDRESS; worldW, worldH, viewW, viewH, surfW, surfH: CARDINAL): BOOLEAN;
 BEGIN
-  IF (w = 0) OR (h = 0) OR (w > MaxW) OR (h > MaxH) THEN RETURN FALSE END;
-  gFbW := VAL(INTEGER, w); gFbH := VAL(INTEGER, h);
-  gFbWR := VAL(REAL, w); gFbHR := VAL(REAL, h);
+  IF (worldW = 0) OR (worldH = 0) OR (worldW > MaxWorldW) OR (worldH > MaxWorldH) THEN RETURN FALSE END;
+  IF (viewW = 0) OR (viewH = 0) OR (viewW > worldW) OR (viewH > worldH) THEN RETURN FALSE END;
+  gFbW := VAL(INTEGER, worldW); gFbH := VAL(INTEGER, worldH);
+  gFbWR := VAL(REAL, worldW); gFbHR := VAL(REAL, worldH);
+  gViewW := VAL(INTEGER, viewW); gViewH := VAL(INTEGER, viewH);
+  gViewWR := VAL(REAL, viewW); gViewHR := VAL(REAL, viewH);
   IF NOT ShaderView.Attach(hwnd, surfW, surfH) THEN RETURN FALSE END;
-  IF NOT ShaderView.SetShader(LutShader, 16) THEN RETURN FALSE END;
-  IF NOT ShaderView.BindTexture(0, w, h, 62) THEN RETURN FALSE END;        (* index R8_UINT *)
-  IF NOT ShaderView.BindTexture(1, 256, 1, 87) THEN RETURN FALSE END;      (* global LUT *)
-  IF NOT ShaderView.BindTexture(2, 16, h, 87) THEN RETURN FALSE END;       (* line LUT *)
+  IF NOT ShaderView.SetShader(LutShader, SIZE(gCB)) THEN RETURN FALSE END;
+  IF NOT ShaderView.BindTexture(0, worldW, worldH, 62) THEN RETURN FALSE END;
+  IF NOT ShaderView.BindTexture(1, 256, 1, 87) THEN RETURN FALSE END;
+  IF NOT ShaderView.BindTexture(2, 16, viewH, 87) THEN RETURN FALSE END;
   IF NOT ShaderView.InitSprites(AtlasW, AtlasH, 16, MaxSlots, MaxInst*6) THEN RETURN FALSE END;
   RETURN TRUE
 END Attach;
 
 BEGIN
   gFbW := 0; gFbH := 0; gFbWR := 1.0; gFbHR := 1.0;
+  gViewW := 0; gViewH := 0; gViewWR := 1.0; gViewHR := 1.0;
+  gScrollX := 0; gScrollY := 0; gScrollXR := 0.0; gScrollYR := 0.0;
+  gDraw := 0; gDisplay := 0;
   gShelfX := 0; gShelfY := 0; gShelfH := 0; gNextSlot := 0;
   gAtlasDirty := TRUE; gSPalDirty := TRUE
 END GameViewGpu.

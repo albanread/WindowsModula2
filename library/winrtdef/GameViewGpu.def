@@ -30,11 +30,33 @@ DEFINITION MODULE GameViewGpu;
 FROM SYSTEM IMPORT ADDRESS;
 
 PROCEDURE Startup (): BOOLEAN;
-(* Bind a `w` x `h` indexed framebuffer to `hwnd`, presented over a `surfW` x `surfH`
-   swapchain (the window client size). FALSE on failure. *)
-PROCEDURE Attach (hwnd: ADDRESS; w, h, surfW, surfH: CARDINAL): BOOLEAN;
-PROCEDURE Width  (): CARDINAL;
-PROCEDURE Height (): CARDINAL;
+(* Bind indexed buffers of `worldW` x `worldH` (the drawable WORLD), of which a
+   `viewW` x `viewH` window is shown, scaled to the `surfW` x `surfH` swapchain (the
+   window client size). For a non-scrolling game pass world = view. Over-allocate the
+   world past the view (worldW > viewW and/or worldH > viewH) for smooth scrolling:
+   draw the wider world, then pan with SetScroll. FALSE on failure. *)
+PROCEDURE Attach (hwnd: ADDRESS; worldW, worldH, viewW, viewH, surfW, surfH: CARDINAL): BOOLEAN;
+PROCEDURE Width      (): CARDINAL;   (* world (drawable) width  *)
+PROCEDURE Height     (): CARDINAL;   (* world (drawable) height *)
+PROCEDURE ViewWidth  (): CARDINAL;   (* visible viewport width  *)
+PROCEDURE ViewHeight (): CARDINAL;
+PROCEDURE NumBuffers (): CARDINAL;   (* indexed buffers available (0..NumBuffers-1) *)
+
+(* --- buffers + scrolling ---
+   Drawing primitives target the SELECTED buffer; Present shows the DISPLAY buffer.
+   There are several buffers so you can pre-render backgrounds / parallax layers and
+   Blit (copy regions) between them. SetScroll moves the displayed viewport over the
+   world (smooth, GPU-side); sprites are positioned in world coordinates and scroll
+   with it. *)
+PROCEDURE SelectBuffer  (n: CARDINAL);   (* which buffer drawing primitives write *)
+PROCEDURE DisplayBuffer (n: CARDINAL);   (* which buffer Present shows *)
+PROCEDURE SetScroll     (x, y: INTEGER); (* viewport origin in world pixels (clamped) *)
+PROCEDURE ScrollX (): INTEGER;
+PROCEDURE ScrollY (): INTEGER;
+(* Copy a w x h region from buffer `src` at (srcX,srcY) to buffer `dst` at (dstX,dstY).
+   Blit copies every pixel; BlitTrans skips index 0 (transparent overlay). *)
+PROCEDURE Blit      (src: CARDINAL; srcX, srcY, w, h: INTEGER; dst: CARDINAL; dstX, dstY: INTEGER);
+PROCEDURE BlitTrans (src: CARDINAL; srcX, srcY, w, h: INTEGER; dst: CARDINAL; dstX, dstY: INTEGER);
 
 (* --- palette: global (16..255) + per-scanline (0..15) + cycling --- *)
 PROCEDURE SetColour (index, rgb: CARDINAL);
