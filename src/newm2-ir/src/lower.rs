@@ -1172,7 +1172,10 @@ fn lower_asm_proc(ctx: &ModCtx<'_, '_>, proc: &ast::ProcDecl, body: &str) -> new
     } else {
         new_asm::AsmRetType::Void
     };
-    new_asm::AsmProc { name: proc.name.clone(), params, return_type, body: body.to_string() }
+    // Emit under the qualified Module.Proc symbol so the `.globl` label + the
+    // `declare` match the call site (defined M2 procs use qualified LLVM symbols).
+    let qname = format!("{}.{}", ctx.module_name(), proc.name);
+    new_asm::AsmProc { name: qname, params, return_type, body: body.to_string() }
 }
 
 fn asm_type_from_type_id(ctx: &ModCtx<'_, '_>, ty: newm2_sema::types::TypeId) -> new_asm::AsmType {

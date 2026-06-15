@@ -52,6 +52,7 @@ newm2 build demos/<name>.mod      # AOT — writes <name>.exe next to the source
 | `audio_sfx.mod`      | SFX | ✅ | **Game sound synthesis** — renders the **`Audio`** library's preset SFX (coin / jump / zap / explode / powerup / hurt / click / bang / blip / tone / pink-noise) to `.wav` files, entirely in Modula-2 (pure software synthesis, no device). A console tool — run it to drop a playable SFX pack. |
 | `audio_play.mod`     | SFX | ✅ | **Live audio playback** — synthesizes SFX and plays them through WinMM **`WaveOut`** (a background mixer thread, direct from M2): one-shots, overlapping voices (software mixing), and a looped tone with a fade-out. Run it and listen. |
 | `music_play.mod`     | MUS | ✅ | **ABC music playback** — parses ABC notation (**`Abc`**) to timed MIDI events and plays them live through WinMM **`MidiOut`** (a scheduler thread firing each note at its precomputed ms deadline — tight timing, no GC pauses). Plays the opening of "Ode to Joy". |
+| `asm_demo.mod`       | LANG | ✅ | **Inline assembler** — Modula-2 procedures with an `ASM … END` Intel-syntax x86-64 body (Win64 ABI: args in rcx/rdx/r8/r9, result in rax), incl. labels + branches. Emitted as module-level inline asm and called like any other procedure. |
 
 The GPU demos share a reusable host — **`ShaderView`** (`library/winrtmod`), a
 generic full-screen pixel-shader renderer on Direct3D11: a demo calls
