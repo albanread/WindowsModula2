@@ -6,9 +6,9 @@ memory. The toolchain driver is `newm2`.
 
 This is a deliberately **Windows-native** Modula-2: not a portable compiler that
 happens to run on Windows, but one that targets `x86_64-pc-windows-msvc` *only* and
-uses the platform to the hilt — the Win32 API, COM/Direct2D/Direct3D, GDI, Win64
-structured exceptions, Win32 fibres, `HeapAlloc`, PE/COFF — all reachable directly
-from clean Modula-2 source.
+uses the platform to the hilt — the Win32 API, COM/Direct2D/Direct3D, GDI, WinMM
+(`waveOut`/`midiOut` audio), Win64 structured exceptions, Win32 fibres, `HeapAlloc`,
+PE/COFF — all reachable directly from clean Modula-2 source.
 
 It is the Modula-2 member of a portfolio of from-scratch Rust+LLVM language
 implementations (NewBF, NewCormanLisp, NewOpenDylan, NewFactor, …).
@@ -57,18 +57,49 @@ Modula-2, safely.**
   - **GDI** — a general-purpose RGBA software framebuffer (`RasterView`,
     `SetDIBitsToDevice` blit) and a `Chart` library on top (bar/line/pie),
     exportable to `.bmp`.
+  - **Retro game mode** — an indexed-colour "DOS/Amiga" host (`GameViewGpu`):
+    a palette-index framebuffer resolved to RGBA on the GPU (an `R8_UINT` index
+    texture + a palette-LUT pixel shader), with a per-scanline palette, palette
+    cycling, a frame-animated **sprite layer** (each sprite its own 16-colour
+    palette, rotation / scale / alpha, index-0 transparent), smooth scrolling over
+    an over-allocated world, and parallax via blit between off-screen buffers.
+    (`GameView` is the software, headless-testable sibling.)
   - **Win32 windowing** — `WinShell`: a real window + the M2 window-procedure
     callback + message loop.
 
-See **[`demos/`](demos/)** for 15 runnable programs — GPU shaders, a TUI terminal,
-mouse-driven games (minesweeper, reversi, worms), a notepad editor, a scientific
-calculator, and a business-graphics dashboard — every one pure Modula-2.
+See **[`demos/`](demos/)** for ~two dozen runnable programs — GPU shaders, the retro
+game mode (sprites, scrolling, parallax), a TUI terminal, mouse-driven games
+(minesweeper, reversi, worms), a notepad editor, a scientific calculator, a
+business-graphics dashboard, and synthesized sound + ABC music — every one pure
+Modula-2.
+
+## Sound and music from Modula-2
+
+The same direct-Win32 approach drives audio — no FFI shims; both the synthesis and the
+device layer are Modula-2:
+
+- **Software synthesis** (`Audio`) — game sound effects (coin / jump / zap / explode / …)
+  from oscillators + ADSR + seeded-LCG noise + FM + filters + echo, rendered to a PCM
+  buffer; deterministic and headless-testable. `WavFile` reads/writes 8/16/24/32-bit PCM `.wav`.
+- **Live playback** (`WaveOut`) — a WinMM `waveOut` double-buffer fed by a background
+  software mixer (per-voice gain / pan / fade / looping), so a game loop can fire
+  overlapping effects.
+- **Music** (`Abc` / `MidiOut` / `SmfFile`) — a full **ABC notation** parser (notes,
+  octaves, accidentals, keys, durations, broken rhythm, ties, chords, tuplets, repeats,
+  **multiple voices**) compiled to timed MIDI events, played live through WinMM `midiOut`
+  on a 1 ms scheduler thread — tight timing with no GC pauses, melody + bass + drums on
+  their own channels and instruments — and exportable to a standard `.mid` file.
+
+The mixer and the MIDI scheduler run as M2-created OS threads (a `Threads` worker + a
+critical-section lock) **alongside** Direct3D rendering, so a single Modula-2 program is a
+complete little game engine: hardware-accelerated graphics, synthesized sound, and music,
+at 60fps.
 
 ## Status
 
 A **working compiler** with a substantial ISO 10514-1 standard library, a growing
-Win32/COM surface, and the graphics stack above. Multi-module programs compile and
-run identically through the JIT and the AOT `.exe`.
+Win32/COM surface, the graphics stack above, and a native audio/music subsystem.
+Multi-module programs compile and run identically through the JIT and the AOT `.exe`.
 
 ### Compiler / runtime
 
@@ -100,8 +131,12 @@ run identically through the JIT and the AOT `.exe`.
   `Storage`, `IOChan`/`IOLink`/`StreamFile`/`SeqFile`/`TextIO`, `RealStr`/`LongStr`,
   `COMPLEX`/`ComplexMath`, `RealMath`/`LongMath`, `RandomNumbers`, `SysClock`, …
 - **Windows / graphics** (`library/winrtdef` + `library/winrtmod`) — `WinShell`,
-  `Terminal`, `TermRender`, `DWrite`, `ShaderView`, `Canvas2D`, `RasterView`,
-  `Chart`, `ElapsedTime`, `MemUtils`, `SecureRandom`, …
+  `Terminal`, `TermRender`, `DWrite`, `ShaderView`, `Canvas2D`, `RasterView`, `Chart`,
+  `GameView` / `GameViewGpu` (retro game mode), `Dialogs`, `Clipboard`, `RunProg`,
+  `Threads`, `FileFunc`, `ElapsedTime`, `MemUtils`, `SecureRandom`, …
+- **Audio / music** (`library/winrtdef` + `library/winrtmod`) — `Audio` (synthesis),
+  `WavFile` (`.wav` r/w), `WaveOut` (live `waveOut` mixer), `Abc` (ABC notation parser),
+  `MidiOut` (`midiOut` scheduler), `SmfFile` (`.mid` export)
 - **Generated Win32/COM** (`library/NewM2`) — `Graphics_Direct2D`,
   `Graphics_Direct3D11`, `Graphics_Dxgi`, `Graphics_Gdi`, `System_*`, …
 - **Utilities** (`library/utildef` + `library/utilmod`) — `TextRope` (an editor-grade
@@ -113,9 +148,9 @@ third-party distribution required.
 ### Not yet
 
 The full Win32 binding surface, COM *server*-side (`CLASS IMPLEMENTS` +
-synthesized `QueryInterface`), anti-aliased font rendering for `Chart`, and IDE
-integration. Cross-platform is explicitly **out of scope** — this compiler is
-Windows-only by design.
+synthesized `QueryInterface`), anti-aliased font rendering for `Chart`, and
+editor / LSP integration (the standalone `FastM2` IDE aside). Cross-platform is
+explicitly **out of scope** — this compiler is Windows-only by design.
 
 ## Building
 
@@ -140,7 +175,8 @@ target\debug\newm2-driver run   --opt 2 my.mod              # optimized JIT
 | `library/winrtdef`, `library/winrtmod` | Windows framework + graphics hosts |
 | `library/NewM2` | generated Win32 / COM `DEFINITION MODULE`s |
 | `library/utildef`, `library/utilmod` | general-purpose utility modules |
-| `demos/` | runnable demo programs (GPU, TUI, games, graphics) |
+| `demos/` | runnable demo programs (GPU, retro game mode, TUI, games, graphics, audio, music) |
+| `projects/FastM2` | **FastM2** — a Turbo-Pascal-style Modula-2 IDE, itself written in Modula-2 |
 | `Mod/tests/` | Modula-2 conformance / regression test programs |
 | `tests/` | Rust integration + conformance harness |
 | `docs/` | design notes, the COM-vtables paper, the DocCrate language guide |
