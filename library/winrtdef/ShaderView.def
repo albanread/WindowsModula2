@@ -58,8 +58,28 @@ PROCEDURE Width (): CARDINAL;
 PROCEDURE Height (): CARDINAL;
 
 (* Render one frame: copy `cbSize` bytes from `constants` into the constant
-   buffer, draw the full-screen triangle, Present(1,0). No-op if not ready. *)
+   buffer, draw the full-screen triangle, Present(1,0). No-op if not ready.
+   (= BeginFrame + EndFrame, with no sprite pass between.) *)
 PROCEDURE Frame (constants: ADDRESS);
+
+(* --- sprite layer: a 2nd alpha-blended quad pass over the background --------
+   Sprites are 16-colour indexed bitmaps in a shared atlas (index 0 transparent),
+   each drawing through its own row of a palette LUT, composited OVER the resolved
+   index->RGBA background (the way winscheme does it). Create once after Attach:
+   an atlasW x atlasH R8_UINT atlas, a palW x palH B8G8R8A8 palette LUT (row =
+   sprite slot, column = colour index), and a vertex buffer of `maxVerts` vertices
+   (6 floats each). FALSE on failure. *)
+PROCEDURE InitSprites (atlasW, atlasH, palW, palH, maxVerts: CARDINAL): BOOLEAN;
+PROCEDURE UploadAtlas (pixels: ADDRESS; rowPitch: CARDINAL);          (* rowPitch = atlasW *)
+PROCEDURE UploadSpritePalette (pixels: ADDRESS; rowPitch: CARDINAL);  (* rowPitch = palW*4 *)
+
+(* The two-pass frame, split so sprites can be drawn between background and present:
+     BeginFrame(bg);  DrawSprites(verts, n);  EndFrame;
+   Each sprite vertex is 6 floats: pos.x pos.y (NDC), uv.x uv.y (atlas PIXELS),
+   meta.x (palette slot) meta.y (alpha 0..1). Two triangles (6 verts) per quad. *)
+PROCEDURE BeginFrame (constants: ADDRESS);
+PROCEDURE DrawSprites (verts: ADDRESS; vertCount: CARDINAL);
+PROCEDURE EndFrame;
 
 (* Continuous loop: pump Win32 messages (WinShell.PumpMessages), advance a time
    counter, call `build(time)` to get the frame's constants, Frame() them, until
