@@ -1,0 +1,23 @@
+(* MidiOut — live MIDI playback of an Abc.Tune through WinMM midiOut, direct from
+   Modula-2 (a port of NewAudio's midi_runtime). A background scheduler thread on a
+   1 ms timer fires each pre-timed event the instant its absolute-ms deadline
+   passes — no music math at play time, no GC pauses, so note timing stays tight.
+
+   Usage:
+     ok := MidiOut.Startup();
+     IF Abc.ParseTune(abcText, tune) THEN MidiOut.Play(tune) END;
+     ... WHILE MidiOut.IsPlaying() DO ... END;
+     MidiOut.Shutdown;
+*)
+DEFINITION MODULE MidiOut;
+
+FROM Abc IMPORT Tune;
+
+PROCEDURE Startup (): BOOLEAN;     (* open the GM synth + start the scheduler thread *)
+PROCEDURE Shutdown;
+
+PROCEDURE Play (VAR t: Tune);      (* play `t` from the start (the caller owns `t`) *)
+PROCEDURE Stop;                    (* stop + all-notes-off *)
+PROCEDURE IsPlaying (): BOOLEAN;
+
+END MidiOut.

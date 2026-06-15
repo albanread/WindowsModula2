@@ -51,6 +51,7 @@ newm2 build demos/<name>.mod      # AOT — writes <name>.exe next to the source
 | `parallax_gpu.mod`   | GPU | ✅ | **Parallax via blit** — far/mid/near background layers pre-rendered into off-screen indexed buffers, then `Blit`/`BlitTrans`-composited into the display each frame at different scroll rates; a frame-animated bird flies over. `Esc` quits. |
 | `audio_sfx.mod`      | SFX | ✅ | **Game sound synthesis** — renders the **`Audio`** library's preset SFX (coin / jump / zap / explode / powerup / hurt / click / bang / blip / tone / pink-noise) to `.wav` files, entirely in Modula-2 (pure software synthesis, no device). A console tool — run it to drop a playable SFX pack. |
 | `audio_play.mod`     | SFX | ✅ | **Live audio playback** — synthesizes SFX and plays them through WinMM **`WaveOut`** (a background mixer thread, direct from M2): one-shots, overlapping voices (software mixing), and a looped tone with a fade-out. Run it and listen. |
+| `music_play.mod`     | MUS | ✅ | **ABC music playback** — parses ABC notation (**`Abc`**) to timed MIDI events and plays them live through WinMM **`MidiOut`** (a scheduler thread firing each note at its precomputed ms deadline — tight timing, no GC pauses). Plays the opening of "Ode to Joy". |
 
 The GPU demos share a reusable host — **`ShaderView`** (`library/winrtmod`), a
 generic full-screen pixel-shader renderer on Direct3D11: a demo calls
@@ -109,6 +110,10 @@ it is **headless-testable** like `RasterView`; `WavFile` exports/imports canonic
 `.wav`. **`WaveOut`** plays `Sound`s live through WinMM (a background mixer thread, direct
 from M2 — open `waveOut`, double-buffer a few blocks, software-mix the active voices with
 per-voice gain/pan/fade). `audio_sfx` (render to .wav) and `audio_play` (live) show it off.
+For music, **`Abc`** parses ABC notation (notes/octaves/accidentals-in-bar/key/durations/
+broken-rhythm/ties/chords/tuplets/rests/bars/repeats/tempo/meter/inline-fields/`%%MIDI`) to a
+flat array of absolute-ms MIDI events, and **`MidiOut`** plays them through WinMM `midiOut`
+on a 1 ms scheduler thread — `music_play` is the showcase.
 
 Prebuilt `.exe`s sit next to each source (`newm2 build demos/<name>.mod` rebuilds);
 the `.exe`/`.obj` are git-ignored.

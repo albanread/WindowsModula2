@@ -1,0 +1,30 @@
+(* Abc — ABC music notation -> a timed MIDI event list, a Modula-2 port of
+   NewAudio's newaudio-abc. Parses ABC text (notes, octave marks, accidentals
+   persistent within a bar, key signatures, default note length, durations incl.
+   slashes and dots, broken rhythm, ties, chords, tuplets, rests, bar lines,
+   repeats, tempo, meter, inline [K:]/[Q:] fields, %%MIDI program) and compiles it
+   to a flat array of MidiEvents with ABSOLUTE millisecond timestamps — so the
+   player (MidiOut) does zero music math at play time. Pure, headless-testable.
+
+   Pitch convention follows ABC: uppercase C = MIDI 48, lowercase c = MIDI 60. *)
+DEFINITION MODULE Abc;
+
+CONST
+  MaxEvents = 16384;
+
+TYPE
+  (* status: 90H NoteOn, 80H NoteOff, C0H ProgramChange, B0H ControlChange *)
+  MidiEvent = RECORD timeMs: CARDINAL; status, chan, d1, d2: CARDINAL END;
+
+  Tune = RECORD
+    ev:    ARRAY [0..MaxEvents-1] OF MidiEvent;   (* sorted ascending by time *)
+    count: CARDINAL;
+    bpm:   CARDINAL;                              (* parsed tempo *)
+    endMs: CARDINAL;                              (* time of the last note-off *)
+  END;
+
+(* Parse ABC text and compile it to t.ev (sorted). FALSE only on gross failure
+   (empty / no notes). Unknown constructs are skipped, never fatal. *)
+PROCEDURE ParseTune (text: ARRAY OF CHAR; VAR t: Tune): BOOLEAN;
+
+END Abc.
