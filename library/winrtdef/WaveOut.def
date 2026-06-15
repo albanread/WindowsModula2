@@ -1,0 +1,40 @@
+(* WaveOut — live PCM playback for Audio.Sound buffers over WinMM waveOut, direct
+   from Modula-2 (a port of NewAudio's pcm_runtime). A background mixer thread
+   software-mixes the active voices into a few double-buffered waveOut blocks and
+   re-queues them as they drain (polling WHDR_INQUEUE — no callback). Play a Sound
+   many times; each Play returns a voice handle you can stop or fade.
+
+   The caller owns the Sound buffers: a played Sound must stay alive (do not
+   FreeSound it) until it finishes playing or is stopped. Register long-lived
+   Sounds once, play them often.
+
+   Usage:
+     ok := WaveOut.Startup();
+     Audio.Coin(coin, 0.4);
+     v := WaveOut.Play(coin, 1.0, 0.0);
+     ... game loop ...
+     WaveOut.Shutdown;
+*)
+DEFINITION MODULE WaveOut;
+
+FROM Audio IMPORT Sound;
+
+(* Open waveOut (44100 Hz, stereo, 16-bit) and start the mixer thread. *)
+PROCEDURE Startup (): BOOLEAN;
+(* Stop the mixer thread and close the device. *)
+PROCEDURE Shutdown;
+
+(* Play `s` once at `volume` (0..) and `pan` (-1 left .. +1 right). Returns a voice
+   handle (0 = no free voice / not started). *)
+PROCEDURE Play       (VAR s: Sound; volume, pan: REAL): CARDINAL;
+(* Play `s` on a loop until StopVoice. *)
+PROCEDURE PlayLooped (VAR s: Sound; volume, pan: REAL): CARDINAL;
+
+(* Stop voice `handle`; fadeSecs<=0 stops immediately, else fades out over fadeSecs. *)
+PROCEDURE StopVoice  (handle: CARDINAL; fadeSecs: REAL);
+PROCEDURE StopAll;
+
+PROCEDURE SetMasterVolume (v: REAL);     (* 0..1 global gain *)
+PROCEDURE ActiveVoices (): CARDINAL;
+
+END WaveOut.

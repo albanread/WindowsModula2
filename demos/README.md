@@ -50,6 +50,7 @@ newm2 build demos/<name>.mod      # AOT — writes <name>.exe next to the source
 | `scroll_gpu.mod`     | GPU | ✅ | **Smooth GPU scrolling** — a 640-wide *world* index buffer with a 240-wide *view*; `SetScroll` pans the viewport over the over-allocated world (pure GPU sampling, no redraw). Spinning coins sit at world positions and scroll in/out of view. `Esc` quits. |
 | `parallax_gpu.mod`   | GPU | ✅ | **Parallax via blit** — far/mid/near background layers pre-rendered into off-screen indexed buffers, then `Blit`/`BlitTrans`-composited into the display each frame at different scroll rates; a frame-animated bird flies over. `Esc` quits. |
 | `audio_sfx.mod`      | SFX | ✅ | **Game sound synthesis** — renders the **`Audio`** library's preset SFX (coin / jump / zap / explode / powerup / hurt / click / bang / blip / tone / pink-noise) to `.wav` files, entirely in Modula-2 (pure software synthesis, no device). A console tool — run it to drop a playable SFX pack. |
+| `audio_play.mod`     | SFX | ✅ | **Live audio playback** — synthesizes SFX and plays them through WinMM **`WaveOut`** (a background mixer thread, direct from M2): one-shots, overlapping voices (software mixing), and a looped tone with a fade-out. Run it and listen. |
 
 The GPU demos share a reusable host — **`ShaderView`** (`library/winrtmod`), a
 generic full-screen pixel-shader renderer on Direct3D11: a demo calls
@@ -105,7 +106,9 @@ subsystem — a Modula-2 port of the NewAudio synth core. `Audio` renders game s
 effects (oscillators + ADSR + seeded-LCG noise + game presets + pitch sweeps + tanh
 distortion + echo) into a PCM `Sound` buffer in pure software, deterministically, so
 it is **headless-testable** like `RasterView`; `WavFile` exports/imports canonical PCM
-`.wav`. `audio_sfx` is the showcase. (Live `waveOut` playback is the next phase.)
+`.wav`. **`WaveOut`** plays `Sound`s live through WinMM (a background mixer thread, direct
+from M2 — open `waveOut`, double-buffer a few blocks, software-mix the active voices with
+per-voice gain/pan/fade). `audio_sfx` (render to .wav) and `audio_play` (live) show it off.
 
 Prebuilt `.exe`s sit next to each source (`newm2 build demos/<name>.mod` rebuilds);
 the `.exe`/`.obj` are git-ignored.
