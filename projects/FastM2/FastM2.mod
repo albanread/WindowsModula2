@@ -28,6 +28,7 @@ FROM Clipboard IMPORT SetText, GetText;
 FROM RunProg IMPORT PerformCommand, SyncExec, ExecFlagSet;
 FROM Dialogs IMPORT OpenFile, SaveFile, Confirm;
 FROM UI_WindowsAndMessaging IMPORT SetTimer, KillTimer;
+FROM System_Threading IMPORT Sleep;
 FROM SYSTEM IMPORT ADRCARD, ADR;
 IMPORT NM2File;
 IMPORT SeqFile, TextIO, IOResult, ChanConsts, IOConsts;
@@ -1118,7 +1119,9 @@ BEGIN
   ELSIF gMenuActive OR MenuIsOpen() THEN
     it := MenuPopupHit(tc, tr);
     IF it # MAX(CARDINAL) THEN
-      MenuItemSelect(it); DispatchMenu(MenuSelected(), it)
+      MenuItemSelect(it); Render; Paint();   (* show the item highlighted first... *)
+      Sleep(VAL(DWORD, 70));                  (* ...briefly, so the click is seen *)
+      DispatchMenu(MenuSelected(), it)        (* ...then run it *)
     END;
     IF MenuIsOpen() THEN MenuClose END; gMenuActive := FALSE; Refresh; RETURN
   ELSIF tr = gOutTitle THEN                            (* drag the split divider *)
