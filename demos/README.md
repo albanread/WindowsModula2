@@ -49,6 +49,7 @@ newm2 build demos/<name>.mod      # AOT — writes <name>.exe next to the source
 | `retro_gpu.mod`      | GPU | ✅ | **GameView GPU showcase** — the full retro mode on **`GameViewGpu`**: an indexed background with an animated per-line palette (raster bars) + a palette-cycled rainbow strip, and a sprite layer of **frame-animated** spinning coins + a rotating star, composited on the GPU. `Esc` quits. |
 | `scroll_gpu.mod`     | GPU | ✅ | **Smooth GPU scrolling** — a 640-wide *world* index buffer with a 240-wide *view*; `SetScroll` pans the viewport over the over-allocated world (pure GPU sampling, no redraw). Spinning coins sit at world positions and scroll in/out of view. `Esc` quits. |
 | `parallax_gpu.mod`   | GPU | ✅ | **Parallax via blit** — far/mid/near background layers pre-rendered into off-screen indexed buffers, then `Blit`/`BlitTrans`-composited into the display each frame at different scroll rates; a frame-animated bird flies over. `Esc` quits. |
+| `audio_sfx.mod`      | SFX | ✅ | **Game sound synthesis** — renders the **`Audio`** library's preset SFX (coin / jump / zap / explode / powerup / hurt / click / bang / blip / tone / pink-noise) to `.wav` files, entirely in Modula-2 (pure software synthesis, no device). A console tool — run it to drop a playable SFX pack. |
 
 The GPU demos share a reusable host — **`ShaderView`** (`library/winrtmod`), a
 generic full-screen pixel-shader renderer on Direct3D11: a demo calls
@@ -98,6 +99,13 @@ buffer is a **world** bigger than the **view**: `SetScroll` pans the viewport ov
 on the GPU (no redraw), and there are several indexed buffers so you can pre-render
 backgrounds / parallax layers and `Blit`/`BlitTrans` regions between them. `retro_gpu`
 (scene), `scroll_gpu` (smooth world scroll) and `parallax_gpu` (blit layers) show it off.
+
+**Audio** (`library/winrtdef/Audio.def` + `WavFile.def`) is a separate non-graphics
+subsystem — a Modula-2 port of the NewAudio synth core. `Audio` renders game sound
+effects (oscillators + ADSR + seeded-LCG noise + game presets + pitch sweeps + tanh
+distortion + echo) into a PCM `Sound` buffer in pure software, deterministically, so
+it is **headless-testable** like `RasterView`; `WavFile` exports/imports canonical PCM
+`.wav`. `audio_sfx` is the showcase. (Live `waveOut` playback is the next phase.)
 
 Prebuilt `.exe`s sit next to each source (`newm2 build demos/<name>.mod` rebuilds);
 the `.exe`/`.obj` are git-ignored.

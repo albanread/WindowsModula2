@@ -1,0 +1,69 @@
+(* Audio — pure-M2 sound-effect SYNTHESIS, a faithful port of NewAudio's
+   newaudio-core (which itself ports winscheme_sound). Renders game SFX (coin,
+   jump, zap, explode, ...) and tones into a PCM Sound buffer entirely in software
+   — no window, no device needed — so it is headless/known-answer testable like
+   RasterView. Pair with WavFile to export .wav, or (later) WaveOut to play live.
+
+   A Sound is interleaved-stereo PCM in [-1,1]: samples[ frame*channels + ch ].
+   Synthesis is deterministic — the engine's LCG (set by InitEngine) makes noise
+   and randomised presets reproducible. Sample rate is 44100 Hz, 2 channels.
+
+   Usage:
+     Audio.InitEngine(12345);
+     Audio.Coin(snd, 0.4);
+     ok := WavFile.WriteWav("coin.wav", snd, 1.0);
+     Audio.FreeSound(snd);
+*)
+DEFINITION MODULE Audio;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+CONST
+  SampleRate = 44100;
+  MaxSamples = 882000;          (* 10 s of stereo @ 44100 *)
+
+TYPE
+  Waveform = (WSine, WSquare, WSaw, WTriangle, WNoise, WPulse);
+
+  SampleBuf  = ARRAY [0..MaxSamples-1] OF REAL;   (* index type only; allocated to fit *)
+  PSampleBuf = POINTER TO SampleBuf;
+
+  (* A rendered PCM buffer. `samples^[i]`, i in [0..count-1], are interleaved
+     stereo values nominally in [-1,1]. *)
+  Sound = RECORD
+    sampleRate : CARDINAL;
+    channels   : CARDINAL;
+    count      : CARDINAL;        (* number of REAL samples (frames*channels) *)
+    duration   : REAL;
+    samples    : PSampleBuf;
+  END;
+
+(* Set the synthesis LCG seed (default 12345). Same seed -> identical output. *)
+PROCEDURE InitEngine (seed: CARDINAL);
+
+(* MIDI note number -> frequency (A4 = note 69 = 440 Hz). *)
+PROCEDURE NoteToFrequency (midi: INTEGER): REAL;
+
+(* Release a Sound's sample memory. *)
+PROCEDURE FreeSound (VAR s: Sound);
+
+(* ---- game presets: each renders a fresh Sound (FreeSound it when done) ---- *)
+PROCEDURE Beep    (VAR s: Sound; freq, dur: REAL);
+PROCEDURE Coin    (VAR s: Sound; dur: REAL);
+PROCEDURE Jump    (VAR s: Sound; dur: REAL);
+PROCEDURE Zap     (VAR s: Sound; dur: REAL);
+PROCEDURE Shoot   (VAR s: Sound; dur: REAL);
+PROCEDURE Explode (VAR s: Sound; size, dur: REAL);
+PROCEDURE Powerup (VAR s: Sound; dur: REAL);
+PROCEDURE Hurt    (VAR s: Sound; dur: REAL);
+PROCEDURE Click   (VAR s: Sound; dur: REAL);
+PROCEDURE Bang    (VAR s: Sound; dur: REAL);
+PROCEDURE Blip    (VAR s: Sound; pitch, dur: REAL);
+
+(* a single oscillator with a default envelope (Pulse uses 25% duty) *)
+PROCEDURE Tone    (VAR s: Sound; freq, dur: REAL; wave: Waveform);
+
+(* coloured noise: kind 0=white, 1=pink, 2=brown *)
+PROCEDURE Noise   (VAR s: Sound; kind: CARDINAL; dur: REAL);
+
+END Audio.

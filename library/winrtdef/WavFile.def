@@ -1,0 +1,17 @@
+(* WavFile — read/write canonical PCM RIFF/WAVE for Audio.Sound buffers (a port of
+   NewAudio's newaudio-core wav.rs). WriteWav emits 16-bit little-endian PCM (the
+   universal interchange format); ReadWav accepts 8/16/24/32-bit linear PCM with 1
+   or 2 channels (ancillary chunks skipped). Pure file I/O — headless-testable. *)
+DEFINITION MODULE WavFile;
+
+FROM Audio IMPORT Sound;
+
+(* Write `s` as 16-bit PCM .wav; every sample is multiplied by `volume` (>=0),
+   clamped to [-1,1], scaled by 32767 and rounded. FALSE on file error. *)
+PROCEDURE WriteWav (path: ARRAY OF CHAR; VAR s: Sound; volume: REAL): BOOLEAN;
+
+(* Read a PCM .wav into `s` (allocates s.samples — FreeSound it via Audio.FreeSound).
+   FALSE on file error or unsupported format. *)
+PROCEDURE ReadWav (path: ARRAY OF CHAR; VAR s: Sound): BOOLEAN;
+
+END WavFile.
