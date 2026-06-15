@@ -114,8 +114,9 @@ For music, **`Abc`** parses ABC notation (notes/octaves/accidentals-in-bar/key/d
 broken-rhythm/ties/chords/tuplets/rests/bars/repeats/tempo/meter/inline-fields, **multiple
 voices** `V:` each on its own channel + instrument, `%%MIDI program/channel/transpose/drum`)
 to a flat array of absolute-ms MIDI events, and **`MidiOut`** plays them through WinMM
-`midiOut` on a 1 ms scheduler thread — so a game can score melody + bass + drums. `music_play`
-plays a two-voice (piano + bass) arrangement.
+`midiOut` on a 1 ms scheduler thread — so a game can score melody + bass + drums. **`SmfFile`**
+exports a tune to a standard `.mid` (format 0, 480 ppq + tempo meta) for confirming timing in
+a DAW. `music_play` plays a two-voice (piano + bass) arrangement and writes its `.mid`.
 
 Prebuilt `.exe`s sit next to each source (`newm2 build demos/<name>.mod` rebuilds);
 the `.exe`/`.obj` are git-ignored.

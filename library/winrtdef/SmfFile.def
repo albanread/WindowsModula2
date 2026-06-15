@@ -1,0 +1,14 @@
+(* SmfFile — export an Abc.Tune to a Standard MIDI File (.mid), a port of NewAudio's
+   write_smf. Format 0 (one track, all channels), 480 ticks per quarter, with a
+   Set-Tempo meta so a DAW reproduces the exact wall-clock timing. The tune's
+   absolute-ms event times are converted to ticks (tick = round(ms * bpm / 125),
+   which recovers clean values — a quarter note lands on exactly 480 ticks), so the
+   .mid is a faithful record you can open to confirm timing. Pure file I/O. *)
+DEFINITION MODULE SmfFile;
+
+FROM Abc IMPORT Tune;
+
+(* Write `t` as a format-0 .mid. FALSE on file error. *)
+PROCEDURE WriteSmf (path: ARRAY OF CHAR; VAR t: Tune): BOOLEAN;
+
+END SmfFile.

@@ -8,11 +8,25 @@ MODULE MusicPlay;
  *
  *   build: newm2 build demos/music_play.mod   then run the .exe
  *)
-IMPORT Abc, MidiOut;
+FROM SYSTEM IMPORT ADR;
+IMPORT Abc, MidiOut, SmfFile, FileFunc;
 FROM System_Threading IMPORT Sleep;
 FROM STextIO IMPORT WriteString, WriteLn;
 FROM SWholeIO IMPORT WriteInt;
 FROM WIN32 IMPORT DWORD;
+
+PROCEDURE CheckMThd (path: ARRAY OF CHAR);
+  VAR f: FileFunc.File; h: ARRAY [0..13] OF BYTE; got: CARDINAL;
+  PROCEDURE Bv (i: CARDINAL): CARDINAL; BEGIN RETURN VAL(CARDINAL, h[i]) BAND 0FFH END Bv;
+BEGIN
+  f := FileFunc.OpenRead(path);
+  IF NOT FileFunc.IsValid(f) THEN RETURN END;
+  got := FileFunc.ReadBytes(f, ADR(h), 14); FileFunc.Close(f);
+  WriteString("  MThd: format="); WriteInt(VAL(INTEGER, Bv(8)*256 + Bv(9)), 1);
+  WriteString(" ntracks="); WriteInt(VAL(INTEGER, Bv(10)*256 + Bv(11)), 1);
+  WriteString(" division="); WriteInt(VAL(INTEGER, Bv(12)*256 + Bv(13)), 1);
+  WriteString(" ticks/quarter (480 = a quarter on the grid)"); WriteLn
+END CheckMThd;
 
 VAR abc: ARRAY [0..4095] OF CHAR;
     tune: Abc.Tune;
@@ -58,6 +72,10 @@ BEGIN
     END
   END;
   WriteString("  channels with notes mask="); WriteInt(VAL(INTEGER, chMask), 1); WriteLn;
+
+  IF SmfFile.WriteSmf("ode_to_joy.mid", tune) THEN
+    WriteString("Wrote ode_to_joy.mid"); WriteLn; CheckMThd("ode_to_joy.mid")
+  END;
 
   IF NOT MidiOut.Startup() THEN WriteString("midiOut open failed"); WriteLn; HALT END;
   WriteString("Playing through midiOut (GM synth)..."); WriteLn;
