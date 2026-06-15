@@ -1,0 +1,94 @@
+(* GameViewGpu — the GPU retro game host: an indexed-colour background (with a
+   per-line palette + global palette + cycling) composited with an animated SPRITE
+   layer, presented on Direct3D11 via ShaderView. This is the "magical low colour
+   depth" mode: cheap indexed pixels, palette tricks, and sprites with their own
+   palettes and frame animation.
+
+   Coordinates are framebuffer pixels (the w x h you Attach with); the GPU upscales
+   to the window. Sprite positions are framebuffer pixels too, so sprites and the
+   background share one coordinate space.
+
+   Two-level sprites (like winscheme): a DEFINITION is the art (a strip of equal-size
+   FRAMES in a shared atlas + its own 16-colour palette, colour 0 transparent); an
+   INSTANCE places a definition with position / rotation / scale / alpha / flip /
+   z-priority / current frame, and can auto-animate its frames at an FPS.
+
+   Usage:
+     ok := GameViewGpu.Startup();
+     win := WinShell.CreateAppWindow(title, w*S+16, h*S+39, Handler);
+     WinShell.Show(win); WinShell.ClientSize(win, cw, ch);
+     ok := GameViewGpu.Attach(win, w, h, cw, ch);
+     GameViewGpu.LoadDefaultPalette;
+     ok := GameViewGpu.DefineSprite(0, "....22..../...2332.../..233332..");
+     ok := GameViewGpu.AddFrame(0, ".........../...2332.../..233332..");   (* frame 1 *)
+     GameViewGpu.SpriteRGB(0, 2, 240, 80, 40);
+     GameViewGpu.Place(0, 0, 100.0, 80.0);  GameViewGpu.Animate(0, 8.0);  GameViewGpu.Show(0);
+     LOOP ... GameViewGpu.Cls(1); GameViewGpu.Tick(0.016); GameViewGpu.Present; ... END
+*)
+DEFINITION MODULE GameViewGpu;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+PROCEDURE Startup (): BOOLEAN;
+(* Bind a `w` x `h` indexed framebuffer to `hwnd`, presented over a `surfW` x `surfH`
+   swapchain (the window client size). FALSE on failure. *)
+PROCEDURE Attach (hwnd: ADDRESS; w, h, surfW, surfH: CARDINAL): BOOLEAN;
+PROCEDURE Width  (): CARDINAL;
+PROCEDURE Height (): CARDINAL;
+
+(* --- palette: global (16..255) + per-scanline (0..15) + cycling --- *)
+PROCEDURE SetColour (index, rgb: CARDINAL);
+PROCEDURE SetRGB    (index, r, g, b: CARDINAL);
+PROCEDURE LoadDefaultPalette;
+PROCEDURE CyclePalette (lo, hi: CARDINAL);             (* rotate global entries lo..hi up *)
+PROCEDURE SetLineColour (y, index, rgb: CARDINAL);     (* scanline y, low index 0..15 *)
+PROCEDURE SetLineRGB    (y, index, r, g, b: CARDINAL);
+PROCEDURE SeedLinePalette;                             (* copy global 0..15 into every line *)
+
+(* --- indexed background drawing (palette index per pixel; clipped) --- *)
+PROCEDURE Cls      (index: CARDINAL);
+PROCEDURE Pset     (x, y: INTEGER; index: CARDINAL);
+PROCEDURE Pget     (x, y: INTEGER): CARDINAL;
+PROCEDURE HLine    (x, y, len: INTEGER; index: CARDINAL);
+PROCEDURE VLine    (x, y, len: INTEGER; index: CARDINAL);
+PROCEDURE FillRect (x, y, w, h: INTEGER; index: CARDINAL);
+PROCEDURE Rect     (x, y, w, h: INTEGER; index: CARDINAL);
+PROCEDURE Line     (x0, y0, x1, y1: INTEGER; index: CARDINAL);
+PROCEDURE Disc     (cx, cy, r: INTEGER; index: CARDINAL);
+PROCEDURE Circle   (cx, cy, r: INTEGER; index: CARDINAL);
+PROCEDURE Text     (x, y: INTEGER; s: ARRAY OF CHAR; index: CARDINAL);
+
+(* --- sprite DEFINITIONS (art) ---
+   Define from text rows separated by '/': '0'-'9','A'-'F'/'a'-'f' = colour index,
+   '.'/' ' = colour 0 (transparent). DefineSprite sets frame 0 (and the frame size);
+   AddFrame appends another same-size frame. Each definition owns a 16-colour palette
+   (set with SpriteColour/SpriteRGB); colour 0 is always transparent. *)
+PROCEDURE DefineSprite (id: CARDINAL; rows: ARRAY OF CHAR): BOOLEAN;
+PROCEDURE AddFrame     (id: CARDINAL; rows: ARRAY OF CHAR): BOOLEAN;
+PROCEDURE SpriteColour (id, index, rgb: CARDINAL);
+PROCEDURE SpriteRGB    (id, index, r, g, b: CARDINAL);
+PROCEDURE SpriteFrames (id: CARDINAL): CARDINAL;
+PROCEDURE SpriteWidth  (id: CARDINAL): CARDINAL;
+PROCEDURE SpriteHeight (id: CARDINAL): CARDINAL;
+
+(* --- sprite INSTANCES ---
+   Place creates/positions instance `inst` of definition `def` (centre at x,y in
+   framebuffer pixels) and shows it. Transforms are about the sprite centre. *)
+PROCEDURE Place       (inst, def: CARDINAL; x, y: REAL);
+PROCEDURE MoveTo      (inst: CARDINAL; x, y: REAL);
+PROCEDURE SetScale    (inst: CARDINAL; s: REAL);
+PROCEDURE SetRotation (inst: CARDINAL; degrees: REAL);
+PROCEDURE SetAlpha    (inst: CARDINAL; a: REAL);                (* 0..1 *)
+PROCEDURE SetFlip     (inst: CARDINAL; h, v: BOOLEAN);
+PROCEDURE SetPriority (inst, p: CARDINAL);                      (* lower = drawn behind *)
+PROCEDURE SetFrame    (inst, frame: CARDINAL);
+PROCEDURE Animate     (inst: CARDINAL; fps: REAL);             (* auto-cycle frames; 0 = stop *)
+PROCEDURE Show        (inst: CARDINAL);
+PROCEDURE Hide        (inst: CARDINAL);
+PROCEDURE Remove      (inst: CARDINAL);
+
+(* --- per frame --- *)
+PROCEDURE Tick    (dt: REAL);   (* advance sprite frame animations by dt seconds *)
+PROCEDURE Present;              (* upload state, draw background + sprite layer, present *)
+
+END GameViewGpu.

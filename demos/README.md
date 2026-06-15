@@ -43,7 +43,10 @@ newm2 build demos/<name>.mod      # AOT — writes <name>.exe next to the source
 | `calculator.mod`     | GUI | ✅ | **Scientific calculator** — a clickable Direct2D button grid + a typed-expression display, evaluated by a hand-written **recursive-descent parser** (precedence, right-assoc `^`, unary minus, parens, `sin/cos/tan/ln/log/sqrt/exp/abs`, `pi`/`e`) over `RealMath`. Click or type; `=`/Enter evaluates, `C` clears, `Esc` quits. |
 | `worms.mod`          | TUI | ✅ | **Worms** (multi-worm snake) — you are the green worm; **three worker `COROUTINES`** cooperate with the main loop: a treat dispenser deposits food, and the red & blue worm AIs each steer toward the nearest treat while dodging walls and bodies. Eat to grow; hitting a wall/worm is fatal. Arrows steer, `Space` pause, `R` restart, `Esc` quit. |
 | `chart_demo.mod`     | GFX | ✅ | **Business dashboard** — a bar chart, line chart, pie chart and legend drawn with the `Chart` library on the **`RasterView`** RGBA software framebuffer (every pixel in Modula-2), blitted with one GDI call. `S` exports the exact image to `dashboard.bmp`; `Esc` quits. |
-| `gameview_demo.mod`  | GFX | ✅ | **Retro indexed-colour game mode** — a 200×130 palette-index framebuffer presented at 4× chunky pixels on the **`GameView`** host: 16-colour sprites authored from text rows, bit-blits with transparency + horizontal flip, and a palette-cycled rainbow band (the copper-bar trick). Arrows fly the ship; `Esc` quits. |
+| `gameview_demo.mod`  | GFX | ✅ | **Retro indexed-colour game mode (software)** — a 200×130 palette-index framebuffer presented at 4× chunky pixels on the **`GameView`** host: 16-colour sprites authored from text rows, bit-blits with transparency + horizontal flip, and a palette-cycled rainbow band (the copper-bar trick). Arrows fly the ship; `Esc` quits. |
+| `lut_gpu.mod`        | GPU | ✅ | **GPU palette-LUT present** — the indexed mode on the GPU: the index buffer is an `R8_UINT` texture, palettes are LUT textures, and a pixel shader resolves index→RGBA. Full **per-line palette** (indices 0..15 from each scanline's own LUT → copper bars / smooth gradients; 16..255 global) + palette cycling, all as tiny per-frame LUT re-uploads; the GPU upscales for free. `Esc` quits. |
+| `sprite_gpu.mod`     | GPU | ✅ | **GPU sprite layer** — three instances of one 16×16 indexed sprite (its own palette, index 0 transparent) alpha-blended over a gradient background: solid, alpha-pulsing, and rotating. Proves the second-pass quad compositing (dynamic VB + input layout + blend state + sprite VS/PS). `Esc` quits. |
+| `retro_gpu.mod`      | GPU | ✅ | **GameView GPU showcase** — the full retro mode on **`GameViewGpu`**: an indexed background with an animated per-line palette (raster bars) + a palette-cycled rainbow strip, and a sprite layer of **frame-animated** spinning coins + a rotating star, composited on the GPU. `Esc` quits. |
 
 The GPU demos share a reusable host — **`ShaderView`** (`library/winrtmod`), a
 generic full-screen pixel-shader renderer on Direct3D11: a demo calls
@@ -78,6 +81,17 @@ onto the framebuffer (`Blit`/`BlitFlip`/`BlitScale`, transparent index skipped);
 `CyclePalette` animates a palette range for classic raster effects. Like `RasterView`
 the drawing is software, so the buffer is **headless-testable**. `gameview_demo` is a
 small playable showcase.
+
+A fifth host, **`GameViewGpu`** (`library/winrtmod`), is the **GPU** retro mode — the
+indexed background and sprites the way winscheme does it, on Direct3D11 via
+`ShaderView`. The index buffer + global + per-line palettes upload as textures and a
+pixel shader resolves index→RGBA; on top, an animated **sprite layer** is composited
+alpha-over. Sprites are two-level: a **definition** is art (a strip of equal-size
+**frames** in a shared atlas + its own 16-colour palette, colour 0 transparent); an
+**instance** places a definition with position / rotation / scale / alpha / flip /
+z-priority and auto-animates its frames at an FPS (`Tick` advances them). The GPU does
+the upscale, the alpha blending, and the per-sprite palette lookup; `Present` draws
+the background then the sprite layer in one pass each. `retro_gpu` is the showcase.
 
 Prebuilt `.exe`s sit next to each source (`newm2 build demos/<name>.mod` rebuilds);
 the `.exe`/`.obj` are git-ignored.
