@@ -35,6 +35,24 @@ PROCEDURE Attach (hwnd: ADDRESS; w, h: CARDINAL): BOOLEAN;
    it to a 16-byte multiple). Call after Attach. FALSE on failure. *)
 PROCEDURE SetShader (pixelHlsl: ARRAY OF CHAR; cbSize: CARDINAL): BOOLEAN;
 
+(* --- input textures (for an index buffer + palette-LUT present, or any
+   sampled-texture shader) --------------------------------------------------
+   Bind a `w` x `h` shader-resource texture at SRV register t<slot> (slot 0..7)
+   with the given DXGI format. The pixel shader reads it with Load() (an exact
+   integer fetch — no sampler, no filtering). Typical retro/indexed present:
+     BindTexture(0, fbW, fbH, 62);   (* 62 = DXGI_FORMAT_R8_UINT, the index buffer *)
+     BindTexture(1, 256,  1, 87);    (* 87 = DXGI_FORMAT_B8G8R8A8_UNORM, a 256-entry
+                                        palette LUT; reads a 0x00RRGGBB word as .rgb *)
+   Create after Attach; the bound SRVs are set before every Frame's Draw. FALSE on
+   failure. *)
+PROCEDURE BindTexture (slot, w, h: CARDINAL; format: INTEGER32): BOOLEAN;
+
+(* Upload pixel bytes into the texture at `slot` (UpdateSubresource). `rowPitch` =
+   bytesPerTexel * w (e.g. w for R8_UINT; 256*4 for the palette LUT). Call per
+   frame for a changing buffer (index, or the palette while cycling); once for a
+   static one. *)
+PROCEDURE UploadTexture (slot: CARDINAL; pixels: ADDRESS; rowPitch: CARDINAL);
+
 (* The client area size (so a demo can compute an aspect ratio). *)
 PROCEDURE Width (): CARDINAL;
 PROCEDURE Height (): CARDINAL;

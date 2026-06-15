@@ -43,6 +43,7 @@ newm2 build demos/<name>.mod      # AOT — writes <name>.exe next to the source
 | `calculator.mod`     | GUI | ✅ | **Scientific calculator** — a clickable Direct2D button grid + a typed-expression display, evaluated by a hand-written **recursive-descent parser** (precedence, right-assoc `^`, unary minus, parens, `sin/cos/tan/ln/log/sqrt/exp/abs`, `pi`/`e`) over `RealMath`. Click or type; `=`/Enter evaluates, `C` clears, `Esc` quits. |
 | `worms.mod`          | TUI | ✅ | **Worms** (multi-worm snake) — you are the green worm; **three worker `COROUTINES`** cooperate with the main loop: a treat dispenser deposits food, and the red & blue worm AIs each steer toward the nearest treat while dodging walls and bodies. Eat to grow; hitting a wall/worm is fatal. Arrows steer, `Space` pause, `R` restart, `Esc` quit. |
 | `chart_demo.mod`     | GFX | ✅ | **Business dashboard** — a bar chart, line chart, pie chart and legend drawn with the `Chart` library on the **`RasterView`** RGBA software framebuffer (every pixel in Modula-2), blitted with one GDI call. `S` exports the exact image to `dashboard.bmp`; `Esc` quits. |
+| `gameview_demo.mod`  | GFX | ✅ | **Retro indexed-colour game mode** — a 200×130 palette-index framebuffer presented at 4× chunky pixels on the **`GameView`** host: 16-colour sprites authored from text rows, bit-blits with transparency + horizontal flip, and a palette-cycled rainbow band (the copper-bar trick). Arrows fly the ship; `Esc` quits. |
 
 The GPU demos share a reusable host — **`ShaderView`** (`library/winrtmod`), a
 generic full-screen pixel-shader renderer on Direct3D11: a demo calls
@@ -66,6 +67,17 @@ array, then `Present` (one GDI `SetDIBitsToDevice` blit) or `SaveBMP` (export to
 32-bpp `.bmp`). Because the drawing is all software, output is reproducible and
 **headless-testable**. The **`Chart`** library builds bar/line/pie charts on it —
 `chart_demo` is a few `Chart` calls.
+
+A fourth host, **`GameView`** (`library/winrtmod`), is the **indexed-colour** sibling
+of `RasterView` — the retro game mode (think DOS/Amiga). You draw with palette
+*indices* into a small framebuffer; a 256-entry palette maps each index to a colour;
+`Present` resolves indices → RGBA at an integer `scale` (chunky nearest-neighbour
+pixels) and blits with one `SetDIBitsToDevice`. 16-colour **sprites** are authored as
+text rows (`SpriteRows(id, "....22..../...2332...")`, `.` = transparent) and bit-blit
+onto the framebuffer (`Blit`/`BlitFlip`/`BlitScale`, transparent index skipped);
+`CyclePalette` animates a palette range for classic raster effects. Like `RasterView`
+the drawing is software, so the buffer is **headless-testable**. `gameview_demo` is a
+small playable showcase.
 
 Prebuilt `.exe`s sit next to each source (`newm2 build demos/<name>.mod` rebuilds);
 the `.exe`/`.obj` are git-ignored.

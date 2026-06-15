@@ -1,0 +1,75 @@
+(* GameView — a retro INDEXED-COLOUR game surface: the palette-and-sprites sibling
+   of RasterView (which is RGBA). You draw with palette INDICES into a small
+   in-memory framebuffer; a 256-entry palette maps each index to a colour; Present
+   resolves indices through the palette and blits the buffer to the window at an
+   integer `scale` (chunky, nearest-neighbour pixels — the retro look). 16-colour
+   sprites are authored as text rows, carry one transparent index, and bit-blit
+   onto the framebuffer (plain / flipped / scaled). Palette cycling animates a
+   range of entries without redrawing — classic raster effects.
+
+   This is the indexed game mode (think DOS/Amiga): cheap pixels, palette tricks,
+   sprite blits. Use RasterView/Canvas2D for RGBA business graphics instead.
+
+   Usage:
+     ok  := GameView.Startup();
+     win := WinShell.CreateAppWindow(title, 320*3 + 16, 200*3 + 39, Handler);
+     WinShell.Show(win);  WinShell.ClientSize(win, cw, ch);
+     ok  := GameView.Attach(win, 320, 200, 3);          (* 320x200 indices, 3x scale *)
+     GameView.LoadDefaultPalette;
+     GameView.SpriteRows(0, ".22./2332/2332/.22.");      (* a 4x4, '.'=transparent *)
+     GameView.Cls(0);  GameView.Blit(0, 100, 80);  GameView.Present;
+*)
+DEFINITION MODULE GameView;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+(* One-time init (no window needed): builds the font + default palette. *)
+PROCEDURE Startup (): BOOLEAN;
+
+(* Bind a `w` x `h` INDEXED framebuffer to `hwnd`, presented at `scale`x (1..8).
+   FALSE if w*scale x h*scale exceeds the maximum surface, or any arg is 0. *)
+PROCEDURE Attach (hwnd: ADDRESS; w, h, scale: CARDINAL): BOOLEAN;
+
+PROCEDURE Width  (): CARDINAL;          (* framebuffer width in indices *)
+PROCEDURE Height (): CARDINAL;
+
+(* ---- palette: 256 entries, each a 0x00RRGGBB colour ---- *)
+PROCEDURE SetColour (index, rgb: CARDINAL);
+PROCEDURE SetRGB    (index, r, g, b: CARDINAL);
+PROCEDURE Colour    (index: CARDINAL): CARDINAL;
+PROCEDURE LoadDefaultPalette;                 (* classic 16-colour palette in 0..15 *)
+PROCEDURE CyclePalette (lo, hi: CARDINAL);    (* rotate entries lo..hi up by one (animation) *)
+
+(* ---- indexed drawing (palette index per pixel; all clipped) ---- *)
+PROCEDURE Cls      (index: CARDINAL);
+PROCEDURE Pset     (x, y: INTEGER; index: CARDINAL);
+PROCEDURE Pget     (x, y: INTEGER): CARDINAL;
+PROCEDURE HLine    (x, y, len: INTEGER; index: CARDINAL);
+PROCEDURE VLine    (x, y, len: INTEGER; index: CARDINAL);
+PROCEDURE FillRect (x, y, w, h: INTEGER; index: CARDINAL);
+PROCEDURE Rect     (x, y, w, h: INTEGER; index: CARDINAL);       (* 1px outline *)
+PROCEDURE Line     (x0, y0, x1, y1: INTEGER; index: CARDINAL);
+PROCEDURE Disc     (cx, cy, r: INTEGER; index: CARDINAL);        (* filled circle *)
+PROCEDURE Circle   (cx, cy, r: INTEGER; index: CARDINAL);        (* 1px outline *)
+PROCEDURE Text     (x, y: INTEGER; s: ARRAY OF CHAR; index: CARDINAL);   (* 5x7 cell font *)
+
+(* ---- 16-colour (indexed) sprites with one transparent index ----
+   SpriteRows authors a sprite from text rows separated by '/': each char is a
+   palette index ('0'-'9','A'-'F' / 'a'-'f') and '.' or ' ' is transparent. Rows
+   must be equal length. e.g.  SpriteRows(0, "....22..../...2332.../..233332..")
+   DefineSprite takes raw index bytes (row-major, one CHAR per pixel = its index)
+   and the index value to treat as transparent. *)
+PROCEDURE SpriteRows    (id: CARDINAL; rows: ARRAY OF CHAR): BOOLEAN;
+PROCEDURE DefineSprite  (id, w, h: CARDINAL; data: ARRAY OF CHAR; transparent: CARDINAL): BOOLEAN;
+PROCEDURE SpriteWidth   (id: CARDINAL): CARDINAL;
+PROCEDURE SpriteHeight  (id: CARDINAL): CARDINAL;
+
+(* Bit-blit sprite `id` onto the framebuffer at (x,y), skipping transparent pixels. *)
+PROCEDURE Blit      (id: CARDINAL; x, y: INTEGER);
+PROCEDURE BlitFlip  (id: CARDINAL; x, y: INTEGER; flipX, flipY: BOOLEAN);
+PROCEDURE BlitScale (id: CARDINAL; x, y, w, h: INTEGER);        (* stretch to w x h *)
+
+(* ---- present: resolve indices through the palette, blit to the window ---- *)
+PROCEDURE Present;
+
+END GameView.

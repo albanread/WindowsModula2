@@ -32,11 +32,22 @@ TYPE
   Viewport = RECORD topLeftX, topLeftY, width, height, minDepth, maxDepth: SHORTREAL END;
   BufDesc  = RECORD byteWidth: DWORD; usage: INTEGER32;
                     bindFlags, cpuAccess, miscFlags, structStride: DWORD END;
+  (* D3D11_TEXTURE2D_DESC, flattened (44 bytes; all DWORD/INTEGER32 — no floats,
+     so no FLOAT->REAL mis-sizing risk). SampleDesc inlined as 2 DWORDs. *)
+  TexDesc = RECORD
+    width, height, mipLevels, arraySize: DWORD;
+    format: INTEGER32;
+    sampleCount, sampleQuality: DWORD;
+    usage: INTEGER32;
+    bindFlags, cpuAccess, miscFlags: DWORD
+  END;
 
 VAR
   gDevice, gContext, gSwap, gRTV, gVS, gPS, gCB: ADDRESS;
   gVP:   Viewport;
   gW, gH, gCbSize: CARDINAL;
+  gTexN: CARDINAL;                                  (* highest bound SRV slot + 1 *)
+  gTex, gSRV: ARRAY [0..7] OF ADDRESS;              (* input textures + their views *)
   vsSrc, psSrc: ARRAY [0..4095] OF ACHAR;
   tgtVS, tgtPS, entMain: ARRAY [0..7] OF ACHAR;
 
@@ -143,6 +154,38 @@ BEGIN
   RETURN (vr BAND 80000000H) = 0
 END SetShader;
 
+PROCEDURE BindTexture (slot, w, h: CARDINAL; format: INTEGER32): BOOLEAN;
+  VAR td: TexDesc; dev: ID3D11Device; vr: INTEGER; tex, srv: ADDRESS;
+BEGIN
+  IF (gDevice = NIL) OR (slot > 7) OR (w = 0) OR (h = 0) THEN RETURN FALSE END;
+  ZeroMem(ADR(td), SIZE(td));
+  td.width := VAL(DWORD, w); td.height := VAL(DWORD, h);
+  td.mipLevels := VAL(DWORD, 1); td.arraySize := VAL(DWORD, 1);
+  td.format := format;
+  td.sampleCount := VAL(DWORD, 1); td.sampleQuality := VAL(DWORD, 0);
+  td.usage := VAL(INTEGER32, 0);                     (* D3D11_USAGE_DEFAULT *)
+  td.bindFlags := VAL(DWORD, 8);                     (* D3D11_BIND_SHADER_RESOURCE *)
+  td.cpuAccess := VAL(DWORD, 0); td.miscFlags := VAL(DWORD, 0);
+  dev := gDevice; tex := NIL;
+  vr := dev.CreateTexture2D(ADR(td), NIL, ADR(tex));
+  IF (vr BAND 80000000H) # 0 THEN RETURN FALSE END;
+  srv := NIL;
+  vr := dev.CreateShaderResourceView(tex, NIL, ADR(srv));   (* NIL desc = whole resource *)
+  IF (vr BAND 80000000H) # 0 THEN RETURN FALSE END;
+  gTex[slot] := tex; gSRV[slot] := srv;
+  IF slot + 1 > gTexN THEN gTexN := slot + 1 END;
+  RETURN TRUE
+END BindTexture;
+
+PROCEDURE UploadTexture (slot: CARDINAL; pixels: ADDRESS; rowPitch: CARDINAL);
+  VAR ctx: ID3D11DeviceContext;
+BEGIN
+  IF (gContext = NIL) OR (slot > 7) OR (gTex[slot] = NIL) THEN RETURN END;
+  ctx := gContext;
+  ctx.UpdateSubresource(gTex[slot], VAL(INTEGER32, 0), NIL, pixels,
+                        VAL(INTEGER32, VAL(INTEGER, rowPitch)), VAL(INTEGER32, 0))
+END UploadTexture;
+
 PROCEDURE Frame (constants: ADDRESS);
   VAR ctx: ID3D11DeviceContext; sc: IDXGISwapChain;
       clr: ARRAY [0..3] OF SHORTREAL; vr: INTEGER;
@@ -158,6 +201,9 @@ BEGIN
   ctx.VSSetShader(gVS, NIL, VAL(INTEGER32, 0));
   ctx.PSSetShader(gPS, NIL, VAL(INTEGER32, 0));
   ctx.PSSetConstantBuffers(VAL(INTEGER32, 0), VAL(INTEGER32, 1), ADR(gCB));
+  IF gTexN > 0 THEN
+    ctx.PSSetShaderResources(VAL(INTEGER32, 0), VAL(INTEGER32, VAL(INTEGER, gTexN)), ADR(gSRV))
+  END;
   ctx.RSSetViewports(VAL(INTEGER32, 1), ADR(gVP));
   ctx.Draw(VAL(INTEGER32, 3), VAL(INTEGER32, 0));
   sc := gSwap;
@@ -179,8 +225,13 @@ PROCEDURE Resize (w, h: CARDINAL);
 BEGIN END Resize;
 
 PROCEDURE Shutdown;
-  VAR o: IUnknown; d: INTEGER;
+  VAR o: IUnknown; d: INTEGER; i: CARDINAL;
 BEGIN
+  FOR i := 0 TO 7 DO
+    IF gSRV[i] # NIL THEN o := gSRV[i]; d := o.Release(); gSRV[i] := NIL END;
+    IF gTex[i] # NIL THEN o := gTex[i]; d := o.Release(); gTex[i] := NIL END
+  END;
+  gTexN := 0;
   IF gCB # NIL THEN o := gCB; d := o.Release(); gCB := NIL END;
   IF gPS # NIL THEN o := gPS; d := o.Release(); gPS := NIL END;
   IF gVS # NIL THEN o := gVS; d := o.Release(); gVS := NIL END;
@@ -190,8 +241,11 @@ BEGIN
   IF gDevice # NIL THEN o := gDevice; d := o.Release(); gDevice := NIL END
 END Shutdown;
 
+VAR i: CARDINAL;
 BEGIN
   gDevice := NIL; gContext := NIL; gSwap := NIL; gRTV := NIL;
   gVS := NIL; gPS := NIL; gCB := NIL; gCbSize := 16;
+  gTexN := 0;
+  FOR i := 0 TO 7 DO gTex[i] := NIL; gSRV[i] := NIL END;
   vsSrc := "struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; }; VSOut main(uint id : SV_VertexID) { VSOut o; float2 uv = float2((id << 1) & 2, id & 2); o.uv = uv; o.pos = float4(uv * float2(2.0, -2.0) + float2(-1.0, 1.0), 0.0, 1.0); return o; }"A
 END ShaderView.
