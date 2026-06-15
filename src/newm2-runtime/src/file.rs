@@ -162,9 +162,11 @@ pub unsafe extern "C-unwind" fn nm2_file_write_text(h: u64, addr: *const u16, n:
 
 /// `NM2.File.ReadText(handle, addr, max) -> chars_read`
 ///
-/// Wide text path: reads up to `max` CHAR cells into `addr`, one source byte
-/// per cell (ASCII/Latin-1; round-trips the ASCII that `WriteText` produces).
-/// Returns 0 on EOF/error.
+/// Wide text path: reads bytes, decodes UTF-8, and writes up to `max` UTF-16
+/// CHAR cells into `addr` (astral code points become a surrogate pair). This is
+/// the inverse of `WriteText` (which UTF-8-encodes), so text round-trips exactly.
+/// Returns 0 on EOF/error. Reads in chunks; an incomplete sequence at a chunk
+/// boundary is pushed back (via seek) for the next chunk.
 #[unsafe(no_mangle)]
 pub unsafe extern "C-unwind" fn nm2_file_read_text(h: u64, addr: *mut u16, max: u64) -> u64 {
     if addr.is_null() || max == 0 {
@@ -175,15 +177,71 @@ pub unsafe extern "C-unwind" fn nm2_file_read_text(h: u64, addr: *mut u16, max: 
     };
     let dst = unsafe { std::slice::from_raw_parts_mut(addr, max as usize) };
     let mut written = 0usize;
-    let mut byte = [0u8; 1];
-    while written < dst.len() {
-        match f.read(&mut byte) {
+    let mut buf = [0u8; 4096];
+    'outer: while written < dst.len() {
+        let nread = match f.read(&mut buf) {
             Ok(0) => break,
-            Ok(_) => {
-                dst[written] = byte[0] as u16;
-                written += 1;
-            }
+            Ok(k) => k,
             Err(_) => break,
+        };
+        let at_eof = nread < buf.len(); // a short read from a regular file means EOF
+        let mut i = 0usize;
+        while i < nread {
+            if written >= dst.len() {
+                let _ = f.seek(SeekFrom::Current(-((nread - i) as i64))); // push back the rest
+                break 'outer;
+            }
+            let b0 = buf[i];
+            let seqlen = if b0 < 0x80 {
+                1
+            } else if b0 >= 0xC0 && b0 < 0xE0 {
+                2
+            } else if b0 >= 0xE0 && b0 < 0xF0 {
+                3
+            } else if b0 >= 0xF0 {
+                4
+            } else {
+                1 // stray continuation byte: pass through as Latin-1
+            };
+            if i + seqlen > nread {
+                if at_eof {
+                    dst[written] = b0 as u16; // truncated at EOF: emit the byte as-is
+                    written += 1;
+                    i += 1;
+                    continue;
+                }
+                let _ = f.seek(SeekFrom::Current(-((nread - i) as i64))); // re-read whole char next chunk
+                break;
+            }
+            let cp: u32 = match seqlen {
+                1 => b0 as u32,
+                2 => (((b0 & 0x1F) as u32) << 6) | ((buf[i + 1] & 0x3F) as u32),
+                3 => {
+                    (((b0 & 0x0F) as u32) << 12)
+                        | (((buf[i + 1] & 0x3F) as u32) << 6)
+                        | ((buf[i + 2] & 0x3F) as u32)
+                }
+                _ => {
+                    (((b0 & 0x07) as u32) << 18)
+                        | (((buf[i + 1] & 0x3F) as u32) << 12)
+                        | (((buf[i + 2] & 0x3F) as u32) << 6)
+                        | ((buf[i + 3] & 0x3F) as u32)
+                }
+            };
+            if cp <= 0xFFFF {
+                dst[written] = cp as u16;
+                written += 1;
+            } else {
+                if written + 2 > dst.len() {
+                    let _ = f.seek(SeekFrom::Current(-((nread - i) as i64)));
+                    break 'outer;
+                }
+                let v = cp - 0x10000;
+                dst[written] = (0xD800 + (v >> 10)) as u16;
+                dst[written + 1] = (0xDC00 + (v & 0x3FF)) as u16;
+                written += 2;
+            }
+            i += seqlen;
         }
     }
     written as u64

@@ -27,7 +27,8 @@ FROM Clipboard IMPORT SetText, GetText;
 FROM RunProg IMPORT PerformCommand, SyncExec, ExecFlagSet;
 FROM Dialogs IMPORT OpenFile, SaveFile, Confirm;
 FROM UI_WindowsAndMessaging IMPORT SetTimer, KillTimer;
-FROM SYSTEM IMPORT ADRCARD;
+FROM SYSTEM IMPORT ADRCARD, ADR;
+IMPORT NM2File;
 IMPORT SeqFile, TextIO, IOResult, ChanConsts, IOConsts;
 FROM WholeStr IMPORT CardToStr;
 FROM Graphics_Gdi IMPORT ValidateRect;
@@ -40,6 +41,7 @@ CONST
   EdTop = 1;                           (* editor starts under the menu bar (row 0) *)
   MinCols = 30; MinRows = 12;          (* smallest usable grid on resize *)
   MaxRecent = 6;                       (* recent-files list length *)
+  MaxLine = 100000;                    (* line-cache capacity *)
 
   (* menu indices (top-level order, see SetupMenus) *)
   MFile = 0; MEdit = 1; MSearch = 2; MSource = 3; MBuild = 4; MHelp = 5;
@@ -73,6 +75,13 @@ CONST
 VAR
   gWin:     Window;
   gDoc:     Rope;                      (* editor buffer *)
+  (* line cache (for gDoc only). Positioning is eager (rebuilt on every edit);
+     the highlighter's entry-state per line is lazy (the high-water mark gLexValid
+     is filled downward at paint time and truncated to the edited line on a change). *)
+  gLineStart: ARRAY [0..MaxLine] OF CARDINAL;  (* char offset of each line's start *)
+  gEntryDepth: ARRAY [0..MaxLine] OF CARDINAL; (* comment-nesting depth entering a line *)
+  gDocLines:  CARDINAL;                (* number of lines in gDoc *)
+  gLexValid:  CARDINAL;                (* gEntryDepth[0..gLexValid-1] are valid *)
   gPos:     CARDINAL;                  (* cursor char index *)
   gAnchor:  CARDINAL;                  (* selection anchor *)
   gHasSel:  BOOLEAN;                   (* a selection exists (gAnchor..gPos) *)
@@ -141,11 +150,21 @@ END Basename;
 
 PROCEDURE ClearMsg; BEGIN gMsg[0] := 0C END ClearMsg;
 
-(* ---- document geometry (scan-based, O(n)) ------------------------------ *)
+(* ---- document geometry ------------------------------------------------- *)
+(* For gDoc these are O(1)/O(log lines) via the line cache; for any other rope
+   (the output pane) they fall back to an O(n) scan. *)
 
 PROCEDURE PosToLineCol (r: Rope; pos: CARDINAL; VAR line, col: CARDINAL);
-  VAR i: CARDINAL;
+  VAR i, lo, hi, mid: CARDINAL;
 BEGIN
+  IF r = gDoc THEN                       (* binary-search the line-start index *)
+    lo := 0; hi := gDocLines;
+    WHILE lo + 1 < hi DO
+      mid := (lo + hi) DIV 2;
+      IF gLineStart[mid] <= pos THEN lo := mid ELSE hi := mid END
+    END;
+    line := lo; col := pos - gLineStart[lo]; RETURN
+  END;
   line := 0; col := 0; i := 0;
   WHILE i < pos DO
     IF CharAt(r, i) = CHR(10) THEN INC(line); col := 0 ELSE INC(col) END; INC(i)
@@ -155,6 +174,7 @@ END PosToLineCol;
 PROCEDURE LineCount (r: Rope): CARDINAL;
   VAR i, len, n: CARDINAL;
 BEGIN
+  IF r = gDoc THEN RETURN gDocLines END;
   len := Length(r); n := 1; i := 0;
   WHILE i < len DO IF CharAt(r, i) = CHR(10) THEN INC(n) END; INC(i) END;
   RETURN n
@@ -163,6 +183,10 @@ END LineCount;
 PROCEDURE LineStart (r: Rope; line: CARDINAL): CARDINAL;
   VAR i, len, ln: CARDINAL;
 BEGIN
+  IF r = gDoc THEN
+    IF line >= gDocLines THEN RETURN Length(gDoc) END;
+    RETURN gLineStart[line]
+  END;
   IF line = 0 THEN RETURN 0 END;
   len := Length(r); ln := 0; i := 0;
   WHILE i < len DO
@@ -175,6 +199,12 @@ END LineStart;
 PROCEDURE LineLen (r: Rope; line: CARDINAL): CARDINAL;
   VAR s, i, len: CARDINAL;
 BEGIN
+  IF r = gDoc THEN
+    IF line >= gDocLines THEN RETURN 0 END;
+    s := gLineStart[line];
+    IF line + 1 < gDocLines THEN RETURN (gLineStart[line + 1] - 1) - s    (* exclude the \n *)
+    ELSE RETURN Length(gDoc) - s END                                     (* last line *)
+  END;
   s := LineStart(r, line); len := Length(r); i := s;
   WHILE (i < len) AND (CharAt(r, i) # CHR(10)) DO INC(i) END;
   RETURN i - s
@@ -189,6 +219,72 @@ BEGIN
   FOR i := 0 TO n-1 DO buf[i] := CharAt(r, s + i) END;
   buf[n] := 0C; RETURN n
 END GetLine;
+
+(* ---- the gDoc line cache ----------------------------------------------- *)
+
+(* Positioning (eager): rebuild the line-start index with one newline scan. The
+   cursor needs exact line<->offset the instant after an edit. *)
+PROCEDURE RebuildLineStarts;
+  VAR i, len: CARDINAL;
+BEGIN
+  len := Length(gDoc); gDocLines := 0; gLineStart[0] := 0; i := 0;
+  WHILE i < len DO
+    IF CharAt(gDoc, i) = CHR(10) THEN
+      INC(gDocLines);
+      IF gDocLines <= MaxLine THEN gLineStart[gDocLines] := i + 1 END
+    END;
+    INC(i)
+  END;
+  INC(gDocLines);                              (* the final, unterminated line *)
+  IF gDocLines > MaxLine THEN gDocLines := MaxLine END;
+  gLineStart[gDocLines] := len                 (* sentinel = end of document *)
+END RebuildLineStarts;
+
+(* Lexer state: the comment depth at the END of `line`, given the depth entering
+   it. M2 strings close at EOL, so depth is the entire cross-line state. *)
+PROCEDURE LexLine (line, inDepth: CARDINAL): CARDINAL;
+  VAR s, e, i, depth: CARDINAL; c: CHAR; inStr: BOOLEAN; q: CHAR;
+BEGIN
+  s := gLineStart[line]; e := s + LineLen(gDoc, line);
+  depth := inDepth; inStr := FALSE; q := ' '; i := s;
+  WHILE i < e DO
+    c := CharAt(gDoc, i);
+    IF inStr THEN IF c = q THEN inStr := FALSE END; INC(i)
+    ELSIF depth > 0 THEN
+      IF    (c = '(') AND (CharAt(gDoc, i+1) = '*') THEN INC(depth); i := i + 2
+      ELSIF (c = '*') AND (CharAt(gDoc, i+1) = ')') THEN DEC(depth); i := i + 2
+      ELSE INC(i) END
+    ELSIF (c = '(') AND (CharAt(gDoc, i+1) = '*') THEN INC(depth); i := i + 2
+    ELSIF (c = '"') OR (c = "'") THEN inStr := TRUE; q := c; INC(i)
+    ELSE INC(i) END
+  END;
+  RETURN depth
+END LexLine;
+
+(* Lexer state (lazy): make gEntryDepth[0..target] valid by lexing forward from
+   the high-water mark. Scrolling only extends it (append-only). *)
+PROCEDURE EnsureLexed (target: CARDINAL);
+BEGIN
+  IF gDocLines = 0 THEN RETURN END;
+  IF gLexValid = 0 THEN gEntryDepth[0] := 0; gLexValid := 1 END;
+  IF target >= gDocLines THEN target := gDocLines - 1 END;
+  WHILE gLexValid <= target DO
+    gEntryDepth[gLexValid] := LexLine(gLexValid - 1, gEntryDepth[gLexValid - 1]);
+    INC(gLexValid)
+  END
+END EnsureLexed;
+
+(* After any change to gDoc: rebuild positions, and truncate the lexer high-water
+   mark to the edited line (everything from there down may have re-coloured or
+   moved; its entry-state re-derives lazily on the next paint). `fromPos` is a
+   position at or before the change. *)
+PROCEDURE AfterEdit (fromPos: CARDINAL);
+  VAR line, col: CARDINAL;
+BEGIN
+  RebuildLineStarts;
+  PosToLineCol(gDoc, fromPos, line, col);
+  IF line < gLexValid THEN gLexValid := line END
+END AfterEdit;
 
 (* ---- character classes + tokeniser ------------------------------------- *)
 
@@ -269,7 +365,7 @@ PROCEDURE DeleteSel;   (* delete the selection if any; cursor ends at its start 
 BEGIN
   IF NOT gHasSel THEN RETURN END;
   lo := SelLo(); hi := SelHi();
-  IF hi > lo THEN gDoc := DeleteRange(gDoc, lo, hi - lo); gPos := lo; gModified := TRUE; ClearMsg END;
+  IF hi > lo THEN gDoc := DeleteRange(gDoc, lo, hi - lo); gPos := lo; gModified := TRUE; ClearMsg; AfterEdit(lo) END;
   gHasSel := FALSE
 END DeleteSel;
 
@@ -335,7 +431,8 @@ BEGIN
   gDoc := Append(gDoc, "  FOR i := 1 TO 5 DO"); gDoc := Append(gDoc, gNL);
   gDoc := Append(gDoc, '    WriteString("  count = "); WriteInt(i, 1); WriteLn'); gDoc := Append(gDoc, gNL);
   gDoc := Append(gDoc, "  END"); gDoc := Append(gDoc, gNL);
-  gDoc := Append(gDoc, "END Hello.")
+  gDoc := Append(gDoc, "END Hello.");
+  AfterEdit(0)
 END Welcome;
 
 (* ---- rendering --------------------------------------------------------- *)
@@ -382,13 +479,10 @@ BEGIN
   IF gTopLine >= total THEN IF total > 0 THEN gTopLine := total - 1 ELSE gTopLine := 0 END END;
 
   selLo := SelLo(); selHi := SelHi();
-  depth := 0; line := 0;
-  WHILE line < gTopLine DO
-    n := GetLine(gDoc, line, buf);
-    FOR c := 0 TO n DO col[c] := CodeFg END;
-    ColourLine(buf, n, depth, col);
-    INC(line)
-  END;
+  (* the highlighter's entry-state for the top visible line, straight from the
+     cache — no re-walk from line 0 *)
+  EnsureLexed(gTopLine);
+  IF gTopLine < gDocLines THEN depth := gEntryDepth[gTopLine] ELSE depth := 0 END;
 
   Fill(0, EdTop, gCols, gEdRows, ' ', CodeFg, EdBg);
   FOR sr := 0 TO gEdRows-1 DO
@@ -489,9 +583,11 @@ BEGIN Repaint(gWin) END Refresh;
 (* ---- editing ----------------------------------------------------------- *)
 
 PROCEDURE InsertText (s: ARRAY OF CHAR);
+  VAR at: CARDINAL;
 BEGIN
   IF gHasSel THEN DeleteSel END;
-  gDoc := Insert(gDoc, gPos, s); gPos := gPos + SLen(s); gModified := TRUE; ClearMsg
+  at := gPos;
+  gDoc := Insert(gDoc, gPos, s); gPos := gPos + SLen(s); gModified := TRUE; ClearMsg; AfterEdit(at)
 END InsertText;
 
 PROCEDURE InsertCh (ch: CHAR);
@@ -501,13 +597,13 @@ BEGIN s[0] := ch; s[1] := 0C; InsertText(s) END InsertCh;
 PROCEDURE Backspace;
 BEGIN
   IF gHasSel THEN DeleteSel
-  ELSIF gPos > 0 THEN gDoc := DeleteRange(gDoc, gPos-1, 1); DEC(gPos); gModified := TRUE; ClearMsg END
+  ELSIF gPos > 0 THEN gDoc := DeleteRange(gDoc, gPos-1, 1); DEC(gPos); gModified := TRUE; ClearMsg; AfterEdit(gPos) END
 END Backspace;
 
 PROCEDURE DeleteFwd;
 BEGIN
   IF gHasSel THEN DeleteSel
-  ELSIF gPos < Length(gDoc) THEN gDoc := DeleteRange(gDoc, gPos, 1); gModified := TRUE; ClearMsg END
+  ELSIF gPos < Length(gDoc) THEN gDoc := DeleteRange(gDoc, gPos, 1); gModified := TRUE; ClearMsg; AfterEdit(gPos) END
 END DeleteFwd;
 
 PROCEDURE SetGoal;
@@ -554,33 +650,40 @@ END PositionCursorAt;
 
 (* ---- file I/O ---------------------------------------------------------- *)
 
+(* Save gDoc to gFile via the runtime's wide-text path: NEW truncates the file,
+   WriteText UTF-8-encodes the UTF-16 cells. Round-trips any Unicode exactly and
+   never leaves a stale tail. *)
 PROCEDURE SaveDoc (): BOOLEAN;
-  VAR cid: SeqFile.ChanId; res: ChanConsts.OpenResults; i, n: CARDINAL; ch: CHAR;
+  VAR h: CARDINAL64; buf: ARRAY [0..1023] OF CHAR; n, i, k: CARDINAL; w: CARDINAL64;
 BEGIN
-  SeqFile.OpenWrite(cid, gFile, SeqFile.write + SeqFile.text, res);
-  IF res # ChanConsts.opened THEN RETURN FALSE END;
+  h := NM2File.Open(ADR(gFile), NM2File.WriteFlag + NM2File.NewFlag);
+  IF h = 0 THEN RETURN FALSE END;
   n := Length(gDoc); i := 0;
   WHILE i < n DO
-    ch := CharAt(gDoc, i);
-    IF ch = CHR(10) THEN TextIO.WriteLn(cid) ELSE TextIO.WriteChar(cid, ch) END; INC(i)
+    k := 0;
+    WHILE (k < 1000) AND (i < n) DO buf[k] := CharAt(gDoc, i); INC(k); INC(i) END;
+    w := NM2File.WriteText(h, ADR(buf), VAL(CARDINAL64, k))
   END;
-  SeqFile.Close(cid); RETURN TRUE
+  NM2File.Close(h); RETURN TRUE
 END SaveDoc;
 
+(* Read a file into a rope, UTF-8-decoded (ReadText), normalising CR LF -> LF. *)
 PROCEDURE ReadFileRope (name: ARRAY OF CHAR): Rope;
-  VAR cid: SeqFile.ChanId; res: ChanConsts.OpenResults; buf: ARRAY [0..255] OF CHAR;
-      rr: IOConsts.ReadResults; r: Rope; done: BOOLEAN;
+  VAR h: CARDINAL64; r: Rope; buf: ARRAY [0..1023] OF CHAR; got: CARDINAL64; i, j: CARDINAL;
 BEGIN
-  SeqFile.OpenRead(cid, name, SeqFile.read + SeqFile.text, res);
-  IF res # ChanConsts.opened THEN RETURN Empty() END;
-  r := Empty(); done := FALSE;
-  WHILE NOT done DO
-    TextIO.ReadString(cid, buf); r := Append(r, buf);
-    rr := IOResult.ReadResult(cid);
-    IF rr = IOConsts.endOfLine THEN r := Append(r, gNL); TextIO.SkipLine(cid)
-    ELSIF rr = IOConsts.endOfInput THEN done := TRUE END
+  h := NM2File.Open(ADR(name), NM2File.ReadFlag);
+  IF h = 0 THEN RETURN Empty() END;
+  r := Empty();
+  LOOP
+    got := NM2File.ReadText(h, ADR(buf), 1000);     (* up to 1000 UTF-16 cells *)
+    IF got = 0 THEN EXIT END;
+    j := 0;                                          (* drop CR so CRLF files become LF *)
+    FOR i := 0 TO VAL(CARDINAL, got) - 1 DO
+      IF buf[i] # CHR(13) THEN buf[j] := buf[i]; INC(j) END
+    END;
+    buf[j] := 0C; r := Append(r, buf)
   END;
-  SeqFile.Close(cid); RETURN r
+  NM2File.Close(h); RETURN r
 END ReadFileRope;
 
 (* ---- recent files ------------------------------------------------------ *)
@@ -646,6 +749,7 @@ PROCEDURE LoadDocFrom (name: ARRAY OF CHAR);
 BEGIN
   Free(gDoc); gDoc := ReadFileRope(name);
   IF Length(gDoc) = 0 THEN gDoc := FromString("MODULE Untitled;") END;
+  AfterEdit(0);
   gPos := 0; gAnchor := 0; gHasSel := FALSE;
   gTopLine := 0; gLeft := 0; gGoal := 0; gModified := FALSE;
   SCopy(gFile, name); AddRecent(name); SCopy(gMsg, "opened")
@@ -727,7 +831,7 @@ BEGIN
     gDoc := Insert(gDoc, at, gReplace);
     p := at + SLen(gReplace); INC(count)
   END;
-  IF count > 0 THEN gModified := TRUE; gPos := 0; gHasSel := FALSE END;
+  IF count > 0 THEN gModified := TRUE; gPos := 0; gHasSel := FALSE; AfterEdit(0) END;
   pos := 0; AppendStr(gMsg, pos, "replaced "); CardToStr(count, num); AppendStr(gMsg, pos, num)
 END ReplaceAll;
 
@@ -839,7 +943,7 @@ BEGIN
     IF opener AND (depth < 40) THEN INC(depth) END;
     INC(ln)
   END;
-  Free(gDoc); gDoc := out;
+  Free(gDoc); gDoc := out; AfterEdit(0);
   gHasSel := FALSE; gTopLine := 0; gLeft := 0;
   IF cl >= LineCount(gDoc) THEN cl := LineCount(gDoc) - 1 END;
   GotoLineCol(cl, 0); SetGoal; gModified := TRUE; SCopy(gMsg, "formatted")
@@ -868,10 +972,13 @@ BEGIN
 END DoCut;
 
 PROCEDURE DoPaste;
+  VAR at: CARDINAL;
 BEGIN
   IF GetText(gClip) THEN
     IF gHasSel THEN DeleteSel END;
-    gDoc := Insert(gDoc, gPos, gClip); gPos := gPos + SLen(gClip); gModified := TRUE; SCopy(gMsg, "pasted")
+    at := gPos;
+    gDoc := Insert(gDoc, gPos, gClip); gPos := gPos + SLen(gClip); gModified := TRUE; SCopy(gMsg, "pasted");
+    AfterEdit(at)
   END
 END DoPaste;
 

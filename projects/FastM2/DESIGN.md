@@ -101,6 +101,32 @@ TermRender makes it look modern. So FastM2 is "more of a GUI" via Direct2D rende
 The compiler path + library path are CONSTs at the top (default `target\debug\
 newm2-driver.exe` and the repo `library`), so FastM2 is run from the repo root for now.
 
+## Performance: the line cache
+
+A repaint must answer two *independent* questions about the top visible line, and
+the naive code answered both by rescanning from offset 0 — making a repaint
+~O(lines · document):
+
+- **Positioning** (line number → byte offset). Solved eagerly: a `gLineStart[]`
+  index rebuilt on every edit by one newline scan. The cursor needs exact
+  line↔offset the instant after an edit, so this is computed synchronously;
+  `PosToLineCol` is then a binary search, `LineStart`/`LineLen` are O(1).
+- **Lexer entry-state** (the highlighter's state entering the line). This depends
+  on *arbitrarily distant* context — one unterminated `(*` ten thousand lines up
+  recolours everything below — so it cannot be cheap, correct, and stateless at
+  once. We keep it correct by caching it per line. The whole cross-line state is a
+  single `CARDINAL` (comment-nesting depth), because Modula-2 strings close at EOL.
+  It's filled *lazily*: a high-water mark `gLexValid` grows downward as you scroll
+  (append-only, matching the top-down render), and an edit truncates it to the
+  edited line; the suffix re-derives on the next paint.
+
+Net: a repaint is O(visible), cursor moves are O(log lines), and an edit is the
+one newline rescan (the positioning half — a newline-weighted rope would make that
+O(log n) too, and the lexer half could add convergence-stopping; both are future
+work). The cache algorithm is cross-checked against from-scratch scans by a
+headless test (positioning, multi-line/nested comments, `(*` in strings, lazy ==
+eager, and post-edit consistency).
+
 ## Not yet (kept simple, well-trodden ground)
 
 Multiple files/tabs, undo/redo, project files, a debugger, and a strings/comments-
