@@ -11,16 +11,22 @@ FROM WIN32 IMPORT WORD, DWORD, PSTR;
 FROM Networking_WinSock IMPORT
   WSAStartup, WSACleanup, WSAGetLastError,
   socket, bind, connect, listen, accept, send, recv, closesocket,
-  htons, inet_addr, getaddrinfo, freeaddrinfo, ioctlsocket;
+  htons, ntohs, inet_addr, getaddrinfo, freeaddrinfo, ioctlsocket,
+  sendto, recvfrom, setsockopt;
 
 CONST
   AF_INET      = 2;
   SOCK_STREAM  = 1;
+  SOCK_DGRAM   = 2;
   INADDR_NONE  = 0FFFFFFFFH;
   INVALID_SOCK = 0FFFFFFFFFFFFFFFFH;
   WSAVER       = 0202H;                 (* MAKEWORD(2,2) *)
   FIONBIO        = 8004667EH;           (* set/clear non-blocking mode *)
   WSAEWOULDBLOCK = 10035;               (* op would block (non-blocking socket) *)
+  SOL_SOCKET   = 65535;                 (* setsockopt levels / names *)
+  SO_REUSEADDR = 4;
+  IPPROTO_TCP  = 6;
+  TCP_NODELAY  = 1;
 
 TYPE
   SockAddr = RECORD
@@ -194,6 +200,93 @@ BEGIN
   END;
   RETURN TRUE
 END RecvAll;
+
+(* ---- UDP (datagrams) ---- *)
+
+(* a network-order IPv4 address (its 4 bytes are the dotted-quad octets) -> text *)
+PROCEDURE FormatAddr (addr: DWORD; VAR host: ARRAY OF CHAR);
+  VAR v, i, k, oct: CARDINAL;
+
+  PROCEDURE PutN (n: CARDINAL);
+    VAR tmp: ARRAY [0..3] OF CHAR; j: CARDINAL;
+  BEGIN
+    IF n = 0 THEN IF k <= HIGH(host) THEN host[k] := '0'; INC(k) END; RETURN END;
+    j := 0; WHILE n > 0 DO tmp[j] := CHR(ORD('0') + n MOD 10); n := n DIV 10; INC(j) END;
+    WHILE j > 0 DO DEC(j); IF k <= HIGH(host) THEN host[k] := tmp[j]; INC(k) END END
+  END PutN;
+
+BEGIN
+  v := VAL(CARDINAL, addr); k := 0; i := 0;
+  WHILE i < 4 DO
+    IF i > 0 THEN IF k <= HIGH(host) THEN host[k] := '.'; INC(k) END END;
+    oct := (v SHR (i * 8)) BAND 0FFH;
+    PutN(oct); INC(i)
+  END;
+  IF k > HIGH(host) THEN k := HIGH(host) END;
+  host[k] := 0C
+END FormatAddr;
+
+PROCEDURE UdpSocket (VAR s: Socket): BOOLEAN;
+  VAR sk: ADDRESS;
+BEGIN
+  s := CAST(ADDRESS, INVALID_SOCK);
+  sk := socket(VAL(INTEGER32, AF_INET), VAL(INTEGER32, SOCK_DGRAM), VAL(INTEGER32, 0));
+  IF Bad(sk) THEN Capture; RETURN FALSE END;
+  s := sk; RETURN TRUE
+END UdpSocket;
+
+PROCEDURE BindPort (s: Socket; port: CARDINAL): BOOLEAN;
+  VAR sa: SockAddr; r: INTEGER32;
+BEGIN
+  FillAddr(sa, VAL(DWORD, 0), port);     (* INADDR_ANY:port *)
+  r := bind(s, ADR(sa), VAL(INTEGER32, SIZE(SockAddr)));
+  IF r # 0 THEN Capture; RETURN FALSE END;
+  RETURN TRUE
+END BindPort;
+
+PROCEDURE SendTo (s: Socket; host: ARRAY OF CHAR; port: CARDINAL;
+                  data: ADDRESS; len: CARDINAL; VAR sent: CARDINAL): BOOLEAN;
+  VAR sa: SockAddr; a: DWORD; r: INTEGER32;
+BEGIN
+  sent := 0;
+  IF NOT Resolve(host, a) THEN RETURN FALSE END;
+  FillAddr(sa, a, port);
+  r := sendto(s, CAST(PSTR, data), VAL(INTEGER32, len), VAL(INTEGER32, 0),
+              ADR(sa), VAL(INTEGER32, SIZE(SockAddr)));
+  IF r < 0 THEN Capture; RETURN FALSE END;
+  sent := VAL(CARDINAL, r); RETURN TRUE
+END SendTo;
+
+PROCEDURE RecvFrom (s: Socket; buf: ADDRESS; len: CARDINAL; VAR got: CARDINAL;
+                    VAR fromHost: ARRAY OF CHAR; VAR fromPort: CARDINAL): BOOLEAN;
+  VAR sa: SockAddr; fromLen, r: INTEGER32;
+BEGIN
+  got := 0; fromPort := 0;
+  fromLen := VAL(INTEGER32, SIZE(SockAddr));
+  r := recvfrom(s, CAST(PSTR, buf), VAL(INTEGER32, len), VAL(INTEGER32, 0), ADR(sa), ADR(fromLen));
+  IF r < 0 THEN Capture; RETURN FALSE END;
+  got := VAL(CARDINAL, r);
+  fromPort := VAL(CARDINAL, ntohs(sa.port));
+  FormatAddr(sa.addr, fromHost);
+  RETURN TRUE
+END RecvFrom;
+
+(* ---- socket options ---- *)
+
+PROCEDURE SetOpt (s: Socket; level, name: CARDINAL; on: BOOLEAN): BOOLEAN;
+  VAR val: DWORD; r: INTEGER32;
+BEGIN
+  IF on THEN val := VAL(DWORD, 1) ELSE val := VAL(DWORD, 0) END;
+  r := setsockopt(s, VAL(INTEGER32, level), VAL(INTEGER32, name),
+                  CAST(PSTR, ADR(val)), VAL(INTEGER32, 4));
+  RETURN r = 0
+END SetOpt;
+
+PROCEDURE SetReuseAddr (s: Socket; on: BOOLEAN): BOOLEAN;
+BEGIN RETURN SetOpt(s, SOL_SOCKET, SO_REUSEADDR, on) END SetReuseAddr;
+
+PROCEDURE SetNoDelay (s: Socket; on: BOOLEAN): BOOLEAN;
+BEGIN RETURN SetOpt(s, IPPROTO_TCP, TCP_NODELAY, on) END SetNoDelay;
 
 PROCEDURE Close (VAR s: Socket);
   VAR r: INTEGER32;

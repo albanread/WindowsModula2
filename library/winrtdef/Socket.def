@@ -45,4 +45,20 @@ PROCEDURE LastError (): CARDINAL;       (* WSAGetLastError *)
 PROCEDURE SetBlocking (s: Socket; blocking: BOOLEAN): BOOLEAN;
 PROCEDURE WouldBlock  (): BOOLEAN;      (* last failure was "would block", not a real error *)
 
+(* --- UDP (datagrams) ---
+   UdpSocket makes a datagram socket; BindPort binds it to a local port (for a
+   receiver/server); SendTo/RecvFrom carry the peer address per datagram.
+     IF Socket.UdpSocket(u) AND Socket.BindPort(u, 9000) THEN
+       IF Socket.RecvFrom(u, ADR(buf), 1500, n, host, port) THEN ... END *)
+PROCEDURE UdpSocket (VAR s: Socket): BOOLEAN;
+PROCEDURE BindPort  (s: Socket; port: CARDINAL): BOOLEAN;                 (* bind INADDR_ANY:port *)
+PROCEDURE SendTo    (s: Socket; host: ARRAY OF CHAR; port: CARDINAL;
+                     data: ADDRESS; len: CARDINAL; VAR sent: CARDINAL): BOOLEAN;
+PROCEDURE RecvFrom  (s: Socket; buf: ADDRESS; len: CARDINAL; VAR got: CARDINAL;
+                     VAR fromHost: ARRAY OF CHAR; VAR fromPort: CARDINAL): BOOLEAN;
+
+(* --- socket options --- *)
+PROCEDURE SetReuseAddr (s: Socket; on: BOOLEAN): BOOLEAN;   (* SO_REUSEADDR (rebind a recently-used port) *)
+PROCEDURE SetNoDelay   (s: Socket; on: BOOLEAN): BOOLEAN;   (* TCP_NODELAY (disable Nagle, send small writes now) *)
+
 END Socket.
