@@ -35,4 +35,12 @@ PROCEDURE Close   (VAR s: Socket);
 
 PROCEDURE LastError (): CARDINAL;       (* WSAGetLastError *)
 
+(* --- non-blocking mode ---
+   After SetBlocking(s, FALSE), Connect/Send/Recv return immediately; a call that
+   can't complete yet returns FALSE with WouldBlock() = TRUE (retry later) rather
+   than blocking. This is the reactor style; SocketServer offers the proactor
+   (IOCP) style for scalable servers. *)
+PROCEDURE SetBlocking (s: Socket; blocking: BOOLEAN): BOOLEAN;
+PROCEDURE WouldBlock  (): BOOLEAN;      (* last failure was "would block", not a real error *)
+
 END Socket.

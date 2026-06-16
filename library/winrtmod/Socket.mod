@@ -11,7 +11,7 @@ FROM WIN32 IMPORT WORD, DWORD, PSTR;
 FROM Networking_WinSock IMPORT
   WSAStartup, WSACleanup, WSAGetLastError,
   socket, bind, connect, listen, accept, send, recv, closesocket,
-  htons, inet_addr, getaddrinfo, freeaddrinfo;
+  htons, inet_addr, getaddrinfo, freeaddrinfo, ioctlsocket;
 
 CONST
   AF_INET      = 2;
@@ -19,6 +19,8 @@ CONST
   INADDR_NONE  = 0FFFFFFFFH;
   INVALID_SOCK = 0FFFFFFFFFFFFFFFFH;
   WSAVER       = 0202H;                 (* MAKEWORD(2,2) *)
+  FIONBIO        = 8004667EH;           (* set/clear non-blocking mode *)
+  WSAEWOULDBLOCK = 10035;               (* op would block (non-blocking socket) *)
 
 TYPE
   SockAddr = RECORD
@@ -34,9 +36,14 @@ TYPE
    generated WSADATA record collapses its inline char arrays to pointers (~40
    bytes). We never read it, so a 512-byte buffer is correct and safe. *)
 VAR gWsa: ARRAY [0..511] OF BYTE; gStarted: BOOLEAN;
+    gLastErr: CARDINAL;                (* sticky: captured at the point of the last failure *)
 
 PROCEDURE Off (a: ADDRESS; n: CARDINAL): ADDRESS;
 BEGIN RETURN CAST(ADDRESS, CAST(CARDINAL, a) + n) END Off;
+
+(* snapshot the Winsock error NOW, before any other call can overwrite it *)
+PROCEDURE Capture;
+BEGIN gLastErr := VAL(CARDINAL, WSAGetLastError()) END Capture;
 
 PROCEDURE Bad (s: ADDRESS): BOOLEAN;
 BEGIN RETURN CAST(CARDINAL, s) = INVALID_SOCK END Bad;
@@ -57,7 +64,20 @@ BEGIN
 END Shutdown;
 
 PROCEDURE LastError (): CARDINAL;
-BEGIN RETURN VAL(CARDINAL, WSAGetLastError()) END LastError;
+BEGIN RETURN gLastErr END LastError;
+
+PROCEDURE SetBlocking (s: Socket; blocking: BOOLEAN): BOOLEAN;
+  VAR mode: DWORD; r: INTEGER32;
+BEGIN
+  IF blocking THEN mode := VAL(DWORD, 0) ELSE mode := VAL(DWORD, 1) END;
+  r := ioctlsocket(s, CAST(INTEGER32, VAL(DWORD, FIONBIO)), ADR(mode));
+  RETURN r = 0
+END SetBlocking;
+
+(* TRUE if the last failed call merely "would block" (a non-blocking socket has
+   no data / can't complete yet) rather than a real error — retry later. *)
+PROCEDURE WouldBlock (): BOOLEAN;
+BEGIN RETURN gLastErr = WSAEWOULDBLOCK END WouldBlock;
 
 (* UTF-16 host -> NUL-terminated ANSI bytes (ASCII hosts/IPs) *)
 PROCEDURE ToAnsi (host: ARRAY OF CHAR; VAR a: ARRAY OF BYTE);
@@ -104,10 +124,10 @@ PROCEDURE Connect (host: ARRAY OF CHAR; port: CARDINAL; VAR s: Socket): BOOLEAN;
 BEGIN
   s := CAST(ADDRESS, INVALID_SOCK);
   IF NOT Resolve(host, a) THEN RETURN FALSE END;
-  sk := NewTcp(); IF Bad(sk) THEN RETURN FALSE END;
+  sk := NewTcp(); IF Bad(sk) THEN Capture; RETURN FALSE END;
   FillAddr(sa, a, port);
   r := connect(sk, ADR(sa), VAL(INTEGER32, SIZE(SockAddr)));
-  IF r # 0 THEN r := closesocket(sk); RETURN FALSE END;
+  IF r # 0 THEN Capture; r := closesocket(sk); RETURN FALSE END;
   s := sk; RETURN TRUE
 END Connect;
 
@@ -129,7 +149,7 @@ PROCEDURE Accept (server: Socket; VAR client: Socket): BOOLEAN;
 BEGIN
   client := CAST(ADDRESS, INVALID_SOCK);
   c := accept(server, NIL, NIL);
-  IF Bad(c) THEN RETURN FALSE END;
+  IF Bad(c) THEN Capture; RETURN FALSE END;
   client := c; RETURN TRUE
 END Accept;
 
@@ -138,7 +158,7 @@ PROCEDURE Send (s: Socket; data: ADDRESS; len: CARDINAL; VAR sent: CARDINAL): BO
 BEGIN
   sent := 0;
   r := send(s, CAST(PSTR, data), VAL(INTEGER32, len), VAL(INTEGER32, 0));
-  IF r < 0 THEN RETURN FALSE END;
+  IF r < 0 THEN Capture; RETURN FALSE END;
   sent := VAL(CARDINAL, r); RETURN TRUE
 END Send;
 
@@ -159,7 +179,7 @@ PROCEDURE Recv (s: Socket; buf: ADDRESS; len: CARDINAL; VAR got: CARDINAL): BOOL
 BEGIN
   got := 0;
   r := recv(s, CAST(PSTR, buf), VAL(INTEGER32, len), VAL(INTEGER32, 0));
-  IF r < 0 THEN RETURN FALSE END;
+  IF r < 0 THEN Capture; RETURN FALSE END;
   got := VAL(CARDINAL, r); RETURN TRUE
 END Recv;
 
@@ -170,5 +190,5 @@ BEGIN
 END Close;
 
 BEGIN
-  gStarted := FALSE
+  gStarted := FALSE; gLastErr := 0
 END Socket.
