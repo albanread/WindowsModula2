@@ -137,3 +137,51 @@ pub extern "C-unwind" fn nm2_math_trunc_to_int(x: f64) -> i64 {
 pub extern "C-unwind" fn nm2_math_trunc_to_card(x: f64) -> u64 {
     x.trunc() as u64
 }
+
+// ── Extended unary primitives ────────────────────────────────────────────────
+
+math1!(nm2_math_ceil, ceil); // smallest integer >= x
+math1!(nm2_math_round, round); // nearest integer, halves away from zero
+math1!(nm2_math_trunc, trunc); // integer part as REAL (towards zero)
+math1!(nm2_math_log10, log10); // base-10 logarithm
+math1!(nm2_math_exp2, exp2); // 2 ** x
+math1!(nm2_math_cbrt, cbrt); // cube root (defined for x < 0)
+math1!(nm2_math_expm1, exp_m1); // exp(x) - 1, accurate near 0
+math1!(nm2_math_log1p, ln_1p); // ln(1 + x), accurate near 0
+math1!(nm2_math_degrees, to_degrees); // radians -> degrees
+math1!(nm2_math_radians, to_radians); // degrees -> radians
+
+/// `sign(x)` — -1, 0, or +1. Unlike `f64::signum`, `sign(±0) = 0`; `sign(NaN) = NaN`.
+#[unsafe(no_mangle)]
+pub extern "C-unwind" fn nm2_math_sign(x: f64) -> f64 {
+    if x.is_nan() {
+        x
+    } else if x == 0.0 {
+        0.0
+    } else {
+        x.signum()
+    }
+}
+
+// ── Extended binary primitives ───────────────────────────────────────────────
+
+macro_rules! math2 {
+    ($name:ident, $method:ident) => {
+        #[unsafe(no_mangle)]
+        pub extern "C-unwind" fn $name(x: f64, y: f64) -> f64 {
+            x.$method(y)
+        }
+    };
+}
+
+math2!(nm2_math_hypot, hypot); // sqrt(x*x + y*y) without overflow
+math2!(nm2_math_copysign, copysign); // magnitude of x with the sign of y
+math2!(nm2_math_min, min); // IEEE minimum (NaN-skipping)
+math2!(nm2_math_max, max); // IEEE maximum (NaN-skipping)
+math2!(nm2_math_log, log); // log(x, base) = log_base(x)
+
+/// `fmod(x, y)` — floating remainder of x/y, with the sign of x (C `fmod`).
+#[unsafe(no_mangle)]
+pub extern "C-unwind" fn nm2_math_fmod(x: f64, y: f64) -> f64 {
+    x % y
+}

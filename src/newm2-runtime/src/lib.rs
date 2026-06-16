@@ -105,9 +105,12 @@ pub use strings::{
 };
 pub use fmath::{
     nm2_math_arccos, nm2_math_arccosh, nm2_math_arcsin, nm2_math_arcsinh, nm2_math_arctan,
-    nm2_math_arctan2, nm2_math_arctanh, nm2_math_cos, nm2_math_cosh, nm2_math_exp, nm2_math_floor,
-    nm2_math_frexp, nm2_math_ldexp, nm2_math_lg, nm2_math_ln, nm2_math_modf, nm2_math_pow,
-    nm2_math_sin, nm2_math_sinh, nm2_math_sqrt, nm2_math_tan, nm2_math_tanh, nm2_math_trunc_to_card,
+    nm2_math_arctan2, nm2_math_arctanh, nm2_math_cbrt, nm2_math_ceil, nm2_math_copysign,
+    nm2_math_cos, nm2_math_cosh, nm2_math_degrees, nm2_math_exp, nm2_math_exp2, nm2_math_expm1,
+    nm2_math_floor, nm2_math_fmod, nm2_math_frexp, nm2_math_hypot, nm2_math_ldexp, nm2_math_lg,
+    nm2_math_ln, nm2_math_log, nm2_math_log10, nm2_math_log1p, nm2_math_max, nm2_math_min,
+    nm2_math_modf, nm2_math_pow, nm2_math_radians, nm2_math_round, nm2_math_sign, nm2_math_sin,
+    nm2_math_sinh, nm2_math_sqrt, nm2_math_tan, nm2_math_tanh, nm2_math_trunc, nm2_math_trunc_to_card,
     nm2_math_trunc_to_int,
 };
 pub use storage::{nm2_storage_allocate, nm2_storage_deallocate};

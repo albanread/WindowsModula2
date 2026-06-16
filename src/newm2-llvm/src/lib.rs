@@ -274,6 +274,14 @@ fn runtime_forwarder_pairs() -> Vec<(String, &'static str)> {
         ("arcsinh", "nm2_math_arcsinh"), ("arccosh", "nm2_math_arccosh"),
         ("arctanh", "nm2_math_arctanh"), ("floor", "nm2_math_floor"),
         ("truncToInt", "nm2_math_trunc_to_int"), ("truncToCard", "nm2_math_trunc_to_card"),
+        // extended surface
+        ("ceil", "nm2_math_ceil"), ("round", "nm2_math_round"), ("trunc", "nm2_math_trunc"),
+        ("log10", "nm2_math_log10"), ("exp2", "nm2_math_exp2"), ("cbrt", "nm2_math_cbrt"),
+        ("expm1", "nm2_math_expm1"), ("log1p", "nm2_math_log1p"),
+        ("degrees", "nm2_math_degrees"), ("radians", "nm2_math_radians"), ("sign", "nm2_math_sign"),
+        ("hypot", "nm2_math_hypot"), ("copysign", "nm2_math_copysign"),
+        ("min", "nm2_math_min"), ("max", "nm2_math_max"),
+        ("log", "nm2_math_log"), ("fmod", "nm2_math_fmod"),
     ];
     for (n, sym) in math {
         v.push((format!("NM2Math.{n}"), sym));
@@ -1078,6 +1086,10 @@ fn for_each_runtime_binding(
         nm2_math_cosh, nm2_math_exp, nm2_math_floor, nm2_math_lg, nm2_math_ln,
         nm2_math_pow, nm2_math_sin, nm2_math_sinh, nm2_math_sqrt, nm2_math_tan,
         nm2_math_tanh, nm2_math_trunc_to_card, nm2_math_trunc_to_int,
+        nm2_math_ceil, nm2_math_round, nm2_math_trunc, nm2_math_log10, nm2_math_exp2,
+        nm2_math_cbrt, nm2_math_expm1, nm2_math_log1p, nm2_math_degrees, nm2_math_radians,
+        nm2_math_sign, nm2_math_hypot, nm2_math_copysign, nm2_math_min, nm2_math_max,
+        nm2_math_log, nm2_math_fmod,
         nm2_program_args_copy, nm2_program_args_count,
         nm2_storage_allocate, nm2_storage_deallocate, nm2_string_length, nm2_wstr_length,
         nm2_sysclock_now, nm2_shift, nm2_rotate,
@@ -1166,6 +1178,23 @@ fn for_each_runtime_binding(
             ("floor", nm2_math_floor as *const ()),
             ("truncToInt", nm2_math_trunc_to_int as *const ()),
             ("truncToCard", nm2_math_trunc_to_card as *const ()),
+            ("ceil", nm2_math_ceil as *const ()),
+            ("round", nm2_math_round as *const ()),
+            ("trunc", nm2_math_trunc as *const ()),
+            ("log10", nm2_math_log10 as *const ()),
+            ("exp2", nm2_math_exp2 as *const ()),
+            ("cbrt", nm2_math_cbrt as *const ()),
+            ("expm1", nm2_math_expm1 as *const ()),
+            ("log1p", nm2_math_log1p as *const ()),
+            ("degrees", nm2_math_degrees as *const ()),
+            ("radians", nm2_math_radians as *const ()),
+            ("sign", nm2_math_sign as *const ()),
+            ("hypot", nm2_math_hypot as *const ()),
+            ("copysign", nm2_math_copysign as *const ()),
+            ("min", nm2_math_min as *const ()),
+            ("max", nm2_math_max as *const ()),
+            ("log", nm2_math_log as *const ()),
+            ("fmod", nm2_math_fmod as *const ()),
         ];
         for (name, f) in m {
             bind(&format!("NM2Math.{name}"), *f);

@@ -19,6 +19,21 @@
 *)
 DEFINITION MODULE NM2Math;
 
+(* ── constants (full LONGREAL precision; usable as REAL or LONGREAL) ── *)
+
+CONST
+  pi      = 3.14159265358979323846;   (* circle constant *)
+  tau     = 6.28318530717958647693;   (* 2*pi *)
+  piOver2 = 1.57079632679489661923;
+  piOver4 = 0.78539816339744830962;
+  e       = 2.71828182845904523536;   (* Euler's number *)
+  sqrt2   = 1.41421356237309504880;
+  sqrt1_2 = 0.70710678118654752440;   (* 1/sqrt(2) *)
+  ln2     = 0.69314718055994530942;
+  ln10    = 2.30258509299404568402;
+  log2e   = 1.44269504088896340736;   (* 1/ln(2) *)
+  log10e  = 0.43429448190325182765;   (* 1/ln(10) *)
+
 (* ── REAL surface ── *)
 
 PROCEDURE sin       (x: REAL): REAL;
@@ -43,8 +58,26 @@ PROCEDURE arccosh   (x: REAL): REAL;
 PROCEDURE arctanh   (x: REAL): REAL;
 
 PROCEDURE floor     (x: REAL): REAL;
+PROCEDURE ceil      (x: REAL): REAL;            (* smallest integer >= x *)
+PROCEDURE round     (x: REAL): REAL;            (* nearest integer, halves away from zero *)
+PROCEDURE trunc     (x: REAL): REAL;            (* integer part as REAL (towards zero) *)
 PROCEDURE truncToInt(x: REAL): INTEGER;
 PROCEDURE truncToCard(x: REAL): CARDINAL;
+
+PROCEDURE log10     (x: REAL): REAL;            (* base-10 logarithm *)
+PROCEDURE log       (x, base: REAL): REAL;      (* logarithm to an arbitrary base *)
+PROCEDURE exp2      (x: REAL): REAL;            (* 2 ** x *)
+PROCEDURE cbrt      (x: REAL): REAL;            (* cube root (defined for x < 0) *)
+PROCEDURE expm1     (x: REAL): REAL;            (* exp(x) - 1, accurate near 0 *)
+PROCEDURE log1p     (x: REAL): REAL;            (* ln(1 + x), accurate near 0 *)
+PROCEDURE hypot     (x, y: REAL): REAL;         (* sqrt(x*x + y*y) without overflow *)
+PROCEDURE fmod      (x, y: REAL): REAL;         (* floating remainder, sign of x *)
+PROCEDURE copysign  (x, y: REAL): REAL;         (* magnitude of x with the sign of y *)
+PROCEDURE sign      (x: REAL): REAL;            (* -1, 0 or +1 (0 for +/-0) *)
+PROCEDURE min       (x, y: REAL): REAL;         (* lesser of x, y (NaN-skipping) *)
+PROCEDURE max       (x, y: REAL): REAL;         (* greater of x, y (NaN-skipping) *)
+PROCEDURE degrees   (x: REAL): REAL;            (* radians -> degrees *)
+PROCEDURE radians   (x: REAL): REAL;            (* degrees -> radians *)
 
 (* ── LONGREAL surface ── *)
 
@@ -70,8 +103,26 @@ PROCEDURE Larccosh   (x: LONGREAL): LONGREAL;
 PROCEDURE Larctanh   (x: LONGREAL): LONGREAL;
 
 PROCEDURE Lfloor     (x: LONGREAL): LONGREAL;
+PROCEDURE Lceil      (x: LONGREAL): LONGREAL;
+PROCEDURE Lround     (x: LONGREAL): LONGREAL;
+PROCEDURE Ltrunc     (x: LONGREAL): LONGREAL;
 PROCEDURE LtruncToInt(x: LONGREAL): INTEGER;
 PROCEDURE LtruncToCard(x: LONGREAL): CARDINAL;
+
+PROCEDURE Llog10     (x: LONGREAL): LONGREAL;
+PROCEDURE Llog       (x, base: LONGREAL): LONGREAL;
+PROCEDURE Lexp2      (x: LONGREAL): LONGREAL;
+PROCEDURE Lcbrt      (x: LONGREAL): LONGREAL;
+PROCEDURE Lexpm1     (x: LONGREAL): LONGREAL;
+PROCEDURE Llog1p     (x: LONGREAL): LONGREAL;
+PROCEDURE Lhypot     (x, y: LONGREAL): LONGREAL;
+PROCEDURE Lfmod      (x, y: LONGREAL): LONGREAL;
+PROCEDURE Lcopysign  (x, y: LONGREAL): LONGREAL;
+PROCEDURE Lsign      (x: LONGREAL): LONGREAL;
+PROCEDURE Lmin       (x, y: LONGREAL): LONGREAL;
+PROCEDURE Lmax       (x, y: LONGREAL): LONGREAL;
+PROCEDURE Ldegrees   (x: LONGREAL): LONGREAL;
+PROCEDURE Lradians   (x: LONGREAL): LONGREAL;
 
 (* Low-level float decomposition (used by LowReal / RealConv). *)
 PROCEDURE Frexp (x: LONGREAL; VAR expOut: INTEGER): LONGREAL;
