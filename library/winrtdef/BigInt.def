@@ -1,0 +1,60 @@
+DEFINITION MODULE BigInt;
+
+(* Arbitrary-precision signed integers ("bignums"), in pure Modula-2 over
+   heap-allocated limb arrays (base 2^64, little-endian), with the inner
+   carry / multiply / divide loops written in inline assembler (mul / adc /
+   div) for native-speed limb arithmetic — no Rust runtime seam, no FFI.
+
+   A BigInt is an opaque heap handle. Operations that return a BigInt return
+   a FRESH value the caller OWNS and must eventually Dispose; arguments are
+   never modified. (There is no garbage collector or operator overloading, so
+   ownership is explicit and arithmetic is procedural — like ComplexMath /
+   Money elsewhere in this library.)
+
+     a := BigInt.FromStr0("123456789012345678901234567890", 10);
+     b := BigInt.Pow(BigInt.FromCard(2), 100);
+     s := BigInt.Mul(a, b);
+     ... use s ...
+     BigInt.Dispose(a); BigInt.Dispose(b); BigInt.Dispose(s);
+
+   Division is TRUNCATED toward zero: q = trunc(a/b), r = a - q*b, so r takes
+   the sign of a (q*b + r = a always holds). *)
+
+TYPE
+  BigInt;                                (* opaque: a heap handle, never NIL once created *)
+
+(* ── lifetime ── *)
+PROCEDURE Create  (): BigInt;            (* value 0 *)
+PROCEDURE Dispose (VAR a: BigInt);       (* free; sets a := the value of an invalid handle *)
+PROCEDURE Copy    (a: BigInt): BigInt;   (* fresh duplicate *)
+
+(* ── construction ── *)
+PROCEDURE FromInt  (v: INTEGER): BigInt;
+PROCEDURE FromCard (v: CARDINAL): BigInt;
+PROCEDURE FromStr  (s: ARRAY OF CHAR; radix: CARDINAL; VAR a: BigInt): BOOLEAN;
+                                         (* radix 2..16; TRUE iff fully parsed (a is fresh either way) *)
+PROCEDURE FromStr0 (s: ARRAY OF CHAR): BigInt;   (* decimal; returns 0 on a malformed string *)
+PROCEDURE ToStr    (a: BigInt; radix: CARDINAL; VAR s: ARRAY OF CHAR): BOOLEAN;
+                                         (* radix 2..16; FALSE if s is too small *)
+
+(* ── arithmetic (each returns a fresh BigInt) ── *)
+PROCEDURE Add (a, b: BigInt): BigInt;
+PROCEDURE Sub (a, b: BigInt): BigInt;
+PROCEDURE Mul (a, b: BigInt): BigInt;
+PROCEDURE Neg (a: BigInt): BigInt;
+PROCEDURE Abs (a: BigInt): BigInt;
+PROCEDURE DivMod (a, b: BigInt; VAR q, r: BigInt): BOOLEAN;  (* q,r fresh; FALSE iff b = 0 *)
+PROCEDURE Div    (a, b: BigInt): BigInt;                     (* trunc quotient (0 if b=0) *)
+PROCEDURE Mod    (a, b: BigInt): BigInt;                     (* remainder, sign of a (0 if b=0) *)
+
+PROCEDURE Pow    (base: BigInt; exp: CARDINAL): BigInt;      (* base^exp, exp >= 0 *)
+PROCEDURE PowMod (base, exp, m: BigInt): BigInt;             (* base^exp mod m (exp,m >= 0, m # 0) *)
+PROCEDURE Gcd    (a, b: BigInt): BigInt;                     (* greatest common divisor, >= 0 *)
+
+(* ── inspection ── *)
+PROCEDURE Compare   (a, b: BigInt): INTEGER;   (* -1 / 0 / +1 *)
+PROCEDURE Sign      (a: BigInt): INTEGER;       (* -1 / 0 / +1 *)
+PROCEDURE IsZero    (a: BigInt): BOOLEAN;
+PROCEDURE BitLength (a: BigInt): CARDINAL;       (* bits in |a| (0 for 0) *)
+
+END BigInt.
