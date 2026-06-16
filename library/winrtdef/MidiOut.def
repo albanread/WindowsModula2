@@ -16,8 +16,18 @@ FROM Abc IMPORT Tune;
 PROCEDURE Startup (): BOOLEAN;     (* open the GM synth + start the scheduler thread *)
 PROCEDURE Shutdown;
 
-PROCEDURE Play (VAR t: Tune);      (* play `t` from the start (the caller owns `t`) *)
-PROCEDURE Stop;                    (* stop + all-notes-off *)
-PROCEDURE IsPlaying (): BOOLEAN;
+(* MUSIC and SOUND are separate. Play drives the single "music" track; PlaySfx fires
+   a one-shot effect on its own voice and layers OVER the music without stopping it.
+   Each runs concurrently and cleans up only its own notes. *)
+PROCEDURE Play (VAR t: Tune);      (* music: play `t` on the music track (the caller owns `t`) *)
+PROCEDURE PlaySfx (VAR t: Tune);   (* sound effect: play `t` on a free SFX voice, music keeps going *)
+PROCEDURE Stop;                    (* stop every track + all-notes-off *)
+PROCEDURE IsPlaying (): BOOLEAN;   (* is the music track still playing *)
+
+(* A sustained pad note on a reserved channel: it keeps ringing across Play cue
+   switches (only Stop/Shutdown silence it). `prog` is a GM program (e.g. 89 = warm
+   pad), `note` a MIDI note, `vel` 0..127. Call Drone again to change it. *)
+PROCEDURE Drone (prog, note, vel: CARDINAL);
+PROCEDURE DroneOff;
 
 END MidiOut.
