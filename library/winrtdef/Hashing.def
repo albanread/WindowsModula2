@@ -1,0 +1,12 @@
+DEFINITION MODULE Hashing;
+
+(* Fast non-cryptographic hashing (FNV-1a, 64-bit). For hash tables, bloom
+   filters, checksums of in-memory data — NOT for security (use Hash / HMAC
+   for that). Deterministic within a run. *)
+
+FROM SYSTEM IMPORT ADDRESS;
+
+PROCEDURE FNV1a      (s: ARRAY OF CHAR): CARDINAL;       (* over chars up to NUL / end *)
+PROCEDURE FNV1aBytes (a: ADDRESS; n: CARDINAL): CARDINAL;(* over n bytes at a *)
+
+END Hashing.

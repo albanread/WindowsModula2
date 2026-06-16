@@ -1,0 +1,36 @@
+DEFINITION MODULE Vector;
+
+(* A growable array of CARDINAL cells — the universal building block. A cell
+   holds any 64-bit value: a count, an index, or a pointer/handle via
+   SYSTEM.CAST (e.g. CAST(CARDINAL, someBigInt) or CAST(CARDINAL, recPtr)).
+   The Vector owns only its cell storage, never whatever a cell may point to —
+   if cells are owned pointers, free them before Dispose.
+
+   Out-of-range Get returns 0; out-of-range Set is ignored; so callers can stay
+   lean and check Length when it matters. *)
+
+FROM SYSTEM IMPORT ADDRESS;
+
+TYPE Vector;                               (* opaque handle; created, never NIL *)
+
+PROCEDURE Create     (): Vector;           (* empty *)
+PROCEDURE CreateCap  (cap: CARDINAL): Vector;
+PROCEDURE Dispose    (VAR v: Vector);
+
+PROCEDURE Length     (v: Vector): CARDINAL;
+PROCEDURE Capacity   (v: Vector): CARDINAL;
+PROCEDURE IsEmpty    (v: Vector): BOOLEAN;
+PROCEDURE Reserve    (v: Vector; cap: CARDINAL);   (* ensure capacity >= cap *)
+PROCEDURE Clear      (v: Vector);                  (* length := 0 (keeps capacity) *)
+
+PROCEDURE Push       (v: Vector; x: CARDINAL);     (* append *)
+PROCEDURE Pop        (v: Vector): CARDINAL;        (* remove + return last (0 if empty) *)
+PROCEDURE Last       (v: Vector): CARDINAL;        (* return last, keep (0 if empty) *)
+
+PROCEDURE Get        (v: Vector; i: CARDINAL): CARDINAL;     (* 0 if out of range *)
+PROCEDURE Set        (v: Vector; i, x: CARDINAL);           (* ignored if out of range *)
+PROCEDURE Insert     (v: Vector; i, x: CARDINAL);           (* insert before i (i=Length appends) *)
+PROCEDURE Remove     (v: Vector; i: CARDINAL): CARDINAL;    (* remove at i, shift down, return it *)
+PROCEDURE Swap       (v: Vector; i, j: CARDINAL);
+
+END Vector.

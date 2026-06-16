@@ -1,0 +1,36 @@
+DEFINITION MODULE StrMap;
+
+(* A hash map from text keys to CARDINAL values (open addressing + FNV-1a).
+   A value is a 64-bit cell — a count, an id, or a pointer/handle via
+   SYSTEM.CAST. The map COPIES and owns its keys; it does NOT own whatever a
+   value may point to (free those before Dispose if they are owned pointers).
+
+   Typical use:
+     m := StrMap.Create();
+     StrMap.Put(m, "width", 640);
+     IF StrMap.Get(m, "width", w) THEN ... END;
+     it := StrMap.Iterate(m);
+     WHILE StrMap.Next(m, it, key, val) DO ... END;
+     StrMap.Dispose(m); *)
+
+TYPE
+  StrMap;                 (* opaque handle *)
+  Iterator = CARDINAL;    (* opaque cursor; obtain from Iterate, advance with Next *)
+
+PROCEDURE Create  (): StrMap;
+PROCEDURE Dispose (VAR m: StrMap);
+PROCEDURE Count   (m: StrMap): CARDINAL;
+PROCEDURE Clear   (m: StrMap);
+
+PROCEDURE Put    (m: StrMap; key: ARRAY OF CHAR; value: CARDINAL);   (* insert or update *)
+PROCEDURE Get    (m: StrMap; key: ARRAY OF CHAR; VAR value: CARDINAL): BOOLEAN;
+PROCEDURE Has    (m: StrMap; key: ARRAY OF CHAR): BOOLEAN;
+PROCEDURE Remove (m: StrMap; key: ARRAY OF CHAR): BOOLEAN;           (* TRUE if it existed *)
+
+PROCEDURE Iterate (m: StrMap): Iterator;
+(* Next writes the entry's key (always NUL-terminated; truncated if it does not
+   fit the buffer) and value, advances `it`, and returns TRUE — FALSE when the
+   walk is exhausted. Don't Put/Remove during a walk. *)
+PROCEDURE Next    (m: StrMap; VAR it: Iterator; VAR key: ARRAY OF CHAR; VAR value: CARDINAL): BOOLEAN;
+
+END StrMap.
