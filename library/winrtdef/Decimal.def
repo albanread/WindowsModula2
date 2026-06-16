@@ -1,0 +1,47 @@
+DEFINITION MODULE Decimal;
+
+(* Arbitrary-precision base-10 decimals, built on BigInt: a value is
+   coeff * 10^exp (coeff a BigInt, exp a signed INTEGER). Unlike BigRat this is
+   NOT auto-canonicalised — the exponent IS the scale, so 1.5 and 1.50 are
+   distinct representations (coeff 15 exp -1 vs coeff 150 exp -2) that compare
+   equal. Add/Sub/Mul are EXACT; Div and Round take a number of decimal places
+   and a rounding mode. Generalises Money's fixed 10^-4 scale.
+
+   Like BigInt, operations return a FRESH Decimal the caller Disposes.
+
+     IF Decimal.FromStr("0.1", a) AND Decimal.FromStr("0.2", b) THEN
+       s := Decimal.Add(a, b);                 (* exactly 0.3 *)
+       q := Decimal.Div(one, three, 5, Decimal.RoundHalfUp);   (* 0.33333 *)
+     END *)
+
+IMPORT BigInt;
+
+TYPE
+  Decimal;                               (* opaque; value = coeff * 10^exp *)
+  RoundMode = (RoundDown, RoundHalfUp);  (* truncate toward 0 / round half away from 0 *)
+
+PROCEDURE Create  (): Decimal;           (* 0 *)
+PROCEDURE Dispose (VAR d: Decimal);
+PROCEDURE Copy    (d: Decimal): Decimal;
+
+PROCEDURE FromInt      (v: INTEGER): Decimal;                       (* v * 10^0 *)
+PROCEDURE FromBigInt   (n: BigInt.BigInt): Decimal;
+PROCEDURE FromCoeffExp (coeff: BigInt.BigInt; exp: INTEGER): Decimal;
+PROCEDURE FromStr      (s: ARRAY OF CHAR; VAR d: Decimal): BOOLEAN; (* "[-]ddd[.ddd]"; d is fresh either way *)
+
+PROCEDURE Add (a, b: Decimal): Decimal;            (* exact *)
+PROCEDURE Sub (a, b: Decimal): Decimal;            (* exact *)
+PROCEDURE Mul (a, b: Decimal): Decimal;            (* exact *)
+PROCEDURE Div (a, b: Decimal; places: CARDINAL; mode: RoundMode): Decimal;  (* a/b to `places` dp (b=0 -> 0) *)
+PROCEDURE Neg (d: Decimal): Decimal;
+PROCEDURE Abs (d: Decimal): Decimal;
+PROCEDURE Round (d: Decimal; places: CARDINAL; mode: RoundMode): Decimal;   (* to exactly `places` dp *)
+
+PROCEDURE Compare  (a, b: Decimal): INTEGER;   (* -1 / 0 / +1 (by value) *)
+PROCEDURE Sign     (d: Decimal): INTEGER;
+PROCEDURE IsZero   (d: Decimal): BOOLEAN;
+PROCEDURE Exponent (d: Decimal): INTEGER;
+
+PROCEDURE ToStr (d: Decimal; VAR s: ARRAY OF CHAR): BOOLEAN;   (* fixed-point per the exponent *)
+
+END Decimal.
