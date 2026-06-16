@@ -1,0 +1,21 @@
+DEFINITION MODULE DirIter;
+
+(* Enumerate the entries of a directory via FindFirstFileW / FindNextFileW, in
+   pure Modula-2. "." and ".." are skipped. Names are UTF-16 (the platform CHAR),
+   so they come straight back as ARRAY OF CHAR with no conversion.
+
+     IF DirIter.Open("C:\\proj", it) THEN
+       WHILE DirIter.Next(it, name, isDir, size) DO
+         ... use name / isDir / size ...
+       END;
+       DirIter.Close(it)
+     END *)
+
+TYPE Iter;                               (* opaque handle *)
+
+PROCEDURE Open  (dir: ARRAY OF CHAR; VAR it: Iter): BOOLEAN;   (* FALSE if the dir can't be opened *)
+PROCEDURE Next  (it: Iter; VAR name: ARRAY OF CHAR; VAR isDir: BOOLEAN; VAR size: CARDINAL): BOOLEAN;
+                                         (* TRUE + fills an entry; FALSE when exhausted *)
+PROCEDURE Close (VAR it: Iter);
+
+END DirIter.

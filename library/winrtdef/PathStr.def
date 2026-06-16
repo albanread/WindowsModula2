@@ -1,0 +1,17 @@
+DEFINITION MODULE PathStr;
+
+(* Windows path-string manipulation — pure string work, no filesystem access.
+   Either separator ('\' or '/') is accepted; Join inserts '\'. Results are
+   written into a VAR out and always NUL-terminated (truncated if too small). *)
+
+PROCEDURE Join      (a, b: ARRAY OF CHAR; VAR out: ARRAY OF CHAR);    (* a + "\" + b *)
+PROCEDURE DirName   (path: ARRAY OF CHAR; VAR out: ARRAY OF CHAR);    (* up to the last separator ("" if none) *)
+PROCEDURE BaseName  (path: ARRAY OF CHAR; VAR out: ARRAY OF CHAR);    (* the final component *)
+PROCEDURE Ext       (path: ARRAY OF CHAR; VAR out: ARRAY OF CHAR);    (* ".ext" incl. the dot ("" if none) *)
+PROCEDURE StripExt  (path: ARRAY OF CHAR; VAR out: ARRAY OF CHAR);    (* path without its extension *)
+PROCEDURE ChangeExt (path, newExt: ARRAY OF CHAR; VAR out: ARRAY OF CHAR);  (* replace the extension *)
+
+PROCEDURE IsSep      (c: CHAR): BOOLEAN;                (* '\' or '/' *)
+PROCEDURE IsAbsolute (path: ARRAY OF CHAR): BOOLEAN;    (* "X:..", "\\.." (UNC), or rooted "\.." *)
+
+END PathStr.
