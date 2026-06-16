@@ -1,0 +1,35 @@
+DEFINITION MODULE StrBuf;
+
+(* A growable, heap-backed UTF-16 string — the missing string builder. ISO
+   Strings / ExStrings append into a FIXED ARRAY OF CHAR (and silently stop when
+   full); StrBuf grows as needed, so it is the right tool for assembling output,
+   joining parts, or accumulating unknown-length text. It always keeps a NUL
+   terminator, so Ptr can be passed straight to WriteString and the like.
+
+     b := StrBuf.Create();
+     StrBuf.Append(b, "x="); StrBuf.AppendCard(b, 42); StrBuf.AppendCh(b, ';');
+     ... use StrBuf.Ptr(b) or StrBuf.ToStr(b, dst) ...
+     StrBuf.Dispose(b);
+
+   To JOIN: append each part followed by the separator (skip the last). *)
+
+FROM SYSTEM IMPORT ADDRESS;
+
+TYPE StrBuf;                              (* opaque handle *)
+
+PROCEDURE Create  (): StrBuf;
+PROCEDURE Dispose (VAR b: StrBuf);
+PROCEDURE Clear   (b: StrBuf);
+PROCEDURE Length  (b: StrBuf): CARDINAL;
+
+PROCEDURE Append     (b: StrBuf; s: ARRAY OF CHAR);   (* append a string *)
+PROCEDURE AppendCh   (b: StrBuf; c: CHAR);
+PROCEDURE AppendCard (b: StrBuf; v: CARDINAL);        (* decimal *)
+PROCEDURE AppendInt  (b: StrBuf; v: INTEGER);         (* decimal, signed *)
+PROCEDURE AppendBuf  (b, other: StrBuf);
+
+PROCEDURE CharAt (b: StrBuf; i: CARDINAL): CHAR;       (* 0C if out of range *)
+PROCEDURE Ptr    (b: StrBuf): ADDRESS;                 (* the internal NUL-terminated buffer; valid until the next mutation *)
+PROCEDURE ToStr  (b: StrBuf; VAR s: ARRAY OF CHAR): BOOLEAN;   (* copy out, NUL-terminated; FALSE if s too small *)
+
+END StrBuf.

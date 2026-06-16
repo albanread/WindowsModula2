@@ -1,0 +1,30 @@
+DEFINITION MODULE StrUtil;
+
+(* The everyday string operations missing from ISO Strings / ExStrings: trimming,
+   substring search predicates, replace-ALL (ExStrings.FindAndReplace is
+   first-occurrence only), and index-based splitting (allocation-free — query the
+   parts on demand rather than materialising a list). Case folding lives in
+   ExStrings (Lowercase/Uppercase); building/joining lives in StrBuf.
+
+   Strings are NUL-terminated ARRAY OF CHAR. Procedures that write a result into
+   a VAR out always NUL-terminate it (truncating if out is too small); the ones
+   returning BOOLEAN instead return FALSE rather than truncate. *)
+
+PROCEDURE TrimLeft  (s: ARRAY OF CHAR; VAR out: ARRAY OF CHAR);   (* drop leading whitespace *)
+PROCEDURE TrimRight (s: ARRAY OF CHAR; VAR out: ARRAY OF CHAR);   (* drop trailing whitespace *)
+PROCEDURE Trim      (s: ARRAY OF CHAR; VAR out: ARRAY OF CHAR);   (* both *)
+
+PROCEDURE IndexOf    (s, sub: ARRAY OF CHAR; from: CARDINAL): INTEGER;  (* -1 if not found *)
+PROCEDURE Contains   (s, sub: ARRAY OF CHAR): BOOLEAN;
+PROCEDURE StartsWith (s, prefix: ARRAY OF CHAR): BOOLEAN;
+PROCEDURE EndsWith   (s, suffix: ARRAY OF CHAR): BOOLEAN;
+PROCEDURE Count      (s, sub: ARRAY OF CHAR): CARDINAL;          (* non-overlapping occurrences *)
+
+PROCEDURE ReplaceAll (s, from, to: ARRAY OF CHAR; VAR out: ARRAY OF CHAR): BOOLEAN;
+(* copy s with every occurrence of `from` replaced by `to`; FALSE if out too small *)
+
+PROCEDURE SplitCount (s, sep: ARRAY OF CHAR): CARDINAL;          (* number of parts (>= 1) *)
+PROCEDURE SplitPart  (s, sep: ARRAY OF CHAR; index: CARDINAL; VAR part: ARRAY OF CHAR): BOOLEAN;
+(* extract the index-th part (0-based); FALSE if index is out of range *)
+
+END StrUtil.
