@@ -1,0 +1,16 @@
+DEFINITION MODULE Hex;
+
+(* Hexadecimal between raw bytes (ARRAY OF BYTE) and ASCII text (ARRAY OF CHAR).
+   Encode is lower- or upper-case; Decode accepts either case and skips
+   whitespace (so it reads back what Encode wrote, and typical hex dumps). *)
+
+FROM SYSTEM IMPORT BYTE;
+
+PROCEDURE Encode (data: ARRAY OF BYTE; n: CARDINAL; upper: BOOLEAN; VAR text: ARRAY OF CHAR): BOOLEAN;
+(* 2 chars per byte; text := NUL-terminated; FALSE if text is too small *)
+
+PROCEDURE Decode (text: ARRAY OF CHAR; VAR data: ARRAY OF BYTE; VAR n: CARDINAL): BOOLEAN;
+(* n := bytes written; FALSE if data is too small, a digit is invalid, or an odd
+   number of digits is present *)
+
+END Hex.

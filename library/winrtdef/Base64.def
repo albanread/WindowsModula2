@@ -1,0 +1,21 @@
+DEFINITION MODULE Base64;
+
+(* Standard Base64 (RFC 4648) between raw bytes (ARRAY OF BYTE) and ASCII text
+   (ARRAY OF CHAR), with '=' padding. The glue that turns Hash / HMAC / SymCrypt
+   / SecureRandom byte output into transmittable text and back.
+
+     IF Base64.Encode(digest, 32, text) THEN ... text is NUL-terminated ...
+     IF Base64.Decode(text, bytes, n) THEN ... bytes[0..n-1] ... *)
+
+FROM SYSTEM IMPORT BYTE;
+
+PROCEDURE EncodedLength (n: CARDINAL): CARDINAL;   (* text chars for n bytes (excl terminator) *)
+
+PROCEDURE Encode (data: ARRAY OF BYTE; n: CARDINAL; VAR text: ARRAY OF CHAR): BOOLEAN;
+(* encode n bytes; text := NUL-terminated Base64; FALSE if text is too small *)
+
+PROCEDURE Decode (text: ARRAY OF CHAR; VAR data: ARRAY OF BYTE; VAR n: CARDINAL): BOOLEAN;
+(* decode NUL-terminated Base64 (whitespace skipped, '=' ends it); n := bytes
+   written; FALSE if data is too small or text has an invalid character *)
+
+END Base64.

@@ -1,0 +1,25 @@
+DEFINITION MODULE Utf8;
+
+(* Convert between the platform's UTF-16 text (ARRAY OF CHAR — CHAR is a 16-bit
+   code unit here) and UTF-8 byte sequences (ARRAY OF BYTE). This is the glue
+   for files, sockets, JSON and any external byte stream, done in-memory in pure
+   Modula-2 (no Rust runtime round-trip). Surrogate pairs are handled, so the
+   full Unicode range (U+0000..U+10FFFF) survives a round trip.
+
+     n := Utf8.Length(wide);                 (* bytes needed, excl terminator *)
+     IF Utf8.Encode(wide, bytes, n) THEN ... write bytes[0..n-1] ...
+     IF Utf8.Decode(bytes, n, wide) THEN ... wide is NUL-terminated ... *)
+
+FROM SYSTEM IMPORT BYTE;
+
+PROCEDURE Length (wide: ARRAY OF CHAR): CARDINAL;
+(* number of UTF-8 bytes the (NUL-terminated) UTF-16 string needs, excl terminator *)
+
+PROCEDURE Encode (wide: ARRAY OF CHAR; VAR utf8: ARRAY OF BYTE; VAR n: CARDINAL): BOOLEAN;
+(* encode the UTF-16 string to UTF-8; n := bytes written; FALSE if utf8 is too small *)
+
+PROCEDURE Decode (utf8: ARRAY OF BYTE; n: CARDINAL; VAR wide: ARRAY OF CHAR): BOOLEAN;
+(* decode n UTF-8 bytes to a NUL-terminated UTF-16 string; FALSE if wide is too
+   small or the bytes are not valid UTF-8 *)
+
+END Utf8.
