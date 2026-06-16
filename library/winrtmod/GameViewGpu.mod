@@ -361,6 +361,30 @@ END Place;
 
 PROCEDURE MoveTo (inst: CARDINAL; x, y: REAL);
 BEGIN IF inst < MaxInst THEN gInst[inst].x := x; gInst[inst].y := y END END MoveTo;
+
+PROCEDURE SpriteX (inst: CARDINAL): REAL;
+BEGIN IF inst < MaxInst THEN RETURN gInst[inst].x ELSE RETURN 0.0 END END SpriteX;
+PROCEDURE SpriteY (inst: CARDINAL): REAL;
+BEGIN IF inst < MaxInst THEN RETURN gInst[inst].y ELSE RETURN 0.0 END END SpriteY;
+PROCEDURE Visible (inst: CARDINAL): BOOLEAN;
+BEGIN RETURN (inst < MaxInst) AND gInst[inst].active AND gInst[inst].visible END Visible;
+
+(* bounding-box overlap of two shown instances (boxes = def size x scale, centred) *)
+PROCEDURE Hit (a, b: CARDINAL): BOOLEAN;
+  VAR ahw, ahh, bhw, bhh, dx, dy: REAL; da, db: CARDINAL;
+BEGIN
+  IF (a >= MaxInst) OR (b >= MaxInst) THEN RETURN FALSE END;
+  IF NOT (gInst[a].active AND gInst[a].visible AND gInst[b].active AND gInst[b].visible) THEN RETURN FALSE END;
+  da := gInst[a].def; db := gInst[b].def;
+  ahw := VAL(REAL, gDefs[da].w) * gInst[a].scale * 0.5;
+  ahh := VAL(REAL, gDefs[da].h) * gInst[a].scale * 0.5;
+  bhw := VAL(REAL, gDefs[db].w) * gInst[b].scale * 0.5;
+  bhh := VAL(REAL, gDefs[db].h) * gInst[b].scale * 0.5;
+  dx := gInst[a].x - gInst[b].x; IF dx < 0.0 THEN dx := -dx END;
+  dy := gInst[a].y - gInst[b].y; IF dy < 0.0 THEN dy := -dy END;
+  RETURN (dx < ahw + bhw) AND (dy < ahh + bhh)
+END Hit;
+
 PROCEDURE SetScale (inst: CARDINAL; s: REAL);
 BEGIN IF inst < MaxInst THEN gInst[inst].scale := s END END SetScale;
 PROCEDURE SetRotation (inst: CARDINAL; degrees: REAL);

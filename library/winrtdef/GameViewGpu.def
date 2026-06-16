@@ -98,6 +98,10 @@ PROCEDURE SpriteHeight (id: CARDINAL): CARDINAL;
    framebuffer pixels) and shows it. Transforms are about the sprite centre. *)
 PROCEDURE Place       (inst, def: CARDINAL; x, y: REAL);
 PROCEDURE MoveTo      (inst: CARDINAL; x, y: REAL);
+PROCEDURE SpriteX     (inst: CARDINAL): REAL;            (* current centre x *)
+PROCEDURE SpriteY     (inst: CARDINAL): REAL;
+PROCEDURE Visible     (inst: CARDINAL): BOOLEAN;
+PROCEDURE Hit         (a, b: CARDINAL): BOOLEAN;         (* bounding-box collision *)
 PROCEDURE SetScale    (inst: CARDINAL; s: REAL);
 PROCEDURE SetRotation (inst: CARDINAL; degrees: REAL);
 PROCEDURE SetAlpha    (inst: CARDINAL; a: REAL);                (* 0..1 *)
