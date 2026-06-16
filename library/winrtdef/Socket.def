@@ -1,0 +1,38 @@
+DEFINITION MODULE Socket;
+
+(* TCP/IP sockets over Winsock2 (ws2_32), wrapped into a small byte-oriented
+   API in pure Modula-2. Call Startup once before any socket use and Shutdown at
+   the end. The connection procedures return TRUE and set the socket via VAR, or
+   FALSE on failure (LastError gives the Winsock code). Send/Recv move raw bytes
+   (layer Utf8 / your own framing on top).
+
+     IF Socket.Startup() THEN
+       IF Socket.Connect("127.0.0.1", 8080, s) THEN
+         ok := Socket.SendAll(s, ADR(buf), n);
+         ok := Socket.Recv(s, ADR(rbuf), 256, got);   (* got=0 => peer closed *)
+         Socket.Close(s)
+       END;
+       Socket.Shutdown
+     END *)
+
+FROM SYSTEM IMPORT ADDRESS;
+
+TYPE Socket = ADDRESS;                  (* an OS socket handle *)
+
+PROCEDURE Startup  (): BOOLEAN;         (* WSAStartup (Winsock 2.2) *)
+PROCEDURE Shutdown;                     (* WSACleanup *)
+
+PROCEDURE Connect (host: ARRAY OF CHAR; port: CARDINAL; VAR s: Socket): BOOLEAN;
+(* connect a TCP client to host:port; host is a dotted-quad IP or a name (resolved) *)
+PROCEDURE Listen  (port, backlog: CARDINAL; VAR s: Socket): BOOLEAN;   (* bind INADDR_ANY:port + listen *)
+PROCEDURE Accept  (server: Socket; VAR client: Socket): BOOLEAN;       (* blocks for a connection *)
+
+PROCEDURE Send    (s: Socket; data: ADDRESS; len: CARDINAL; VAR sent: CARDINAL): BOOLEAN;
+PROCEDURE SendAll (s: Socket; data: ADDRESS; len: CARDINAL): BOOLEAN;  (* loops until all len bytes are sent *)
+PROCEDURE Recv    (s: Socket; buf: ADDRESS; len: CARDINAL; VAR got: CARDINAL): BOOLEAN;
+                                        (* got=0 means the peer closed cleanly; FALSE = error *)
+PROCEDURE Close   (VAR s: Socket);
+
+PROCEDURE LastError (): CARDINAL;       (* WSAGetLastError *)
+
+END Socket.
