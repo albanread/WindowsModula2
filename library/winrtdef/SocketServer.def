@@ -1,0 +1,41 @@
+DEFINITION MODULE SocketServer;
+
+(* A scalable asynchronous TCP server on Windows, the proactor way: I/O
+   Completion Ports (IOCP) + fibers. One dispatcher fiber runs the completion
+   loop; each connection runs your Handler in its OWN fiber over overlapped
+   (async) socket I/O. When the handler calls Recv/Send the connection fiber
+   issues the overlapped op and yields to the dispatcher; the dispatcher resumes
+   it the instant the kernel posts the completion. So you write straight-line,
+   synchronous-looking handler code, but the server multiplexes thousands of
+   connections on a single thread with no per-connection thread cost — Windows
+   as the asynchronous OS it is at heart.
+
+     PROCEDURE Echo (c: SocketServer.Conn);
+       VAR buf: ARRAY [0..4095] OF BYTE; n: CARDINAL;
+     BEGIN
+       WHILE SocketServer.Recv(c, ADR(buf), 4096, n) AND (n > 0) DO
+         IF NOT SocketServer.Send(c, ADR(buf), n) THEN RETURN END
+       END
+     END Echo;
+
+     ok := SocketServer.Run(8080, Echo);   (* blocks until Stop *)
+
+   Recv/Send MUST be called only from within a Handler (the connection fiber). *)
+
+FROM SYSTEM IMPORT ADDRESS;
+
+TYPE
+  Conn;                                  (* opaque per-connection handle *)
+  Handler = PROCEDURE (Conn);            (* runs in the connection's fiber; returns when done *)
+
+PROCEDURE Run  (port: CARDINAL; handler: Handler): BOOLEAN;
+(* set up the IOCP + listener on `port` and run the dispatcher loop until Stop;
+   blocks the calling thread. FALSE on setup failure. *)
+PROCEDURE Stop;                          (* ask Run to exit (callable from any thread or a handler) *)
+
+PROCEDURE Recv (c: Conn; buf: ADDRESS; len: CARDINAL; VAR got: CARDINAL): BOOLEAN;
+                                         (* async receive; got=0 means the peer closed; FALSE = error *)
+PROCEDURE Send (c: Conn; buf: ADDRESS; len: CARDINAL): BOOLEAN;   (* async send of all len bytes *)
+PROCEDURE Id   (c: Conn): CARDINAL;      (* a small per-connection id, for logging *)
+
+END SocketServer.
