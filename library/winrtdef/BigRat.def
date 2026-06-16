@@ -1,0 +1,50 @@
+DEFINITION MODULE BigRat;
+
+(* Exact rational numbers (arbitrary precision), built on BigInt. A BigRat is a
+   fraction kept in lowest terms with a positive denominator: the sign lives on
+   the numerator and gcd(|num|, den) = 1, so equal values compare equal and
+   ToStr is canonical.
+
+   Like BigInt, operations return a FRESH BigRat the caller owns and must
+   Dispose; arguments are never modified.
+
+     a := BigRat.FromRatio(1, 2);     (* 1/2 *)
+     b := BigRat.FromRatio(1, 3);     (* 1/3 *)
+     s := BigRat.Add(a, b);           (* 5/6 *)
+     ... BigRat.ToStr(s, buf) ...
+     BigRat.Dispose(a); BigRat.Dispose(b); BigRat.Dispose(s);
+
+   (The numerator/denominator helpers use BigInt.BigInt, the BigInt module's own
+   type — qualified, since "BigInt" alone names the module.) *)
+
+IMPORT BigInt;
+
+TYPE BigRat;                             (* opaque; always normalised *)
+
+PROCEDURE Create  (): BigRat;            (* 0/1 *)
+PROCEDURE Dispose (VAR r: BigRat);
+PROCEDURE Copy    (r: BigRat): BigRat;
+
+PROCEDURE FromInt      (v: INTEGER): BigRat;             (* v/1 *)
+PROCEDURE FromRatio    (num, den: INTEGER): BigRat;      (* num/den, normalised (den=0 -> 0) *)
+PROCEDURE FromBigInt   (n: BigInt.BigInt): BigRat;       (* n/1 (copies n) *)
+PROCEDURE FromBigRatio (num, den: BigInt.BigInt): BigRat;(* num/den, normalised (copies) *)
+
+PROCEDURE Num (r: BigRat): BigInt.BigInt;  (* fresh copy of the numerator *)
+PROCEDURE Den (r: BigRat): BigInt.BigInt;  (* fresh copy of the denominator (> 0) *)
+
+PROCEDURE Add   (a, b: BigRat): BigRat;
+PROCEDURE Sub   (a, b: BigRat): BigRat;
+PROCEDURE Mul   (a, b: BigRat): BigRat;
+PROCEDURE Div   (a, b: BigRat): BigRat;  (* a / b (b=0 -> 0) *)
+PROCEDURE Neg   (r: BigRat): BigRat;
+PROCEDURE Recip (r: BigRat): BigRat;     (* 1/r (r=0 -> 0) *)
+
+PROCEDURE Compare   (a, b: BigRat): INTEGER;   (* -1 / 0 / +1 *)
+PROCEDURE Sign      (r: BigRat): INTEGER;
+PROCEDURE IsZero    (r: BigRat): BOOLEAN;
+PROCEDURE IsInteger (r: BigRat): BOOLEAN;       (* denominator = 1 *)
+
+PROCEDURE ToStr (r: BigRat; VAR s: ARRAY OF CHAR): BOOLEAN;   (* "num/den", or "num" if integer *)
+
+END BigRat.
