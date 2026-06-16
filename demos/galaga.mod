@@ -31,9 +31,9 @@ CONST
   VW = 640; VH = 480;
   WM_DESTROY = 2; WM_PAINT = 15; WM_KEYDOWN = 256; WM_KEYUP = 257;
   VK_LEFT = 25H; VK_RIGHT = 27H; VK_SPACE = 20H; VK_ESCAPE = 1BH;
-  NEnemies = 60; NBullets = 3; NBombs = 10; NExpl = 5; NStars = 24;
+  NEnemies = 60; NBullets = 3; NBombs = 10; NExpl = 5; NStars = 24; NSBombs = 4; MaxDivers = 6;
   (* sprite instance ids *)
-  PlayerI = 0; EBase = 1; BulBase = 61; ExpBase = 64; BombBase = 70; SaucerI = 100; StarBase = 110;
+  PlayerI = 0; EBase = 1; BulBase = 61; ExpBase = 64; BombBase = 70; SBombBase = 80; SaucerI = 100; StarBase = 110;
   (* sprite def ids *)
   DPlayer=0; DBee=1; DBoss=2; DBullet=3; DBomb=4; DStar=5; DExpl=6; DBfly=7; DMoth=8; DSaucer=11;
 
@@ -54,8 +54,11 @@ VAR
   fx, fdir: REAL;
   score, lives, frame, state, stateTimer: CARDINAL;
   pAlive: BOOLEAN; pRespawn, fireCd, saucerActive: CARDINAL;
-  saucerX, saucerDx: REAL; saucerTimer: CARDINAL;
-  mIntro, mBoom, mWin, mOver: Tune;
+  saucerX, saucerDx, saucerY: REAL; saucerTimer: CARDINAL;
+  sbombAct: ARRAY [0..NSBombs] OF BOOLEAN;
+  sbombx, sbomby: ARRAY [0..NSBombs] OF REAL;
+  mIntro, mWin, mOver: Tune;     (* music *)
+  mBoom, mBang: Tune;            (* sound effects: shot, explosion *)
   cw, ch: CARDINAL; ok: BOOLEAN;
 
 (* ---- ABC music cues (compacted from the BASIC) ------------------------- *)
@@ -78,11 +81,19 @@ BEGIN
   ok := ParseTune(abc, mWin);
   an := 0; Ln("X:1"); Ln("M:4/4"); Ln("L:1/16"); Ln("Q:1/4=210");
   Ln("%%MIDI program 80"); Ln("K:Cm"); Ln("G,8 _B,8|c8 _e8|_e4d4c4_B4|G,16|");
-  ok := ParseTune(abc, mOver)
+  ok := ParseTune(abc, mOver);
+  (* explosion: a short percussion burst (its own SFX voice) *)
+  an := 0; Ln("X:1"); Ln("M:4/4"); Ln("L:1/16"); Ln("Q:1/4=240");
+  Ln("%%MIDI percussion"); Ln("K:C"); Ln("[C,,F,,A,]2 [G,,B,]2 z12|");
+  ok := ParseTune(abc, mBang)
 END BuildMusic;
 
+(* MUSIC and SOUND are separate subsystems: PlayCue drives the music track,
+   Sfx fires a one-shot effect on its own voice so it never stops the music. *)
 PROCEDURE PlayCue (VAR t: Tune);
 BEGIN MidiOut.Play(t) END PlayCue;
+PROCEDURE Sfx (VAR t: Tune);
+BEGIN MidiOut.PlaySfx(t) END Sfx;
 
 (* ---- sprite art -------------------------------------------------------- *)
 PROCEDURE DefineSprites;
@@ -184,11 +195,12 @@ PROCEDURE ResetGame;
 BEGIN
   FOR i := 0 TO NBullets-1 DO bAct[i] := FALSE; Hide(BulBase+i) END;
   FOR i := 0 TO NBombs-1 DO bombAct[i] := FALSE; Hide(BombBase+i) END;
+  FOR i := 0 TO NSBombs-1 DO sbombAct[i] := FALSE; Hide(SBombBase+i) END;
   FOR i := 0 TO NExpl-1 DO expT[i] := 0.0; Hide(ExpBase+i) END;
   px := 308.0; pAlive := TRUE; pRespawn := 0; fireCd := 0;
   score := 0; lives := 3; frame := 0;
   fx := 0.0; fdir := 1.0;
-  saucerActive := 0; saucerTimer := 240;
+  saucerActive := 0; saucerTimer := 240; saucerY := 40.0;
   Place(PlayerI, DPlayer, px, 440.0); SetScale(PlayerI, 1.7); Show(PlayerI);
   PlaceFormation;
   Hide(SaucerI)
@@ -219,7 +231,7 @@ BEGIN
       IF NOT bAct[i] THEN
         bAct[i] := TRUE; bx[i] := px; by[i] := 424.0;
         Place(BulBase+i, DBullet, bx[i], by[i]); SetScale(BulBase+i, 1.6); Show(BulBase+i);
-        fireCd := 14; PlayCue(mBoom);
+        fireCd := 14; Sfx(mBoom);
         RETURN
       END
     END
@@ -229,15 +241,23 @@ END UpdatePlayer;
 
 (* ---- update: enemies (formation + dive/return) ------------------------- *)
 PROCEDURE UpdateEnemies;
-  VAR i, k: CARDINAL; ex, ey, t: REAL; placed: BOOLEAN;
+  VAR i, k, nd, attempts: CARDINAL; ex, ey, t: REAL; placed: BOOLEAN;
 BEGIN
   fx := fx + 0.6 * fdir;
   IF fx > 60.0 THEN fdir := -1.0 ELSIF fx < -60.0 THEN fdir := 1.0 END;
 
-  (* launch a diver from a random alive enemy every ~40 frames *)
-  IF frame MOD 40 = 0 THEN
-    k := 1 + Rnd(NEnemies);
-    IF (k <= NEnemies) AND alive[k] AND (diveT[k] = 0.0) AND (retT[k] = 0.0) THEN diveT[k] := 0.001 END
+  (* launch several divers, more often, capped at MaxDivers swooping at once *)
+  IF frame MOD 18 = 0 THEN
+    nd := 0;
+    FOR i := 1 TO NEnemies DO IF (diveT[i] > 0.0) OR (retT[i] > 0.0) THEN INC(nd) END END;
+    attempts := 0;
+    WHILE (nd < MaxDivers) AND (attempts < 4) DO
+      k := 1 + Rnd(NEnemies);
+      IF (k <= NEnemies) AND alive[k] AND (diveT[k] = 0.0) AND (retT[k] = 0.0) THEN
+        diveT[k] := 0.001; INC(nd)
+      END;
+      INC(attempts)
+    END
   END;
   (* a random alive enemy drops a bomb every ~30 frames *)
   IF (frame MOD 30 = 0) AND pAlive THEN
@@ -258,7 +278,7 @@ BEGIN
     IF alive[i] THEN
       ex := SlotX(i); ey := SlotY(i);
       IF diveT[i] > 0.0 THEN                       (* swooping down *)
-        diveT[i] := diveT[i] + 0.005; t := diveT[i];
+        diveT[i] := diveT[i] + 0.006; t := diveT[i];
         ex := ex + sin(t*2.5)*180.0; ey := ey + t*460.0;
         SetRotation(i, 180.0 + sin(t*2.5)*25.0);
         IF ey > 520.0 THEN                         (* off bottom -> return from top *)
@@ -284,7 +304,7 @@ END UpdateEnemies;
 PROCEDURE KillPlayer;
 BEGIN
   pAlive := FALSE; pRespawn := 0; Hide(PlayerI);
-  Boom(px, 440.0); PlayCue(mOver);
+  Boom(px, 440.0); Sfx(mBang);
   IF lives > 0 THEN DEC(lives) END
 END KillPlayer;
 
@@ -300,13 +320,13 @@ BEGIN
         FOR j := 1 TO NEnemies DO
           IF alive[j] AND bAct[i] AND Hit(BulBase+i, j) THEN
             alive[j] := FALSE; bAct[i] := FALSE; INC(score, 10);
-            Hide(j); Hide(BulBase+i); Boom(SpriteX(j), SpriteY(j))
+            Hide(j); Hide(BulBase+i); Boom(SpriteX(j), SpriteY(j)); Sfx(mBang)
           END
         END
       END;
       IF bAct[i] AND (saucerActive = 1) AND Hit(BulBase+i, SaucerI) THEN
         bAct[i] := FALSE; Hide(BulBase+i); saucerActive := 0; Hide(SaucerI);
-        saucerTimer := 320; INC(score, 100); Boom(saucerX, 40.0); Boom(saucerX+18.0, 44.0)
+        saucerTimer := 320; INC(score, 100); Boom(saucerX, saucerY); Boom(saucerX+18.0, saucerY+4.0); Sfx(mBang)
       END
     END
   END
@@ -327,21 +347,59 @@ BEGIN
 END UpdateBombs;
 
 PROCEDURE UpdateSaucer;
+  VAR i: CARDINAL; dxb: REAL; placed: BOOLEAN;
 BEGIN
   IF saucerActive = 0 THEN
     IF saucerTimer > 0 THEN DEC(saucerTimer) END;
     IF saucerTimer = 0 THEN
-      saucerActive := 1;
+      saucerActive := 1; saucerY := 40.0;
       IF Rnd(2) = 0 THEN saucerX := -40.0; saucerDx := 2.6 ELSE saucerX := 680.0; saucerDx := -2.6 END;
-      Place(SaucerI, DSaucer, saucerX, 40.0); SetScale(SaucerI, 2.2); Show(SaucerI)
+      Place(SaucerI, DSaucer, saucerX, saucerY); SetScale(SaucerI, 2.2); Show(SaucerI)
     END;
     RETURN
   END;
-  saucerX := saucerX + saucerDx; MoveTo(SaucerI, saucerX, 40.0);
+  (* evade: if a player bullet is closing in from below, jink aside + bob *)
+  FOR i := 0 TO NBullets-1 DO
+    IF bAct[i] THEN
+      dxb := bx[i] - saucerX; IF dxb < 0.0 THEN dxb := -dxb END;
+      IF (dxb < 34.0) AND (by[i] > saucerY) AND (by[i] < saucerY + 170.0) THEN
+        IF bx[i] < saucerX THEN saucerX := saucerX + 3.2 ELSE saucerX := saucerX - 3.2 END;
+        IF saucerY < 64.0 THEN saucerY := saucerY + 4.0 ELSE saucerY := saucerY - 3.0 END
+      END
+    END
+  END;
+  IF saucerY < 30.0 THEN saucerY := 30.0 END;
+  IF saucerY > 84.0 THEN saucerY := 84.0 END;
+  saucerX := saucerX + saucerDx; MoveTo(SaucerI, saucerX, saucerY);
+  (* drop a bomb (own slot pool) while crossing the field *)
+  IF (saucerX > 0.0) AND (saucerX < VAL(REAL, VW)) AND (frame MOD 22 = 0) THEN
+    placed := FALSE; i := 0;
+    WHILE (i < NSBombs) AND (NOT placed) DO
+      IF NOT sbombAct[i] THEN
+        sbombAct[i] := TRUE; sbombx[i] := saucerX; sbomby[i] := saucerY + 14.0;
+        Place(SBombBase+i, DBomb, sbombx[i], sbomby[i]); SetScale(SBombBase+i, 2.4); Show(SBombBase+i); placed := TRUE
+      END;
+      INC(i)
+    END
+  END;
   IF (saucerX < -80.0) OR (saucerX > 720.0) THEN
     saucerActive := 0; saucerTimer := 300 + Rnd(360); Hide(SaucerI)
   END
 END UpdateSaucer;
+
+PROCEDURE UpdateSaucerBombs;
+  VAR i: CARDINAL;
+BEGIN
+  FOR i := 0 TO NSBombs-1 DO
+    IF sbombAct[i] THEN
+      sbomby[i] := sbomby[i] + 4.0; MoveTo(SBombBase+i, sbombx[i], sbomby[i]);
+      IF sbomby[i] > 490.0 THEN sbombAct[i] := FALSE; Hide(SBombBase+i) END;
+      IF sbombAct[i] AND pAlive AND Hit(SBombBase+i, PlayerI) THEN
+        sbombAct[i] := FALSE; Hide(SBombBase+i); KillPlayer
+      END
+    END
+  END
+END UpdateSaucerBombs;
 
 PROCEDURE UpdateStars;
   VAR i: CARDINAL;
@@ -399,6 +457,7 @@ BEGIN
   DefineSprites;
   BuildMusic;
   ok := MidiOut.Startup();
+  MidiOut.Drone(89, 40, 48);   (* a soft warm-pad drone under the action (the "sustained" sound, on purpose) *)
   (* stars *)
   FOR i := 0 TO NStars-1 DO
     starY[i] := VAL(REAL, Rnd(VH));
@@ -418,7 +477,7 @@ BEGIN
       INC(stateTimer);
       IF (stateTimer > 150) OR gFire THEN state := StPlay; frame := 0 END
     ELSIF state = StPlay THEN
-      UpdatePlayer; UpdateEnemies; UpdateBombs; UpdateSaucer; UpdateBullets; UpdateExpl;
+      UpdatePlayer; UpdateEnemies; UpdateBombs; UpdateSaucer; UpdateSaucerBombs; UpdateBullets; UpdateExpl;
       INC(frame);
       IF (lives = 0) AND (NOT pAlive) THEN state := StOver; stateTimer := 0; PlayCue(mOver)
       ELSIF AllDead() THEN state := StWin; stateTimer := 0; PlayCue(mWin) END
