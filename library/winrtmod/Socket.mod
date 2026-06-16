@@ -183,6 +183,18 @@ BEGIN
   got := VAL(CARDINAL, r); RETURN TRUE
 END Recv;
 
+PROCEDURE RecvAll (s: Socket; buf: ADDRESS; len: CARDINAL): BOOLEAN;
+  VAR off, got: CARDINAL;
+BEGIN
+  off := 0;
+  WHILE off < len DO
+    IF NOT Recv(s, Off(buf, off), len - off, got) THEN RETURN FALSE END;
+    IF got = 0 THEN RETURN FALSE END;    (* peer closed before len bytes *)
+    INC(off, got)
+  END;
+  RETURN TRUE
+END RecvAll;
+
 PROCEDURE Close (VAR s: Socket);
   VAR r: INTEGER32;
 BEGIN

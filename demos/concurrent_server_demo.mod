@@ -32,8 +32,7 @@ END EchoHandler;
 
 (* send MsgLen bytes all equal to `fill`, read the echo back, verify integrity *)
 PROCEDURE EchoRoundTrip (fill: CARDINAL): BOOLEAN;
-  VAR s: Socket.Socket; sb, rb: ARRAY [0..MsgLen-1] OF BYTE;
-      i, got, total: CARDINAL; ok, eq: BOOLEAN;
+  VAR s: Socket.Socket; sb, rb: ARRAY [0..MsgLen-1] OF BYTE; i: CARDINAL; ok, eq: BOOLEAN;
 BEGIN
   i := 0; WHILE i < MsgLen DO sb[i] := VAL(BYTE, fill BAND 0FFH); INC(i) END;
   ok := FALSE; i := 0;
@@ -43,13 +42,8 @@ BEGIN
   END;
   IF NOT ok THEN RETURN FALSE END;
   IF NOT Socket.SendAll(s, ADR(sb), MsgLen) THEN Socket.Close(s); RETURN FALSE END;
-  (* TCP may deliver the echo in pieces — read until we have it all *)
-  total := 0;
-  WHILE total < MsgLen DO
-    IF NOT Socket.Recv(s, ADR(rb[total]), MsgLen - total, got) THEN Socket.Close(s); RETURN FALSE END;
-    IF got = 0 THEN Socket.Close(s); RETURN FALSE END;
-    INC(total, got)
-  END;
+  (* TCP is a stream — RecvAll reads back exactly MsgLen bytes however it fragments *)
+  IF NOT Socket.RecvAll(s, ADR(rb), MsgLen) THEN Socket.Close(s); RETURN FALSE END;
   Socket.Close(s);
   eq := TRUE; i := 0;
   WHILE (i < MsgLen) AND eq DO IF (ORD(rb[i]) BAND 0FFH) # (fill BAND 0FFH) THEN eq := FALSE END; INC(i) END;

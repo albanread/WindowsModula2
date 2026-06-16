@@ -30,7 +30,9 @@ PROCEDURE Accept  (server: Socket; VAR client: Socket): BOOLEAN;       (* blocks
 PROCEDURE Send    (s: Socket; data: ADDRESS; len: CARDINAL; VAR sent: CARDINAL): BOOLEAN;
 PROCEDURE SendAll (s: Socket; data: ADDRESS; len: CARDINAL): BOOLEAN;  (* loops until all len bytes are sent *)
 PROCEDURE Recv    (s: Socket; buf: ADDRESS; len: CARDINAL; VAR got: CARDINAL): BOOLEAN;
-                                        (* got=0 means the peer closed cleanly; FALSE = error *)
+                                        (* one stream read: got = bytes arrived (<= len, may be partial);
+                                           got=0 means the peer closed cleanly; FALSE = error *)
+PROCEDURE RecvAll (s: Socket; buf: ADDRESS; len: CARDINAL): BOOLEAN;   (* read EXACTLY len bytes; FALSE if peer closes first *)
 PROCEDURE Close   (VAR s: Socket);
 
 PROCEDURE LastError (): CARDINAL;       (* WSAGetLastError *)

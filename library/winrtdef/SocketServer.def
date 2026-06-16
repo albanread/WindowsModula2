@@ -34,7 +34,11 @@ PROCEDURE Run  (port: CARDINAL; handler: Handler): BOOLEAN;
 PROCEDURE Stop;                          (* ask Run to exit (callable from any thread or a handler) *)
 
 PROCEDURE Recv (c: Conn; buf: ADDRESS; len: CARDINAL; VAR got: CARDINAL): BOOLEAN;
-                                         (* async receive; got=0 means the peer closed; FALSE = error *)
+                                         (* one async stream read: got = bytes arrived (<= len, may be
+                                            partial); got=0 means the peer closed; FALSE = error *)
+PROCEDURE RecvAll (c: Conn; buf: ADDRESS; len: CARDINAL): BOOLEAN;
+                                         (* read EXACTLY len bytes (loops Recv); FALSE if the peer closes
+                                            first — for fixed-size / length-prefixed framing *)
 PROCEDURE Send (c: Conn; buf: ADDRESS; len: CARDINAL): BOOLEAN;   (* async send of all len bytes *)
 PROCEDURE Id   (c: Conn): CARDINAL;      (* a small per-connection id, for logging *)
 

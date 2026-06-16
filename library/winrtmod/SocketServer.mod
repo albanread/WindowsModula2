@@ -107,6 +107,21 @@ BEGIN
   RETURN TRUE
 END Send;
 
+(* TCP is a stream: Recv returns whatever has arrived (maybe a partial read).
+   RecvAll loops until exactly `len` bytes are in — for fixed-size / length-
+   prefixed framing. FALSE if the peer closes before `len` bytes (or on error). *)
+PROCEDURE RecvAll (c: Conn; buf: ADDRESS; len: CARDINAL): BOOLEAN;
+  VAR off, got: CARDINAL;
+BEGIN
+  off := 0;
+  WHILE off < len DO
+    IF NOT Recv(c, Off(buf, off), len - off, got) THEN RETURN FALSE END;
+    IF got = 0 THEN RETURN FALSE END;    (* peer closed before len bytes *)
+    INC(off, got)
+  END;
+  RETURN TRUE
+END RecvAll;
+
 (* a connection fiber: run the handler, then close + hand back to the dispatcher *)
 PROCEDURE FiberEntry (param: ADDRESS);
   VAR c: Conn; r: INTEGER32;
