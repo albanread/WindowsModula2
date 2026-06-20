@@ -88,3 +88,12 @@ Thumbs.db
 # here; kept on disk only). The Splitter Control is GPL-2.
 /library/win32def/SplitterControl.def
 /library/win32mod/SplitterControl.mod
+
+# FastPanesM2 IDE: assembled release + runtime scratch + harness snapshots (build output)
+/release/
+projects/FastPanesM2/snaps/
+projects/FastPanesM2/snap*.png
+projects/FastPanesM2/fastpanes_work.*
+projects/FastPanesM2/fastpanes_out.txt
+projects/FastPanesM2/fastpanes_drive.txt
+projects/FastPanesM2/__m2complete__.mod
