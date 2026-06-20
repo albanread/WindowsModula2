@@ -23,6 +23,19 @@ DEFINITION MODULE GameView;
 
 FROM SYSTEM IMPORT ADDRESS;
 
+TYPE Instance = ADDRESS;            (* an instanced indexed surface; NIL = none *)
+
+(* ---- instancing (S3): several indexed game surfaces coexist, each owning its
+   heap-allocated index framebuffer + scaled present buffer + 256-entry palette +
+   sprite set (the §0.4 mandate — the big buffers are off module globals). Every
+   singleton procedure below operates on the *current* instance (Use); an eager
+   default backs the legacy singleton API. Drawing + IndexAt work headlessly
+   (no window); Present needs Attach. ---- *)
+PROCEDURE Create  (w, h, scale: CARDINAL): Instance;   (* a drawable w x h indexed surface *)
+PROCEDURE Use     (i: Instance);                       (* make i current (NIL -> the default) *)
+PROCEDURE Free    (VAR i: Instance);                   (* destroy i; i := NIL (default never freed) *)
+PROCEDURE IndexAt (i: Instance; x, y: CARDINAL): CARDINAL;  (* per-instance palette-index read-back *)
+
 (* One-time init (no window needed): builds the font + default palette. *)
 PROCEDURE Startup (): BOOLEAN;
 

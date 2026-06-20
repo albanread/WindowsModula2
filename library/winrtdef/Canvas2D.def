@@ -24,6 +24,19 @@ DEFINITION MODULE Canvas2D;
 
 FROM SYSTEM IMPORT ADDRESS;
 
+TYPE Instance = ADDRESS;            (* an instanced canvas (own format + per-HWND target); NIL = none *)
+
+(* ---- instancing (S2): several canvases coexist, each with its own text format
+   and (after Attach) its own HWND render target + brush. The Direct2D factory
+   and the DirectWrite factory are shared singletons. Every singleton procedure
+   below operates on the *current* canvas (Use); an eager default backs the
+   legacy singleton API. Construction (factory + format) is headless-safe;
+   Attach/Begin/Flush/draw need a real window (D2D rejects HWND_MESSAGE). ---- *)
+PROCEDURE Create (): Instance;
+PROCEDURE Use    (i: Instance);
+PROCEDURE Free   (VAR i: Instance);
+PROCEDURE FormatReady (i: Instance): BOOLEAN;  (* per-instance read-back: the text format was created *)
+
 (* One-time init: the Direct2D factory and a default DirectWrite text format
    used by DrawText. FALSE on failure. *)
 PROCEDURE Startup (): BOOLEAN;

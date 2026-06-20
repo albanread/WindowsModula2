@@ -1,5 +1,17 @@
 IMPLEMENTATION MODULE Terminal;
 
+(* S1 (PaneShell): instanced. All per-instance state lives in a heap-allocated
+   InstRec (so the module's static sections stay tiny and two grids can coexist
+   — the §0.4 heap mandate). A module-global `gActive` points at the current
+   instance; every singleton procedure operates on `gActive^`. An eagerly-built
+   default instance (`gDefault`) backs the legacy singleton API, so `gActive` is
+   never NIL and existing callers behave exactly as before. Create/Use/Free
+   manage explicit instances; the CellxxxOf accessors read a given instance
+   regardless of which is current. *)
+
+FROM SYSTEM IMPORT ADDRESS, CAST, SIZE;
+FROM Storage IMPORT ALLOCATE, DEALLOCATE;
+
 CONST
   MaxCols  = 220;
   MaxRows  = 70;
@@ -20,30 +32,38 @@ TYPE
     colAt:   CARDINAL;           (* left edge of this title on the bar (set by MenuLayout) *)
   END;
 
+  (* one instance = the whole text-grid model + menu + event state *)
+  InstRec = RECORD
+    gChar: ARRAY [0..MaxRows-1], [0..MaxCols-1] OF CHAR;
+    gFg:   ARRAY [0..MaxRows-1], [0..MaxCols-1] OF Colour;
+    gBg:   ARRAY [0..MaxRows-1], [0..MaxCols-1] OF Colour;
+    gCols, gRows, gCurX, gCurY: CARDINAL;
+    gCurFg, gCurBg: Colour;
+
+    gMenu: ARRAY [0..MaxMenu-1] OF MenuRec;
+    gMenuCount, gMenuSel: CARDINAL;
+    gMenuOpen: BOOLEAN;
+    gMenuFocused: BOOLEAN;        (* highlight the selected title only when focused *)
+    gItemSel: CARDINAL;           (* highlighted item in the open drop-down *)
+
+    (* cells the open drop-down covers, saved so MenuClose can restore them *)
+    gSaveChar: ARRAY [0..PopMaxH-1], [0..PopMaxW-1] OF CHAR;
+    gSaveFg:   ARRAY [0..PopMaxH-1], [0..PopMaxW-1] OF Colour;
+    gSaveBg:   ARRAY [0..PopMaxH-1], [0..PopMaxW-1] OF Colour;
+    gSaveX, gSaveY, gSaveW, gSaveH: CARDINAL;
+    gSaveValid: BOOLEAN;
+
+    (* event ring buffer *)
+    gEv: ARRAY [0..MaxEvents-1] OF Event;
+    gEvHead, gEvLen: CARDINAL;
+  END;
+  InstPtr = POINTER TO InstRec;
+
 VAR
-  gChar: ARRAY [0..MaxRows-1], [0..MaxCols-1] OF CHAR;
-  gFg:   ARRAY [0..MaxRows-1], [0..MaxCols-1] OF Colour;
-  gBg:   ARRAY [0..MaxRows-1], [0..MaxCols-1] OF Colour;
-  gCols, gRows, gCurX, gCurY: CARDINAL;
-  gCurFg, gCurBg: Colour;
+  gActive:  InstPtr;             (* the current instance (never NIL) *)
+  gDefault: InstPtr;             (* backs the legacy singleton API; never freed *)
 
-  gMenu: ARRAY [0..MaxMenu-1] OF MenuRec;
-  gMenuCount, gMenuSel: CARDINAL;
-  gMenuOpen: BOOLEAN;
-  gMenuFocused: BOOLEAN;         (* highlight the selected title only when focused *)
-  gItemSel: CARDINAL;            (* highlighted item in the open drop-down *)
-
-  (* cells the open drop-down covers, saved so MenuClose can restore them *)
-  gSaveChar: ARRAY [0..PopMaxH-1], [0..PopMaxW-1] OF CHAR;
-  gSaveFg:   ARRAY [0..PopMaxH-1], [0..PopMaxW-1] OF Colour;
-  gSaveBg:   ARRAY [0..PopMaxH-1], [0..PopMaxW-1] OF Colour;
-  gSaveX, gSaveY, gSaveW, gSaveH: CARDINAL;
-  gSaveValid: BOOLEAN;
-
-  (* event ring buffer *)
-  gEv: ARRAY [0..MaxEvents-1] OF Event;
-  gEvHead, gEvLen: CARDINAL;
-
+(* ---- pure string helpers (instance-independent) ---- *)
 PROCEDURE StrLen (s: ARRAY OF CHAR): CARDINAL;
   VAR i: CARDINAL;
 BEGIN
@@ -62,85 +82,183 @@ BEGIN
   IF i <= HIGH(dst) THEN dst[i] := NUL END
 END CopyStr;
 
-PROCEDURE SetCell (row, col: CARDINAL; ch: CHAR; fg, bg: Colour);
-BEGIN
-  IF (row < gRows) AND (col < gCols) THEN
-    gChar[row][col] := ch; gFg[row][col] := fg; gBg[row][col] := bg
-  END
-END SetCell;
-
-PROCEDURE Cols (): CARDINAL; BEGIN RETURN gCols END Cols;
-PROCEDURE Rows (): CARDINAL; BEGIN RETURN gRows END Rows;
-PROCEDURE Fg (): Colour; BEGIN RETURN gCurFg END Fg;
-PROCEDURE Bg (): Colour; BEGIN RETURN gCurBg END Bg;
-PROCEDURE WhereX (): CARDINAL; BEGIN RETURN gCurX END WhereX;
-PROCEDURE WhereY (): CARDINAL; BEGIN RETURN gCurY END WhereY;
-
-PROCEDURE SetColour (fg, bg: Colour); BEGIN gCurFg := fg; gCurBg := bg END SetColour;
-
-PROCEDURE GotoXY (col, row: CARDINAL);
-BEGIN
-  IF col < gCols THEN gCurX := col END;
-  IF row < gRows THEN gCurY := row END
-END GotoXY;
-
-PROCEDURE Clear;
+(* ---- instance lifecycle ---- *)
+PROCEDURE ClearGrid (p: InstPtr);          (* fill p^'s grid with spaces in its colours; home cursor *)
   VAR r, c: CARDINAL;
 BEGIN
   r := 0;
-  WHILE r < gRows DO
+  WHILE r < p^.gRows DO
     c := 0;
-    WHILE c < gCols DO SetCell(r, c, ' ', gCurFg, gCurBg); INC(c) END;
+    WHILE c < p^.gCols DO
+      p^.gChar[r][c] := ' '; p^.gFg[r][c] := p^.gCurFg; p^.gBg[r][c] := p^.gCurBg;
+      INC(c)
+    END;
     INC(r)
   END;
-  gCurX := 0; gCurY := 0
+  p^.gCurX := 0; p^.gCurY := 0
+END ClearGrid;
+
+PROCEDURE ResetInst (p: InstPtr; cols, rows: CARDINAL);  (* size + clear + reset all state *)
+BEGIN
+  IF cols > MaxCols THEN cols := MaxCols ELSIF cols < 1 THEN cols := 1 END;
+  IF rows > MaxRows THEN rows := MaxRows ELSIF rows < 1 THEN rows := 1 END;
+  p^.gCols := cols; p^.gRows := rows;
+  p^.gCurFg := White; p^.gCurBg := Black;
+  p^.gCurX := 0; p^.gCurY := 0;
+  p^.gMenuCount := 0; p^.gMenuSel := 0; p^.gMenuOpen := FALSE; p^.gItemSel := 0;
+  p^.gMenuFocused := TRUE;        (* default on, for consumers that don't manage focus *)
+  p^.gSaveValid := FALSE;
+  p^.gEvHead := 0; p^.gEvLen := 0;
+  ClearGrid(p)
+END ResetInst;
+
+PROCEDURE NewInst (cols, rows: CARDINAL): InstPtr;
+  VAR a: ADDRESS; p: InstPtr;
+BEGIN
+  a := NIL; ALLOCATE(a, SIZE(InstRec));
+  p := CAST(InstPtr, a);
+  ResetInst(p, cols, rows);
+  RETURN p
+END NewInst;
+
+PROCEDURE Create (cols, rows: CARDINAL): Instance;
+BEGIN
+  RETURN CAST(Instance, NewInst(cols, rows))
+END Create;
+
+PROCEDURE Use (i: Instance);
+BEGIN
+  IF i = NIL THEN gActive := gDefault ELSE gActive := CAST(InstPtr, i) END
+END Use;
+
+PROCEDURE Free (VAR i: Instance);
+  VAR p: InstPtr;
+BEGIN
+  IF i # NIL THEN
+    p := CAST(InstPtr, i);
+    IF p = gActive THEN gActive := gDefault END;
+    IF p # gDefault THEN DEALLOCATE(i, SIZE(InstRec)) END;
+    i := NIL
+  END
+END Free;
+
+PROCEDURE CellCharOf (i: Instance; col, row: CARDINAL): CHAR;
+  VAR p: InstPtr;
+BEGIN
+  IF i = NIL THEN RETURN ' ' END;
+  p := CAST(InstPtr, i);
+  IF (row < p^.gRows) AND (col < p^.gCols) THEN RETURN p^.gChar[row][col] END;
+  RETURN ' '
+END CellCharOf;
+
+PROCEDURE CellFgOf (i: Instance; col, row: CARDINAL): Colour;
+  VAR p: InstPtr;
+BEGIN
+  IF i = NIL THEN RETURN White END;
+  p := CAST(InstPtr, i);
+  IF (row < p^.gRows) AND (col < p^.gCols) THEN RETURN p^.gFg[row][col] END;
+  RETURN p^.gCurFg
+END CellFgOf;
+
+PROCEDURE CellBgOf (i: Instance; col, row: CARDINAL): Colour;
+  VAR p: InstPtr;
+BEGIN
+  IF i = NIL THEN RETURN Black END;
+  p := CAST(InstPtr, i);
+  IF (row < p^.gRows) AND (col < p^.gCols) THEN RETURN p^.gBg[row][col] END;
+  RETURN p^.gCurBg
+END CellBgOf;
+
+(* ---- the singleton API: every proc below operates on gActive^ ---- *)
+PROCEDURE SetCell (row, col: CARDINAL; ch: CHAR; fg, bg: Colour);
+BEGIN
+  IF (row < gActive^.gRows) AND (col < gActive^.gCols) THEN
+    gActive^.gChar[row][col] := ch; gActive^.gFg[row][col] := fg; gActive^.gBg[row][col] := bg
+  END
+END SetCell;
+
+PROCEDURE Cols (): CARDINAL; BEGIN RETURN gActive^.gCols END Cols;
+PROCEDURE Rows (): CARDINAL; BEGIN RETURN gActive^.gRows END Rows;
+PROCEDURE Fg (): Colour; BEGIN RETURN gActive^.gCurFg END Fg;
+PROCEDURE Bg (): Colour; BEGIN RETURN gActive^.gCurBg END Bg;
+PROCEDURE WhereX (): CARDINAL; BEGIN RETURN gActive^.gCurX END WhereX;
+PROCEDURE WhereY (): CARDINAL; BEGIN RETURN gActive^.gCurY END WhereY;
+
+PROCEDURE SetColour (fg, bg: Colour); BEGIN gActive^.gCurFg := fg; gActive^.gCurBg := bg END SetColour;
+
+PROCEDURE GotoXY (col, row: CARDINAL);
+BEGIN
+  IF col < gActive^.gCols THEN gActive^.gCurX := col END;
+  IF row < gActive^.gRows THEN gActive^.gCurY := row END
+END GotoXY;
+
+PROCEDURE Clear;
+BEGIN
+  ClearGrid(gActive)
 END Clear;
 
 PROCEDURE Init (cols, rows: CARDINAL);
 BEGIN
+  ResetInst(gActive, cols, rows)
+END Init;
+
+(* Resize the active grid in place WITHOUT clearing existing cells — for
+   reflow-on-resize (the window grew/shrank). A grow blanks only the
+   newly-exposed region (the buffer past the old active size is uninitialised);
+   content within the overlap is preserved and the caller re-renders. *)
+PROCEDURE SetSize (cols, rows: CARDINAL);
+  VAR p: InstPtr; r, c, oldC, oldR: CARDINAL;
+BEGIN
+  p := gActive;
   IF cols > MaxCols THEN cols := MaxCols ELSIF cols < 1 THEN cols := 1 END;
   IF rows > MaxRows THEN rows := MaxRows ELSIF rows < 1 THEN rows := 1 END;
-  gCols := cols; gRows := rows;
-  gCurFg := White; gCurBg := Black;
-  gMenuCount := 0; gMenuSel := 0; gMenuOpen := FALSE; gItemSel := 0;
-  gMenuFocused := TRUE;          (* default on, for consumers that don't manage focus *)
-  gSaveValid := FALSE;
-  gEvHead := 0; gEvLen := 0;
-  Clear
-END Init;
+  oldC := p^.gCols; oldR := p^.gRows;
+  p^.gCols := cols; p^.gRows := rows;            (* set first: SetCell guards on the active bounds *)
+  r := 0;
+  WHILE r < rows DO
+    c := 0;
+    WHILE c < cols DO
+      IF (r >= oldR) OR (c >= oldC) THEN SetCell(r, c, ' ', p^.gCurFg, p^.gCurBg) END;
+      INC(c)
+    END;
+    INC(r)
+  END;
+  IF p^.gCurX >= cols THEN p^.gCurX := cols - 1 END;
+  IF p^.gCurY >= rows THEN p^.gCurY := rows - 1 END
+END SetSize;
 
 PROCEDURE ScrollUp;
   VAR r, c: CARDINAL;
 BEGIN
   r := 0;
-  WHILE r < gRows - 1 DO
+  WHILE r < gActive^.gRows - 1 DO
     c := 0;
-    WHILE c < gCols DO
-      gChar[r][c] := gChar[r+1][c];
-      gFg[r][c]   := gFg[r+1][c];
-      gBg[r][c]   := gBg[r+1][c];
+    WHILE c < gActive^.gCols DO
+      gActive^.gChar[r][c] := gActive^.gChar[r+1][c];
+      gActive^.gFg[r][c]   := gActive^.gFg[r+1][c];
+      gActive^.gBg[r][c]   := gActive^.gBg[r+1][c];
       INC(c)
     END;
     INC(r)
   END;
   c := 0;
-  WHILE c < gCols DO SetCell(gRows-1, c, ' ', gCurFg, gCurBg); INC(c) END
+  WHILE c < gActive^.gCols DO SetCell(gActive^.gRows-1, c, ' ', gActive^.gCurFg, gActive^.gCurBg); INC(c) END
 END ScrollUp;
 
 PROCEDURE NewLineDown;
 BEGIN
-  INC(gCurY);
-  IF gCurY >= gRows THEN ScrollUp; gCurY := gRows - 1 END
+  INC(gActive^.gCurY);
+  IF gActive^.gCurY >= gActive^.gRows THEN ScrollUp; gActive^.gCurY := gActive^.gRows - 1 END
 END NewLineDown;
 
 PROCEDURE Put (ch: CHAR);
 BEGIN
-  IF ch = CHR(13) THEN gCurX := 0
-  ELSIF ch = CHR(10) THEN gCurX := 0; NewLineDown
+  IF ch = CHR(13) THEN gActive^.gCurX := 0
+  ELSIF ch = CHR(10) THEN gActive^.gCurX := 0; NewLineDown
   ELSE
-    SetCell(gCurY, gCurX, ch, gCurFg, gCurBg);
-    INC(gCurX);
-    IF gCurX >= gCols THEN gCurX := 0; NewLineDown END
+    SetCell(gActive^.gCurY, gActive^.gCurX, ch, gActive^.gCurFg, gActive^.gCurBg);
+    INC(gActive^.gCurX);
+    IF gActive^.gCurX >= gActive^.gCols THEN gActive^.gCurX := 0; NewLineDown END
   END
 END Put;
 
@@ -160,7 +278,7 @@ PROCEDURE WriteColAt (col, row: CARDINAL; fg, bg: Colour; s: ARRAY OF CHAR);
   VAR i: CARDINAL;
 BEGIN
   i := 0;
-  WHILE (i <= HIGH(s)) AND (s[i] # NUL) AND (col + i < gCols) DO
+  WHILE (i <= HIGH(s)) AND (s[i] # NUL) AND (col + i < gActive^.gCols) DO
     SetCell(row, col + i, s[i], fg, bg);
     INC(i)
   END
@@ -210,30 +328,30 @@ END Box;
 
 PROCEDURE CellChar (col, row: CARDINAL): CHAR;
 BEGIN
-  IF (row < gRows) AND (col < gCols) THEN RETURN gChar[row][col] END;
+  IF (row < gActive^.gRows) AND (col < gActive^.gCols) THEN RETURN gActive^.gChar[row][col] END;
   RETURN ' '
 END CellChar;
 
 PROCEDURE CellFg (col, row: CARDINAL): Colour;
 BEGIN
-  IF (row < gRows) AND (col < gCols) THEN RETURN gFg[row][col] END;
-  RETURN gCurFg
+  IF (row < gActive^.gRows) AND (col < gActive^.gCols) THEN RETURN gActive^.gFg[row][col] END;
+  RETURN gActive^.gCurFg
 END CellFg;
 
 PROCEDURE CellBg (col, row: CARDINAL): Colour;
 BEGIN
-  IF (row < gRows) AND (col < gCols) THEN RETURN gBg[row][col] END;
-  RETURN gCurBg
+  IF (row < gActive^.gRows) AND (col < gActive^.gCols) THEN RETURN gActive^.gBg[row][col] END;
+  RETURN gActive^.gCurBg
 END CellBg;
 
 (* ---- status bar ---- *)
 PROCEDURE SetStatusColour (s: ARRAY OF CHAR; fg, bg: Colour);
   VAR c, n, row: CARDINAL;
 BEGIN
-  row := gRows - 1;
+  row := gActive^.gRows - 1;
   n := StrLen(s);
   c := 0;
-  WHILE c < gCols DO
+  WHILE c < gActive^.gCols DO
     IF c < n THEN SetCell(row, c, s[c], fg, bg)
     ELSE SetCell(row, c, ' ', fg, bg) END;
     INC(c)
@@ -245,18 +363,18 @@ BEGIN SetStatusColour(s, White, Navy) END SetStatus;
 
 (* ---- menu bar ---- *)
 PROCEDURE MenuClear;
-BEGIN gMenuCount := 0; gMenuSel := 0; gMenuOpen := FALSE; gSaveValid := FALSE END MenuClear;
+BEGIN gActive^.gMenuCount := 0; gActive^.gMenuSel := 0; gActive^.gMenuOpen := FALSE; gActive^.gSaveValid := FALSE END MenuClear;
 
-PROCEDURE MenuCount (): CARDINAL; BEGIN RETURN gMenuCount END MenuCount;
-PROCEDURE MenuSelected (): CARDINAL; BEGIN RETURN gMenuSel END MenuSelected;
+PROCEDURE MenuCount (): CARDINAL; BEGIN RETURN gActive^.gMenuCount END MenuCount;
+PROCEDURE MenuSelected (): CARDINAL; BEGIN RETURN gActive^.gMenuSel END MenuSelected;
 
 PROCEDURE MenuAdd (title: ARRAY OF CHAR);
 BEGIN
-  IF gMenuCount >= MaxMenu THEN RETURN END;
-  CopyStr(title, gMenu[gMenuCount].title, TitleHi);
-  gMenu[gMenuCount].enabled := TRUE;
-  gMenu[gMenuCount].nItems := 0;
-  INC(gMenuCount)
+  IF gActive^.gMenuCount >= MaxMenu THEN RETURN END;
+  CopyStr(title, gActive^.gMenu[gActive^.gMenuCount].title, TitleHi);
+  gActive^.gMenu[gActive^.gMenuCount].enabled := TRUE;
+  gActive^.gMenu[gActive^.gMenuCount].nItems := 0;
+  INC(gActive^.gMenuCount)
 END MenuAdd;
 
 (* lay out each title's left column (and so the drop-down origin) without drawing *)
@@ -264,10 +382,10 @@ PROCEDURE MenuLayout;
   VAR i, col: CARDINAL;
 BEGIN
   col := 1; i := 0;
-  WHILE i < gMenuCount DO
-    gMenu[i].colAt := col;
+  WHILE i < gActive^.gMenuCount DO
+    gActive^.gMenu[i].colAt := col;
     INC(col);                              (* leading pad *)
-    col := col + StrLen(gMenu[i].title);   (* title *)
+    col := col + StrLen(gActive^.gMenu[i].title);   (* title *)
     INC(col);                              (* trailing pad *)
     INC(col);                              (* gap before the next menu *)
     INC(i)
@@ -279,20 +397,20 @@ PROCEDURE PopupGeom (VAR px, py, pw, ph: CARDINAL);
   VAR i, tl, maxw: CARDINAL;
 BEGIN
   maxw := 0; i := 0;
-  WHILE i < gMenu[gMenuSel].nItems DO
-    tl := StrLen(gMenu[gMenuSel].items[i]);
+  WHILE i < gActive^.gMenu[gActive^.gMenuSel].nItems DO
+    tl := StrLen(gActive^.gMenu[gActive^.gMenuSel].items[i]);
     IF tl > maxw THEN maxw := tl END;
     INC(i)
   END;
   pw := maxw + 4;                          (* border (2) + one pad each side *)
   IF pw < 4 THEN pw := 4 END;
   IF pw > PopMaxW THEN pw := PopMaxW END;
-  ph := gMenu[gMenuSel].nItems + 2;        (* top + bottom border *)
+  ph := gActive^.gMenu[gActive^.gMenuSel].nItems + 2;        (* top + bottom border *)
   IF ph > PopMaxH THEN ph := PopMaxH END;
-  px := gMenu[gMenuSel].colAt;
+  px := gActive^.gMenu[gActive^.gMenuSel].colAt;
   py := 1;
-  IF px + pw > gCols THEN
-    IF pw <= gCols THEN px := gCols - pw ELSE px := 0 END
+  IF px + pw > gActive^.gCols THEN
+    IF pw <= gActive^.gCols THEN px := gActive^.gCols - pw ELSE px := 0 END
   END
 END PopupGeom;
 
@@ -303,13 +421,13 @@ BEGIN
   Box(px, py, pw, ph, Black, Silver);
   Fill(px + 1, py + 1, pw - 2, ph - 2, ' ', Black, Silver);
   i := 0;
-  WHILE i < gMenu[gMenuSel].nItems DO
-    IF i = gItemSel THEN fg := White; bg := Navy ELSE fg := Black; bg := Silver END;
+  WHILE i < gActive^.gMenu[gActive^.gMenuSel].nItems DO
+    IF i = gActive^.gItemSel THEN fg := White; bg := Navy ELSE fg := Black; bg := Silver END;
     col := px + 1;
     SetCell(py + 1 + i, col, ' ', fg, bg); INC(col);
-    tl := StrLen(gMenu[gMenuSel].items[i]); j := 0;
+    tl := StrLen(gActive^.gMenu[gActive^.gMenuSel].items[i]); j := 0;
     WHILE (j < tl) AND (col < px + pw - 1) DO
-      SetCell(py + 1 + i, col, gMenu[gMenuSel].items[i][j], fg, bg);
+      SetCell(py + 1 + i, col, gActive^.gMenu[gActive^.gMenuSel].items[i][j], fg, bg);
       INC(col); INC(j)
     END;
     WHILE col < px + pw - 1 DO SetCell(py + 1 + i, col, ' ', fg, bg); INC(col) END;
@@ -322,8 +440,8 @@ PROCEDURE MenuBarHit (col: CARDINAL): CARDINAL;
 BEGIN
   MenuLayout;
   i := 0;
-  WHILE i < gMenuCount DO
-    IF (col >= gMenu[i].colAt) AND (col < gMenu[i].colAt + StrLen(gMenu[i].title) + 2) THEN
+  WHILE i < gActive^.gMenuCount DO
+    IF (col >= gActive^.gMenu[i].colAt) AND (col < gActive^.gMenu[i].colAt + StrLen(gActive^.gMenu[i].title) + 2) THEN
       RETURN i
     END;
     INC(i)
@@ -334,9 +452,9 @@ END MenuBarHit;
 PROCEDURE MenuPopupHit (col, row: CARDINAL): CARDINAL;
   VAR px, py, pw, ph: CARDINAL;
 BEGIN
-  IF NOT gMenuOpen THEN RETURN MAX(CARDINAL) END;
+  IF NOT gActive^.gMenuOpen THEN RETURN MAX(CARDINAL) END;
   PopupGeom(px, py, pw, ph);
-  IF (row >= py + 1) AND (row <= py + gMenu[gMenuSel].nItems) AND
+  IF (row >= py + 1) AND (row <= py + gActive^.gMenu[gActive^.gMenuSel].nItems) AND
      (col >= px) AND (col < px + pw) THEN
     RETURN row - (py + 1)
   END;
@@ -346,94 +464,94 @@ END MenuPopupHit;
 PROCEDURE MenuClose;
   VAR r, c: CARDINAL;
 BEGIN
-  IF NOT gMenuOpen THEN RETURN END;
-  gMenuOpen := FALSE;
-  IF gSaveValid THEN
+  IF NOT gActive^.gMenuOpen THEN RETURN END;
+  gActive^.gMenuOpen := FALSE;
+  IF gActive^.gSaveValid THEN
     r := 0;
-    WHILE r < gSaveH DO
+    WHILE r < gActive^.gSaveH DO
       c := 0;
-      WHILE c < gSaveW DO
-        SetCell(gSaveY + r, gSaveX + c, gSaveChar[r][c], gSaveFg[r][c], gSaveBg[r][c]);
+      WHILE c < gActive^.gSaveW DO
+        SetCell(gActive^.gSaveY + r, gActive^.gSaveX + c, gActive^.gSaveChar[r][c], gActive^.gSaveFg[r][c], gActive^.gSaveBg[r][c]);
         INC(c)
       END;
       INC(r)
     END;
-    gSaveValid := FALSE
+    gActive^.gSaveValid := FALSE
   END
 END MenuClose;
 
 PROCEDURE MenuOpen;
   VAR px, py, pw, ph, r, c: CARDINAL;
 BEGIN
-  IF gMenuOpen THEN RETURN END;
-  IF gMenuSel >= gMenuCount THEN RETURN END;
-  IF NOT gMenu[gMenuSel].enabled THEN RETURN END;
-  IF gMenu[gMenuSel].nItems = 0 THEN RETURN END;
+  IF gActive^.gMenuOpen THEN RETURN END;
+  IF gActive^.gMenuSel >= gActive^.gMenuCount THEN RETURN END;
+  IF NOT gActive^.gMenu[gActive^.gMenuSel].enabled THEN RETURN END;
+  IF gActive^.gMenu[gActive^.gMenuSel].nItems = 0 THEN RETURN END;
   MenuLayout;
   PopupGeom(px, py, pw, ph);
-  gSaveX := px; gSaveY := py; gSaveW := pw; gSaveH := ph;
+  gActive^.gSaveX := px; gActive^.gSaveY := py; gActive^.gSaveW := pw; gActive^.gSaveH := ph;
   r := 0;
   WHILE r < ph DO
     c := 0;
     WHILE c < pw DO
-      gSaveChar[r][c] := CellChar(px + c, py + r);
-      gSaveFg[r][c]   := CellFg(px + c, py + r);
-      gSaveBg[r][c]   := CellBg(px + c, py + r);
+      gActive^.gSaveChar[r][c] := CellChar(px + c, py + r);
+      gActive^.gSaveFg[r][c]   := CellFg(px + c, py + r);
+      gActive^.gSaveBg[r][c]   := CellBg(px + c, py + r);
       INC(c)
     END;
     INC(r)
   END;
-  gSaveValid := TRUE;
-  gItemSel := 0;
-  gMenuOpen := TRUE
+  gActive^.gSaveValid := TRUE;
+  gActive^.gItemSel := 0;
+  gActive^.gMenuOpen := TRUE
 END MenuOpen;
 
 PROCEDURE MenuSetFocus (on: BOOLEAN);
-BEGIN gMenuFocused := on END MenuSetFocus;
+BEGIN gActive^.gMenuFocused := on END MenuSetFocus;
 
 PROCEDURE MenuRender;
   VAR i, col, j, tl: CARDINAL; fg, bg: Colour;
 BEGIN
   MenuLayout;
   col := 0;
-  WHILE col < gCols DO SetCell(0, col, ' ', Black, Silver); INC(col) END;
+  WHILE col < gActive^.gCols DO SetCell(0, col, ' ', Black, Silver); INC(col) END;
   i := 0;
-  WHILE i < gMenuCount DO
-    IF NOT gMenu[i].enabled THEN fg := Gray; bg := Silver
-    ELSIF (i = gMenuSel) AND gMenuFocused THEN fg := White; bg := Navy
+  WHILE i < gActive^.gMenuCount DO
+    IF NOT gActive^.gMenu[i].enabled THEN fg := Gray; bg := Silver
+    ELSIF (i = gActive^.gMenuSel) AND gActive^.gMenuFocused THEN fg := White; bg := Navy
     ELSE fg := Black; bg := Silver END;
-    col := gMenu[i].colAt;
-    IF col < gCols THEN SetCell(0, col, ' ', fg, bg) END;
+    col := gActive^.gMenu[i].colAt;
+    IF col < gActive^.gCols THEN SetCell(0, col, ' ', fg, bg) END;
     INC(col);
-    tl := StrLen(gMenu[i].title); j := 0;
-    WHILE (j < tl) AND (col < gCols) DO SetCell(0, col, gMenu[i].title[j], fg, bg); INC(col); INC(j) END;
-    IF col < gCols THEN SetCell(0, col, ' ', fg, bg) END;
+    tl := StrLen(gActive^.gMenu[i].title); j := 0;
+    WHILE (j < tl) AND (col < gActive^.gCols) DO SetCell(0, col, gActive^.gMenu[i].title[j], fg, bg); INC(col); INC(j) END;
+    IF col < gActive^.gCols THEN SetCell(0, col, ' ', fg, bg) END;
     INC(i)
   END;
-  IF gMenuOpen THEN DrawDropdown END
+  IF gActive^.gMenuOpen THEN DrawDropdown END
 END MenuRender;
 
 (* move the highlight, carrying an open drop-down with it *)
 PROCEDURE MoveSelTo (index: CARDINAL);
   VAR wasOpen: BOOLEAN;
 BEGIN
-  wasOpen := gMenuOpen;
+  wasOpen := gActive^.gMenuOpen;
   IF wasOpen THEN MenuClose END;
-  gMenuSel := index;
+  gActive^.gMenuSel := index;
   IF wasOpen THEN MenuOpen END
 END MoveSelTo;
 
 PROCEDURE MenuSelect (index: CARDINAL);
-BEGIN IF index < gMenuCount THEN MoveSelTo(index) END END MenuSelect;
+BEGIN IF index < gActive^.gMenuCount THEN MoveSelTo(index) END END MenuSelect;
 
 PROCEDURE MenuNext (): BOOLEAN;
   VAR i: CARDINAL;
 BEGIN
-  IF gMenuCount = 0 THEN RETURN FALSE END;
-  i := gMenuSel;
-  WHILE i + 1 < gMenuCount DO
+  IF gActive^.gMenuCount = 0 THEN RETURN FALSE END;
+  i := gActive^.gMenuSel;
+  WHILE i + 1 < gActive^.gMenuCount DO
     INC(i);
-    IF gMenu[i].enabled THEN MoveSelTo(i); RETURN TRUE END
+    IF gActive^.gMenu[i].enabled THEN MoveSelTo(i); RETURN TRUE END
   END;
   RETURN FALSE
 END MenuNext;
@@ -441,11 +559,11 @@ END MenuNext;
 PROCEDURE MenuPrev (): BOOLEAN;
   VAR i: CARDINAL;
 BEGIN
-  IF (gMenuCount = 0) OR (gMenuSel = 0) THEN RETURN FALSE END;
-  i := gMenuSel;
+  IF (gActive^.gMenuCount = 0) OR (gActive^.gMenuSel = 0) THEN RETURN FALSE END;
+  i := gActive^.gMenuSel;
   WHILE i > 0 DO
     DEC(i);
-    IF gMenu[i].enabled THEN MoveSelTo(i); RETURN TRUE END
+    IF gActive^.gMenu[i].enabled THEN MoveSelTo(i); RETURN TRUE END
   END;
   RETURN FALSE
 END MenuPrev;
@@ -454,27 +572,27 @@ PROCEDURE MenuTitle (index: CARDINAL; VAR s: ARRAY OF CHAR);
   VAR i: CARDINAL;
 BEGIN
   i := 0;
-  IF index < gMenuCount THEN
-    WHILE (i < HIGH(s)) AND (gMenu[index].title[i] # NUL) DO s[i] := gMenu[index].title[i]; INC(i) END
+  IF index < gActive^.gMenuCount THEN
+    WHILE (i < HIGH(s)) AND (gActive^.gMenu[index].title[i] # NUL) DO s[i] := gActive^.gMenu[index].title[i]; INC(i) END
   END;
   s[i] := NUL
 END MenuTitle;
 
 PROCEDURE MenuSetTitle (index: CARDINAL; title: ARRAY OF CHAR);
-BEGIN IF index < gMenuCount THEN CopyStr(title, gMenu[index].title, TitleHi) END END MenuSetTitle;
+BEGIN IF index < gActive^.gMenuCount THEN CopyStr(title, gActive^.gMenu[index].title, TitleHi) END END MenuSetTitle;
 
 (* field-by-field copy of one menu slot (avoids whole-record-with-array assign) *)
 PROCEDURE MenuSlotCopy (dst, src: CARDINAL);
   VAR i, j: CARDINAL;
 BEGIN
   i := 0;
-  WHILE i <= TitleHi DO gMenu[dst].title[i] := gMenu[src].title[i]; INC(i) END;
-  gMenu[dst].enabled := gMenu[src].enabled;
-  gMenu[dst].nItems := gMenu[src].nItems;
+  WHILE i <= TitleHi DO gActive^.gMenu[dst].title[i] := gActive^.gMenu[src].title[i]; INC(i) END;
+  gActive^.gMenu[dst].enabled := gActive^.gMenu[src].enabled;
+  gActive^.gMenu[dst].nItems := gActive^.gMenu[src].nItems;
   i := 0;
   WHILE i < MaxItems DO
     j := 0;
-    WHILE j <= TitleHi DO gMenu[dst].items[i][j] := gMenu[src].items[i][j]; INC(j) END;
+    WHILE j <= TitleHi DO gActive^.gMenu[dst].items[i][j] := gActive^.gMenu[src].items[i][j]; INC(j) END;
     INC(i)
   END
 END MenuSlotCopy;
@@ -482,55 +600,55 @@ END MenuSlotCopy;
 PROCEDURE MenuInsert (index: CARDINAL; title: ARRAY OF CHAR);
   VAR i: CARDINAL;
 BEGIN
-  IF gMenuCount >= MaxMenu THEN RETURN END;
-  IF index > gMenuCount THEN index := gMenuCount END;
-  IF gMenuOpen THEN MenuClose END;
-  i := gMenuCount;
+  IF gActive^.gMenuCount >= MaxMenu THEN RETURN END;
+  IF index > gActive^.gMenuCount THEN index := gActive^.gMenuCount END;
+  IF gActive^.gMenuOpen THEN MenuClose END;
+  i := gActive^.gMenuCount;
   WHILE i > index DO MenuSlotCopy(i, i - 1); DEC(i) END;
-  CopyStr(title, gMenu[index].title, TitleHi);
-  gMenu[index].enabled := TRUE;
-  gMenu[index].nItems := 0;
-  INC(gMenuCount);
-  IF gMenuSel >= gMenuCount THEN gMenuSel := gMenuCount - 1 END
+  CopyStr(title, gActive^.gMenu[index].title, TitleHi);
+  gActive^.gMenu[index].enabled := TRUE;
+  gActive^.gMenu[index].nItems := 0;
+  INC(gActive^.gMenuCount);
+  IF gActive^.gMenuSel >= gActive^.gMenuCount THEN gActive^.gMenuSel := gActive^.gMenuCount - 1 END
 END MenuInsert;
 
 PROCEDURE MenuRemove (index: CARDINAL);
   VAR i: CARDINAL;
 BEGIN
-  IF index >= gMenuCount THEN RETURN END;
-  IF gMenuOpen THEN MenuClose END;
+  IF index >= gActive^.gMenuCount THEN RETURN END;
+  IF gActive^.gMenuOpen THEN MenuClose END;
   i := index;
-  WHILE i + 1 < gMenuCount DO MenuSlotCopy(i, i + 1); INC(i) END;
-  DEC(gMenuCount);
-  IF gMenuCount = 0 THEN gMenuSel := 0
-  ELSIF gMenuSel >= gMenuCount THEN gMenuSel := gMenuCount - 1 END
+  WHILE i + 1 < gActive^.gMenuCount DO MenuSlotCopy(i, i + 1); INC(i) END;
+  DEC(gActive^.gMenuCount);
+  IF gActive^.gMenuCount = 0 THEN gActive^.gMenuSel := 0
+  ELSIF gActive^.gMenuSel >= gActive^.gMenuCount THEN gActive^.gMenuSel := gActive^.gMenuCount - 1 END
 END MenuRemove;
 
 PROCEDURE MenuEnable (index: CARDINAL; on: BOOLEAN);
-BEGIN IF index < gMenuCount THEN gMenu[index].enabled := on END END MenuEnable;
+BEGIN IF index < gActive^.gMenuCount THEN gActive^.gMenu[index].enabled := on END END MenuEnable;
 
 PROCEDURE MenuEnabled (index: CARDINAL): BOOLEAN;
-BEGIN IF index < gMenuCount THEN RETURN gMenu[index].enabled END; RETURN FALSE END MenuEnabled;
+BEGIN IF index < gActive^.gMenuCount THEN RETURN gActive^.gMenu[index].enabled END; RETURN FALSE END MenuEnabled;
 
 (* ---- drop-down items ---- *)
 PROCEDURE MenuAddItem (menu: CARDINAL; text: ARRAY OF CHAR);
 BEGIN
-  IF (menu < gMenuCount) AND (gMenu[menu].nItems < MaxItems) THEN
-    CopyStr(text, gMenu[menu].items[gMenu[menu].nItems], TitleHi);
-    INC(gMenu[menu].nItems)
+  IF (menu < gActive^.gMenuCount) AND (gActive^.gMenu[menu].nItems < MaxItems) THEN
+    CopyStr(text, gActive^.gMenu[menu].items[gActive^.gMenu[menu].nItems], TitleHi);
+    INC(gActive^.gMenu[menu].nItems)
   END
 END MenuAddItem;
 
 PROCEDURE MenuItemCount (menu: CARDINAL): CARDINAL;
-BEGIN IF menu < gMenuCount THEN RETURN gMenu[menu].nItems END; RETURN 0 END MenuItemCount;
+BEGIN IF menu < gActive^.gMenuCount THEN RETURN gActive^.gMenu[menu].nItems END; RETURN 0 END MenuItemCount;
 
 PROCEDURE MenuItemText (menu, item: CARDINAL; VAR s: ARRAY OF CHAR);
   VAR i: CARDINAL;
 BEGIN
   i := 0;
-  IF (menu < gMenuCount) AND (item < gMenu[menu].nItems) THEN
-    WHILE (i < HIGH(s)) AND (gMenu[menu].items[item][i] # NUL) DO
-      s[i] := gMenu[menu].items[item][i]; INC(i)
+  IF (menu < gActive^.gMenuCount) AND (item < gActive^.gMenu[menu].nItems) THEN
+    WHILE (i < HIGH(s)) AND (gActive^.gMenu[menu].items[item][i] # NUL) DO
+      s[i] := gActive^.gMenu[menu].items[item][i]; INC(i)
     END
   END;
   s[i] := NUL
@@ -538,33 +656,33 @@ END MenuItemText;
 
 PROCEDURE MenuSetItem (menu, item: CARDINAL; text: ARRAY OF CHAR);
 BEGIN
-  IF (menu < gMenuCount) AND (item < gMenu[menu].nItems) THEN
-    CopyStr(text, gMenu[menu].items[item], TitleHi)
+  IF (menu < gActive^.gMenuCount) AND (item < gActive^.gMenu[menu].nItems) THEN
+    CopyStr(text, gActive^.gMenu[menu].items[item], TitleHi)
   END
 END MenuSetItem;
 
 PROCEDURE MenuClearItems (menu: CARDINAL);
-BEGIN IF menu < gMenuCount THEN gMenu[menu].nItems := 0 END END MenuClearItems;
+BEGIN IF menu < gActive^.gMenuCount THEN gActive^.gMenu[menu].nItems := 0 END END MenuClearItems;
 
-PROCEDURE MenuIsOpen (): BOOLEAN; BEGIN RETURN gMenuOpen END MenuIsOpen;
-PROCEDURE MenuItemSelected (): CARDINAL; BEGIN RETURN gItemSel END MenuItemSelected;
+PROCEDURE MenuIsOpen (): BOOLEAN; BEGIN RETURN gActive^.gMenuOpen END MenuIsOpen;
+PROCEDURE MenuItemSelected (): CARDINAL; BEGIN RETURN gActive^.gItemSel END MenuItemSelected;
 
 PROCEDURE MenuItemSelect (item: CARDINAL);
 BEGIN
-  IF gMenuOpen AND (gMenuSel < gMenuCount) AND (item < gMenu[gMenuSel].nItems) THEN gItemSel := item END
+  IF gActive^.gMenuOpen AND (gActive^.gMenuSel < gActive^.gMenuCount) AND (item < gActive^.gMenu[gActive^.gMenuSel].nItems) THEN gActive^.gItemSel := item END
 END MenuItemSelect;
 
 PROCEDURE MenuItemNext (): BOOLEAN;
 BEGIN
-  IF gMenuOpen AND (gMenuSel < gMenuCount) AND (gItemSel + 1 < gMenu[gMenuSel].nItems) THEN
-    INC(gItemSel); RETURN TRUE
+  IF gActive^.gMenuOpen AND (gActive^.gMenuSel < gActive^.gMenuCount) AND (gActive^.gItemSel + 1 < gActive^.gMenu[gActive^.gMenuSel].nItems) THEN
+    INC(gActive^.gItemSel); RETURN TRUE
   END;
   RETURN FALSE
 END MenuItemNext;
 
 PROCEDURE MenuItemPrev (): BOOLEAN;
 BEGIN
-  IF gMenuOpen AND (gItemSel > 0) THEN DEC(gItemSel); RETURN TRUE END;
+  IF gActive^.gMenuOpen AND (gActive^.gItemSel > 0) THEN DEC(gActive^.gItemSel); RETURN TRUE END;
   RETURN FALSE
 END MenuItemPrev;
 
@@ -572,63 +690,63 @@ END MenuItemPrev;
 PROCEDURE PostEvent (kind: EventKind; menu, item: CARDINAL; ch: CHAR);
   VAR t: CARDINAL;
 BEGIN
-  IF gEvLen >= MaxEvents THEN RETURN END;          (* full: drop the newest *)
-  t := (gEvHead + gEvLen) MOD MaxEvents;
-  gEv[t].kind := kind; gEv[t].menu := menu; gEv[t].item := item; gEv[t].ch := ch;
-  INC(gEvLen)
+  IF gActive^.gEvLen >= MaxEvents THEN RETURN END;          (* full: drop the newest *)
+  t := (gActive^.gEvHead + gActive^.gEvLen) MOD MaxEvents;
+  gActive^.gEv[t].kind := kind; gActive^.gEv[t].menu := menu; gActive^.gEv[t].item := item; gActive^.gEv[t].ch := ch;
+  INC(gActive^.gEvLen)
 END PostEvent;
 
 PROCEDURE NextEvent (VAR e: Event): BOOLEAN;
 BEGIN
-  IF gEvLen = 0 THEN
+  IF gActive^.gEvLen = 0 THEN
     e.kind := EvNone; e.menu := 0; e.item := 0; e.ch := NUL;
     RETURN FALSE
   END;
-  e.kind := gEv[gEvHead].kind;
-  e.menu := gEv[gEvHead].menu;
-  e.item := gEv[gEvHead].item;
-  e.ch   := gEv[gEvHead].ch;
-  gEvHead := (gEvHead + 1) MOD MaxEvents;
-  DEC(gEvLen);
+  e.kind := gActive^.gEv[gActive^.gEvHead].kind;
+  e.menu := gActive^.gEv[gActive^.gEvHead].menu;
+  e.item := gActive^.gEv[gActive^.gEvHead].item;
+  e.ch   := gActive^.gEv[gActive^.gEvHead].ch;
+  gActive^.gEvHead := (gActive^.gEvHead + 1) MOD MaxEvents;
+  DEC(gActive^.gEvLen);
   RETURN TRUE
 END NextEvent;
 
-PROCEDURE HasEvent (): BOOLEAN; BEGIN RETURN gEvLen > 0 END HasEvent;
-PROCEDURE ClearEvents; BEGIN gEvHead := 0; gEvLen := 0 END ClearEvents;
+PROCEDURE HasEvent (): BOOLEAN; BEGIN RETURN gActive^.gEvLen > 0 END HasEvent;
+PROCEDURE ClearEvents; BEGIN gActive^.gEvHead := 0; gActive^.gEvLen := 0 END ClearEvents;
 
 PROCEDURE HandleKey (key: CARDINAL; ch: CHAR): BOOLEAN;
   VAR moved: BOOLEAN;
 BEGIN
-  IF gMenuOpen THEN
+  IF gActive^.gMenuOpen THEN
     IF key = KeyUp THEN moved := MenuItemPrev(); RETURN TRUE
     ELSIF key = KeyDown THEN moved := MenuItemNext(); RETURN TRUE
     ELSIF key = KeyLeft THEN
-      IF MenuPrev() THEN PostEvent(EvMenuMove, gMenuSel, 0, NUL) END; RETURN TRUE
+      IF MenuPrev() THEN PostEvent(EvMenuMove, gActive^.gMenuSel, 0, NUL) END; RETURN TRUE
     ELSIF key = KeyRight THEN
-      IF MenuNext() THEN PostEvent(EvMenuMove, gMenuSel, 0, NUL) END; RETURN TRUE
+      IF MenuNext() THEN PostEvent(EvMenuMove, gActive^.gMenuSel, 0, NUL) END; RETURN TRUE
     ELSIF key = KeyEnter THEN
-      PostEvent(EvMenuItem, gMenuSel, gItemSel, NUL); MenuClose; RETURN TRUE
+      PostEvent(EvMenuItem, gActive^.gMenuSel, gActive^.gItemSel, NUL); MenuClose; RETURN TRUE
     ELSIF (key = KeyEsc) OR (key = KeyTab) THEN
-      MenuClose; PostEvent(EvMenuClose, gMenuSel, 0, NUL); RETURN TRUE
+      MenuClose; PostEvent(EvMenuClose, gActive^.gMenuSel, 0, NUL); RETURN TRUE
     END;
     RETURN FALSE
   ELSE
     IF key = KeyLeft THEN
-      IF MenuPrev() THEN PostEvent(EvMenuMove, gMenuSel, 0, NUL); RETURN TRUE END;
+      IF MenuPrev() THEN PostEvent(EvMenuMove, gActive^.gMenuSel, 0, NUL); RETURN TRUE END;
       RETURN FALSE
     ELSIF key = KeyRight THEN
-      IF MenuNext() THEN PostEvent(EvMenuMove, gMenuSel, 0, NUL); RETURN TRUE END;
+      IF MenuNext() THEN PostEvent(EvMenuMove, gActive^.gMenuSel, 0, NUL); RETURN TRUE END;
       RETURN FALSE
     ELSIF (key = KeyDown) OR (key = KeyEnter) THEN
       MenuOpen;
-      IF gMenuOpen THEN PostEvent(EvMenuOpen, gMenuSel, 0, NUL); RETURN TRUE END;
+      IF gActive^.gMenuOpen THEN PostEvent(EvMenuOpen, gActive^.gMenuSel, 0, NUL); RETURN TRUE END;
       RETURN FALSE
     END;
     RETURN FALSE
   END
 END HandleKey;
 
-(* ---- text windows ---- *)
+(* ---- text windows (caller-owned TextWin; grid writes go through the current instance) ---- *)
 PROCEDURE WinOpen (VAR tw: TextWin; x, y, w, h: CARDINAL; fg, bg: Colour);
 BEGIN
   tw.x := x; tw.y := y; tw.w := w; tw.h := h;
@@ -677,7 +795,7 @@ BEGIN
   WHILE (i <= HIGH(s)) AND (s[i] # NUL) DO WinPut(tw, s[i]); INC(i) END
 END WinWrite;
 
-(* ---- input fields ---- *)
+(* ---- input fields (caller-owned Field; only FieldRender writes the grid) ---- *)
 PROCEDURE FieldInit (VAR f: Field; x, y, width: CARDINAL; fg, bg: Colour);
 BEGIN
   IF width < 1 THEN width := 1 END;
@@ -787,10 +905,6 @@ BEGIN
 END FieldHandleKey;
 
 BEGIN
-  gCols := 80; gRows := 25; gCurX := 0; gCurY := 0;
-  gCurFg := White; gCurBg := Black;
-  gMenuCount := 0; gMenuSel := 0; gMenuOpen := FALSE; gItemSel := 0;
-  gMenuFocused := TRUE;          (* default on, for consumers that don't manage focus *)
-  gSaveValid := FALSE;
-  gEvHead := 0; gEvLen := 0
+  gDefault := NewInst(80, 25);    (* eager default backs the legacy singleton API *)
+  gActive  := gDefault
 END Terminal.

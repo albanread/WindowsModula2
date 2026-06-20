@@ -1,0 +1,120 @@
+(* PaneShell — the shared substrate both UI facades stand on. Owns the universal
+   Pane (a host HWND), the Workspace / PaneWindow, the named registry, the event
+   router (control plane) and the per-pane channels (data plane), plus the
+   message loop. A Pane is THE currency: a leaf | a reactive arrangement | an MDI
+   container, composing recursively in both directions. Part of the UI family.
+   See docs/design/pane-shell-mdi.md §8/§10.2. Sprint 0: compiling stubs. *)
+DEFINITION MODULE PaneShell;
+
+FROM SYSTEM IMPORT ADDRESS;
+IMPORT Surface;
+
+TYPE
+  Workspace  = ADDRESS;
+  PaneWindow = ADDRESS;
+  Pane       = ADDRESS;            (* THE currency: leaf | reactive | container *)
+  WindowId   = CARDINAL;
+
+  EventKind = (EvNone, EvPaneFocus, EvPaneInput, EvKey, EvChar, EvMouse,
+               EvSplitterMoved, EvTabChanged,
+               EvDocActivated, EvDocClosed, EvDocFloated, EvDocDocked,  (* MDI *)
+               EvControl,                                               (* WM_COMMAND/NOTIFY *)
+               EvResize, EvCommand, EvCloseRequest, EvWindowClosed,
+               EvWheel, EvTimer);                                       (* appended last: keeps existing ordinals stable *)
+
+  Event = RECORD
+    window:  WindowId;
+    pane:    Pane;
+    kind:    EventKind;
+    key:     CARDINAL;
+    ch:      CHAR;
+    x, y:    INTEGER;
+    command: CARDINAL;
+    doc:     CARDINAL;
+  END;
+
+  Handler = PROCEDURE (VAR Event): BOOLEAN;       (* TRUE = consumed; control plane, §7 *)
+
+  DropZone = (NoDrop, DockLeft, DockRight, DockTop, DockBottom, DockCentre, NewFloat);
+
+(* The pluggable arrangement algorithm (D7/§8). An arrangement Pane carries a
+   Layout; the substrate drives it (Retile -> Arrange; drag/drop -> the rest) and
+   never knows the algorithm. The reactive strategies (SplitLayout / TabLayout /
+   StackLayout, S8/S9) and DockLayout (S11) are subclasses. *)
+ABSTRACT CLASS Layout;
+  ABSTRACT PROCEDURE Arrange (host: Pane; x, y, w, h: CARDINAL);          (* -> child rects *)
+  ABSTRACT PROCEDURE HitTest (host: Pane; px, py: INTEGER): CARDINAL;     (* divider/tab/handle *)
+  ABSTRACT PROCEDURE Drag    (host: Pane; handle: CARDINAL; dx, dy: INTEGER);
+  ABSTRACT PROCEDURE DropAt  (host: Pane; px, py: INTEGER; moved: Pane;
+                              VAR zone: DropZone; VAR x, y, w, h: CARDINAL): BOOLEAN;
+  ABSTRACT PROCEDURE Save    (host: Pane; VAR blob: ARRAY OF CHAR): BOOLEAN;
+  ABSTRACT PROCEDURE Load    (host: Pane; blob: ARRAY OF CHAR): BOOLEAN;
+END Layout;
+
+(* leaf constructor: wrap a surface or control as a Pane (recursion bottoms out here) *)
+PROCEDURE LeafPane (id: ARRAY OF CHAR; back: Surface.Backend): Pane;
+
+(* the named-pane bridge — find any Pane by id anywhere in a tree *)
+PROCEDURE PaneByName (root: Pane; id: ARRAY OF CHAR): Pane;
+PROCEDURE BackendOf  (p: Pane): Surface.Backend;  (* NIL unless p is a leaf *)
+PROCEDURE RectOf     (p: Pane; VAR x, y, w, h: CARDINAL);
+
+(* tree building (the substrate's raw Pane tree; the PaneLayout / MDIContainer
+   facades wrap an arrangement with a Layout strategy — D7). The HWND tree (host
+   windows) and the layout solver are layered on this shape. *)
+PROCEDURE Arrange  (id: ARRAY OF CHAR): Pane;           (* a structural parent pane *)
+PROCEDURE AddChild (parent, child: Pane);              (* link child under parent *)
+PROCEDURE SetRect  (p: Pane; x, y, w, h: CARDINAL);    (* assign a pane's rect (the solver's output) *)
+PROCEDURE DumpTree (root: Pane; VAR s: ARRAY OF CHAR); (* introspection probe: id:kind(rect)[children] *)
+
+(* host-HWND introspection (the HWND tree is a projection of the Pane tree, §5) *)
+PROCEDURE HostOf  (p: Pane): ADDRESS;          (* the pane's host HWND; NIL until OpenWindow *)
+PROCEDURE FrameOf (win: PaneWindow): ADDRESS;  (* the top-level frame HWND *)
+
+(* arrangement children + the pluggable Layout (D7) — a Layout strategy assigns
+   its children's rects in Arrange via Child/ChildCount + SetRect. *)
+PROCEDURE ChildCount (p: Pane): CARDINAL;
+PROCEDURE Child      (p: Pane; i: CARDINAL): Pane;       (* NIL if out of range *)
+PROCEDURE SetLayout  (p: Pane; lay: Layout);            (* attach an arrangement algorithm *)
+PROCEDURE LayoutOf   (p: Pane): Layout;                 (* NIL if none *)
+PROCEDURE SetHidden    (p: Pane; hidden: BOOLEAN);      (* hide a pane — its parent Layout skips it (D1) *)
+PROCEDURE IsHidden     (p: Pane): BOOLEAN;
+PROCEDURE ReplaceChild (old, new: Pane);               (* swap `old` for `new` in old's parent (D1) *)
+
+(* windows + loop *)
+PROCEDURE Init       (): Workspace;
+PROCEDURE OpenWindow (ws: Workspace; title: ARRAY OF CHAR; w, h: CARDINAL;
+                      root: Pane; on: Handler): PaneWindow;
+PROCEDURE CloseWindow(VAR win: PaneWindow);
+PROCEDURE Retile     (win: PaneWindow);           (* re-solve after any tree mutation *)
+
+(* re-parenting (S12): move a Pane subtree between windows, mechanic destroy+rebuild *)
+PROCEDURE Detach     (p: Pane): BOOLEAN;          (* unlink p from its parent (FALSE if already a root) *)
+PROCEDURE ReparentToNewWindow (title: ARRAY OF CHAR; w, h: CARDINAL; root: Pane): PaneWindow;
+                                                  (* float a detached subtree into its own top-level window *)
+PROCEDURE ReparentInto (parent, child: Pane): BOOLEAN;   (* dock a subtree back under parent (rebuilds hosts) *)
+PROCEDURE Realize    (parent, child: Pane): BOOLEAN;     (* host a child added after its parent was windowed *)
+PROCEDURE ParentOf   (p: Pane): Pane;             (* NIL if a root/detached *)
+PROCEDURE WindowOf   (p: Pane): PaneWindow;       (* the window p currently belongs to *)
+PROCEDURE RootOf     (win: PaneWindow): Pane;
+PROCEDURE RaiseEvent (p: Pane; kind: EventKind);  (* fan a synthetic Event keyed to p to its window's Handler *)
+PROCEDURE RaiseEventDoc (p: Pane; kind: EventKind; doc: CARDINAL);  (* as RaiseEvent, but carries a doc id *)
+PROCEDURE SetRoot    (win: PaneWindow; root: Pane);
+PROCEDURE Run        (ws: Workspace);                 (* interactive: block on GetMessage until Quit/WM_QUIT *)
+PROCEDURE RunBounded (ws: Workspace; maxIters: CARDINAL);  (* headless: bounded PeekMessage drain (CI) *)
+PROCEDURE WindowCount(ws: Workspace): CARDINAL;       (* top-level windows registered with the workspace *)
+PROCEDURE Quit       (ws: Workspace);
+
+(* data plane (§7): the per-pane channel. CRITICAL_SECTION-bounded (NOT lock-free
+   — amendment C), drained INLINE by the UI thread for now; SetThreaded is the
+   dark seam where producer threads attach later (D2/P8) with no API change. *)
+PROCEDURE Submit       (p: Pane; buf: ADDRESS): BOOLEAN;      (* producer: enqueue a frame buffer / delta *)
+PROCEDURE ChannelDepth (p: Pane): CARDINAL;                   (* queued items *)
+PROCEDURE ChannelNext  (p: Pane; VAR buf: ADDRESS): BOOLEAN;  (* consumer: dequeue FIFO *)
+PROCEDURE SetThreaded  (p: Pane; on: BOOLEAN);
+
+(* polled input snapshot (the fast sensor lane) for game-loop panes *)
+PROCEDURE KeyDown (vk: CARDINAL): BOOLEAN;
+PROCEDURE MouseAt (VAR x, y: INTEGER; VAR buttons: CARDINAL);
+
+END PaneShell.

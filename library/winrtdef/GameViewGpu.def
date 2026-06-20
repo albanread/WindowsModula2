@@ -28,6 +28,21 @@
 DEFINITION MODULE GameViewGpu;
 
 FROM SYSTEM IMPORT ADDRESS;
+IMPORT ShaderView;
+
+TYPE Instance = ADDRESS;            (* an instanced GPU game surface; NIL = none *)
+
+(* ---- instancing (S4, closes P1): several GPU game surfaces coexist, each
+   owning its CPU model (heap index buffers + atlas + palettes + sprites) AND
+   its own ShaderView.Instance (it has NO device of its own — the device state
+   IS the wrapped ShaderView). Every singleton procedure below operates on the
+   *current* instance (Use); an eager default backs the legacy singleton API.
+   The CPU model is headless; Attach (which Attaches the wrapped ShaderView)
+   needs a real window. ---- *)
+PROCEDURE Create  (): Instance;
+PROCEDURE Use     (i: Instance);
+PROCEDURE Free    (VAR i: Instance);
+PROCEDURE Renderer (i: Instance): ShaderView.Instance;   (* the owned ShaderView instance (its GPU device) *)
 
 PROCEDURE Startup (): BOOLEAN;
 (* Bind indexed buffers of `worldW` x `worldH` (the drawable WORLD), of which a

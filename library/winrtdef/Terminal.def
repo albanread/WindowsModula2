@@ -18,7 +18,11 @@
    provided. Coordinates are (col, row) = (x, y), 0-based from the top-left. *)
 DEFINITION MODULE Terminal;
 
-TYPE Colour = CARDINAL;          (* 0x00RRGGBB *)
+FROM SYSTEM IMPORT ADDRESS;
+
+TYPE
+  Colour   = CARDINAL;           (* 0x00RRGGBB *)
+  Instance = ADDRESS;            (* an instanced text-grid model; NIL = none *)
 
 CONST                            (* the standard 16-colour palette *)
   Black = 000000H; Maroon = 0800000H; Green  = 0008000H; Olive   = 0808000H;
@@ -26,8 +30,22 @@ CONST                            (* the standard 16-colour palette *)
   Gray  = 0808080H; Red    = 0FF0000H; Lime   = 000FF00H; Yellow  = 0FFFF00H;
   Blue  = 00000FFH; Fuchsia= 0FF00FFH; Aqua   = 000FFFFH; White   = 0FFFFFFH;
 
+(* ---- instancing (S1): several independent text-grid models coexist. Every
+   module-level (singleton) procedure below operates on the *current* instance,
+   selected by Use; an eagerly-created default instance backs the legacy
+   singleton API, so existing callers need no change. Per-instance state is
+   heap-allocated. See docs/design/pane-shell-sprints.md S1. ---- *)
+PROCEDURE Create (cols, rows: CARDINAL): Instance;   (* a new model; does NOT change the current *)
+PROCEDURE Use    (i: Instance);                      (* make i current (NIL -> the default) *)
+PROCEDURE Free   (VAR i: Instance);                  (* destroy i; i := NIL (the default is never freed) *)
+(* per-instance cell read-back — instance-keyed, independent of the current *)
+PROCEDURE CellCharOf (i: Instance; col, row: CARDINAL): CHAR;
+PROCEDURE CellFgOf   (i: Instance; col, row: CARDINAL): Colour;
+PROCEDURE CellBgOf   (i: Instance; col, row: CARDINAL): Colour;
+
 (* ---- screen ---- *)
-PROCEDURE Init (cols, rows: CARDINAL);     (* size the screen and clear it *)
+PROCEDURE Init (cols, rows: CARDINAL);     (* size the current screen and clear it *)
+PROCEDURE SetSize (cols, rows: CARDINAL);  (* resize the active grid WITHOUT clearing existing cells (a grow blanks only the newly-exposed region); clamps to the model max. For reflow-on-resize — the caller re-renders. *)
 PROCEDURE Cols (): CARDINAL;
 PROCEDURE Rows (): CARDINAL;
 PROCEDURE Clear;                           (* fill with spaces in the current colour, home the cursor *)

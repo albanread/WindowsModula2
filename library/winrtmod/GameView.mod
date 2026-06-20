@@ -1,13 +1,21 @@
 IMPLEMENTATION MODULE GameView;
 
-(* Indexed-colour retro surface. gFb holds one palette INDEX (a BYTE) per pixel,
-   row-major top-down, in a gW x gH framebuffer. gPal maps index -> 0x00RRGGBB.
-   Present() resolves gFb through gPal into gRGBA at `gScale`x (nearest-neighbour,
-   chunky pixels) and ships it with the same 32-bpp top-down DIB blit RasterView
-   uses. Sprites are small indexed bitmaps (gSpr) with one transparent index that
-   Blit skips. Index 255 is reserved as the transparent key for SpriteRows. *)
+(* Indexed-colour retro surface. Per instance: fb^ holds one palette INDEX (a
+   BYTE) per pixel, row-major top-down, in a w x h framebuffer; pal maps index ->
+   0x00RRGGBB; Present() resolves fb^ through pal into rgba^ at `scale`x
+   (nearest-neighbour, chunky pixels) and ships it with the same 32-bpp top-down
+   DIB blit RasterView uses. Sprites (spr) are small indexed bitmaps with one
+   transparent index that Blit skips. Index 255 is the transparent key for
+   SpriteRows.
 
-FROM SYSTEM IMPORT ADDRESS, ADR;
+   S3 (PaneShell): instanced. The big buffers (index framebuffer ~256 KiB,
+   scaled RGBA ~4 MiB) are heap-allocated per instance (off module globals — the
+   §0.4 mandate); the 5x7 font table is read-only and stays shared. gActive
+   points at the current instance (never NIL); an eager default backs the legacy
+   singleton API, so gameview_demo behaves exactly as before. *)
+
+FROM SYSTEM IMPORT ADDRESS, ADR, CAST, SIZE;
+FROM Storage IMPORT ALLOCATE, DEALLOCATE;
 FROM Graphics_Gdi IMPORT GetDC, ReleaseDC, SetDIBitsToDevice, BITMAPINFOHEADER;
 
 CONST
@@ -25,21 +33,30 @@ TYPE
     px:    ARRAY [0..MaxSprPix-1] OF BYTE;
   END;
 
-VAR
-  gFb:    ARRAY [0..MaxIdx-1]  OF BYTE;        (* one palette index per pixel *)
-  gRGBA:  ARRAY [0..MaxSurf-1] OF CARDINAL32;  (* resolved, scaled present buffer *)
-  gPal:   ARRAY [0..255] OF CARDINAL32;        (* 0x00RRGGBB per index *)
-  gSpr:   ARRAY [0..MaxSprites-1] OF Sprite;
-  gW, gH: INTEGER;                             (* framebuffer size in indices *)
-  gScale: CARDINAL;
-  gHwnd:  ADDRESS;
-  gBmi:   BITMAPINFOHEADER;                    (* describes the scaled RGBA surface *)
-  gReady: BOOLEAN;
-  gGlyph: ARRAY [0..127] OF ARRAY [0..6] OF CARDINAL;   (* 5x7 font, bit 4 = leftmost *)
-  BV:     ARRAY [0..4] OF CARDINAL;                     (* column bit values 16..1 *)
+  PFb   = POINTER TO ARRAY [0..MaxIdx-1]  OF BYTE;        (* index framebuffer — heap *)
+  PSurf = POINTER TO ARRAY [0..MaxSurf-1] OF CARDINAL32;  (* scaled present buffer — heap *)
 
-PROCEDURE Width  (): CARDINAL; BEGIN RETURN VAL(CARDINAL, gW) END Width;
-PROCEDURE Height (): CARDINAL; BEGIN RETURN VAL(CARDINAL, gH) END Height;
+  GInstRec = RECORD
+    fb:     PFb;                                 (* one palette index per pixel *)
+    rgba:   PSurf;                               (* resolved, scaled present buffer *)
+    pal:    ARRAY [0..255] OF CARDINAL32;        (* 0x00RRGGBB per index *)
+    spr:    ARRAY [0..MaxSprites-1] OF Sprite;
+    w, h:   INTEGER;                             (* framebuffer size in indices *)
+    scale:  CARDINAL;
+    hwnd:   ADDRESS;
+    bmi:    BITMAPINFOHEADER;                    (* describes the scaled RGBA surface *)
+    ready:  BOOLEAN;
+  END;
+  GInstPtr = POINTER TO GInstRec;
+
+VAR
+  gActive, gDefault: GInstPtr;
+  gFontReady: BOOLEAN;
+  gGlyph: ARRAY [0..127] OF ARRAY [0..6] OF CARDINAL;   (* 5x7 font, bit 4 = leftmost — SHARED *)
+  BV:     ARRAY [0..4] OF CARDINAL;                     (* column bit values 16..1 — SHARED *)
+
+PROCEDURE Width  (): CARDINAL; BEGIN RETURN VAL(CARDINAL, gActive^.w) END Width;
+PROCEDURE Height (): CARDINAL; BEGIN RETURN VAL(CARDINAL, gActive^.h) END Height;
 
 PROCEDURE IAbs (a: INTEGER): INTEGER; BEGIN IF a < 0 THEN RETURN -a ELSE RETURN a END END IAbs;
 
@@ -47,7 +64,7 @@ PROCEDURE IAbs (a: INTEGER): INTEGER; BEGIN IF a < 0 THEN RETURN -a ELSE RETURN 
 
 PROCEDURE SetColour (index, rgb: CARDINAL);
 BEGIN
-  IF index <= 255 THEN gPal[index] := VAL(CARDINAL32, rgb BAND 0FFFFFFH) END
+  IF index <= 255 THEN gActive^.pal[index] := VAL(CARDINAL32, rgb BAND 0FFFFFFH) END
 END SetColour;
 
 PROCEDURE SetRGB (index, r, g, b: CARDINAL);
@@ -57,7 +74,7 @@ END SetRGB;
 
 PROCEDURE Colour (index: CARDINAL): CARDINAL;
 BEGIN
-  IF index <= 255 THEN RETURN VAL(CARDINAL, gPal[index]) ELSE RETURN 0 END
+  IF index <= 255 THEN RETURN VAL(CARDINAL, gActive^.pal[index]) ELSE RETURN 0 END
 END Colour;
 
 PROCEDURE LoadDefaultPalette;
@@ -72,24 +89,24 @@ PROCEDURE CyclePalette (lo, hi: CARDINAL);            (* rotate lo..hi up by one
   VAR i: CARDINAL; tmp: CARDINAL32;
 BEGIN
   IF (hi > 255) OR (lo >= hi) THEN RETURN END;
-  tmp := gPal[lo];
-  FOR i := lo TO hi-1 DO gPal[i] := gPal[i+1] END;
-  gPal[hi] := tmp
+  tmp := gActive^.pal[lo];
+  FOR i := lo TO hi-1 DO gActive^.pal[i] := gActive^.pal[i+1] END;
+  gActive^.pal[hi] := tmp
 END CyclePalette;
 
 (* ---- indexed drawing (all clipped to the framebuffer) ------------------ *)
 
 PROCEDURE Pset (x, y: INTEGER; index: CARDINAL);
 BEGIN
-  IF (x >= 0) AND (x < gW) AND (y >= 0) AND (y < gH) THEN
-    gFb[VAL(CARDINAL, y * gW + x)] := VAL(BYTE, index BAND 0FFH)
+  IF (x >= 0) AND (x < gActive^.w) AND (y >= 0) AND (y < gActive^.h) THEN
+    gActive^.fb^[VAL(CARDINAL, y * gActive^.w + x)] := VAL(BYTE, index BAND 0FFH)
   END
 END Pset;
 
 PROCEDURE Pget (x, y: INTEGER): CARDINAL;
 BEGIN
-  IF (x >= 0) AND (x < gW) AND (y >= 0) AND (y < gH) THEN
-    RETURN VAL(CARDINAL, gFb[VAL(CARDINAL, y * gW + x)]) BAND 0FFH
+  IF (x >= 0) AND (x < gActive^.w) AND (y >= 0) AND (y < gActive^.h) THEN
+    RETURN VAL(CARDINAL, gActive^.fb^[VAL(CARDINAL, y * gActive^.w + x)]) BAND 0FFH
   END;
   RETURN 0
 END Pget;
@@ -98,8 +115,8 @@ PROCEDURE Cls (index: CARDINAL);
   VAR i, n: CARDINAL; v: BYTE;
 BEGIN
   v := VAL(BYTE, index BAND 0FFH);
-  n := VAL(CARDINAL, gW * gH); i := 0;
-  WHILE i < n DO gFb[i] := v; INC(i) END
+  n := VAL(CARDINAL, gActive^.w * gActive^.h); i := 0;
+  WHILE i < n DO gActive^.fb^[i] := v; INC(i) END
 END Cls;
 
 PROCEDURE HLine (x, y, len: INTEGER; index: CARDINAL);
@@ -202,7 +219,7 @@ END RowIndex;
 PROCEDURE ClearSprite (id: CARDINAL);
   VAR i: CARDINAL;
 BEGIN
-  FOR i := 0 TO MaxSprPix-1 DO gSpr[id].px[i] := VAL(BYTE, TransKey) END
+  FOR i := 0 TO MaxSprPix-1 DO gActive^.spr[id].px[i] := VAL(BYTE, TransKey) END
 END ClearSprite;
 
 PROCEDURE SpriteRows (id: CARDINAL; rows: ARRAY OF CHAR): BOOLEAN;
@@ -221,13 +238,13 @@ BEGIN
       INC(row); col := 0
     ELSE
       IF (row < MaxSprDim) AND (col < w) THEN
-        gSpr[id].px[row*w+col] := VAL(BYTE, RowIndex(ch))
+        gActive^.spr[id].px[row*w+col] := VAL(BYTE, RowIndex(ch))
       END;
       INC(col)
     END
   END;
   IF row+1 > MaxSprDim THEN RETURN FALSE END;
-  gSpr[id].used := TRUE; gSpr[id].w := w; gSpr[id].h := row+1; gSpr[id].trans := TransKey;
+  gActive^.spr[id].used := TRUE; gActive^.spr[id].w := w; gActive^.spr[id].h := row+1; gActive^.spr[id].trans := TransKey;
   RETURN TRUE
 END SpriteRows;
 
@@ -238,27 +255,27 @@ BEGIN
   n := w * h;
   IF n > MaxSprPix THEN RETURN FALSE END;
   FOR i := 0 TO n-1 DO
-    IF i <= HIGH(data) THEN gSpr[id].px[i] := VAL(BYTE, ORD(data[i]) BAND 0FFH)
-    ELSE gSpr[id].px[i] := VAL(BYTE, transparent BAND 0FFH) END
+    IF i <= HIGH(data) THEN gActive^.spr[id].px[i] := VAL(BYTE, ORD(data[i]) BAND 0FFH)
+    ELSE gActive^.spr[id].px[i] := VAL(BYTE, transparent BAND 0FFH) END
   END;
-  gSpr[id].used := TRUE; gSpr[id].w := w; gSpr[id].h := h; gSpr[id].trans := transparent BAND 0FFH;
+  gActive^.spr[id].used := TRUE; gActive^.spr[id].w := w; gActive^.spr[id].h := h; gActive^.spr[id].trans := transparent BAND 0FFH;
   RETURN TRUE
 END DefineSprite;
 
 PROCEDURE SpriteWidth  (id: CARDINAL): CARDINAL;
-BEGIN IF (id < MaxSprites) AND gSpr[id].used THEN RETURN gSpr[id].w ELSE RETURN 0 END END SpriteWidth;
+BEGIN IF (id < MaxSprites) AND gActive^.spr[id].used THEN RETURN gActive^.spr[id].w ELSE RETURN 0 END END SpriteWidth;
 PROCEDURE SpriteHeight (id: CARDINAL): CARDINAL;
-BEGIN IF (id < MaxSprites) AND gSpr[id].used THEN RETURN gSpr[id].h ELSE RETURN 0 END END SpriteHeight;
+BEGIN IF (id < MaxSprites) AND gActive^.spr[id].used THEN RETURN gActive^.spr[id].h ELSE RETURN 0 END END SpriteHeight;
 
 PROCEDURE Blit (id: CARDINAL; x, y: INTEGER);
   VAR sy, sx, v, w: CARDINAL;
 BEGIN
-  IF (id >= MaxSprites) OR NOT gSpr[id].used THEN RETURN END;
-  w := gSpr[id].w;
-  FOR sy := 0 TO gSpr[id].h-1 DO
+  IF (id >= MaxSprites) OR NOT gActive^.spr[id].used THEN RETURN END;
+  w := gActive^.spr[id].w;
+  FOR sy := 0 TO gActive^.spr[id].h-1 DO
     FOR sx := 0 TO w-1 DO
-      v := VAL(CARDINAL, gSpr[id].px[sy*w+sx]) BAND 0FFH;
-      IF v # gSpr[id].trans THEN Pset(x + VAL(INTEGER, sx), y + VAL(INTEGER, sy), v) END
+      v := VAL(CARDINAL, gActive^.spr[id].px[sy*w+sx]) BAND 0FFH;
+      IF v # gActive^.spr[id].trans THEN Pset(x + VAL(INTEGER, sx), y + VAL(INTEGER, sy), v) END
     END
   END
 END Blit;
@@ -266,14 +283,14 @@ END Blit;
 PROCEDURE BlitFlip (id: CARDINAL; x, y: INTEGER; flipX, flipY: BOOLEAN);
   VAR sy, sx, srcx, srcy, v, w, h: CARDINAL;
 BEGIN
-  IF (id >= MaxSprites) OR NOT gSpr[id].used THEN RETURN END;
-  w := gSpr[id].w; h := gSpr[id].h;
+  IF (id >= MaxSprites) OR NOT gActive^.spr[id].used THEN RETURN END;
+  w := gActive^.spr[id].w; h := gActive^.spr[id].h;
   FOR sy := 0 TO h-1 DO
     FOR sx := 0 TO w-1 DO
       IF flipX THEN srcx := w-1-sx ELSE srcx := sx END;
       IF flipY THEN srcy := h-1-sy ELSE srcy := sy END;
-      v := VAL(CARDINAL, gSpr[id].px[srcy*w+srcx]) BAND 0FFH;
-      IF v # gSpr[id].trans THEN Pset(x + VAL(INTEGER, sx), y + VAL(INTEGER, sy), v) END
+      v := VAL(CARDINAL, gActive^.spr[id].px[srcy*w+srcx]) BAND 0FFH;
+      IF v # gActive^.spr[id].trans THEN Pset(x + VAL(INTEGER, sx), y + VAL(INTEGER, sy), v) END
     END
   END
 END BlitFlip;
@@ -281,16 +298,16 @@ END BlitFlip;
 PROCEDURE BlitScale (id: CARDINAL; x, y, w, h: INTEGER);
   VAR dy, dx, sx, sy: INTEGER; sw, sh, v: CARDINAL;
 BEGIN
-  IF (id >= MaxSprites) OR NOT gSpr[id].used OR (w <= 0) OR (h <= 0) THEN RETURN END;
-  sw := gSpr[id].w; sh := gSpr[id].h;
+  IF (id >= MaxSprites) OR NOT gActive^.spr[id].used OR (w <= 0) OR (h <= 0) THEN RETURN END;
+  sw := gActive^.spr[id].w; sh := gActive^.spr[id].h;
   dy := 0;
   WHILE dy < h DO
     sy := VAL(INTEGER, (VAL(CARDINAL, dy) * sh) DIV VAL(CARDINAL, h));
     dx := 0;
     WHILE dx < w DO
       sx := VAL(INTEGER, (VAL(CARDINAL, dx) * sw) DIV VAL(CARDINAL, w));
-      v := VAL(CARDINAL, gSpr[id].px[VAL(CARDINAL, sy) * sw + VAL(CARDINAL, sx)]) BAND 0FFH;
-      IF v # gSpr[id].trans THEN Pset(x + dx, y + dy, v) END;
+      v := VAL(CARDINAL, gActive^.spr[id].px[VAL(CARDINAL, sy) * sw + VAL(CARDINAL, sx)]) BAND 0FFH;
+      IF v # gActive^.spr[id].trans THEN Pset(x + dx, y + dy, v) END;
       INC(dx)
     END;
     INC(dy)
@@ -303,21 +320,21 @@ PROCEDURE Present;
   VAR hdc: ADDRESS; r: INTEGER;
       sy, sx, py, qx, surfW, surfH, w, dst: CARDINAL; c: CARDINAL32;
 BEGIN
-  IF NOT gReady THEN RETURN END;
-  w := VAL(CARDINAL, gW);
-  surfW := w * gScale; surfH := VAL(CARDINAL, gH) * gScale;
-  FOR sy := 0 TO VAL(CARDINAL, gH)-1 DO
+  IF NOT gActive^.ready THEN RETURN END;
+  w := VAL(CARDINAL, gActive^.w);
+  surfW := w * gActive^.scale; surfH := VAL(CARDINAL, gActive^.h) * gActive^.scale;
+  FOR sy := 0 TO VAL(CARDINAL, gActive^.h)-1 DO
     FOR sx := 0 TO w-1 DO
-      c := gPal[VAL(CARDINAL, gFb[sy*w+sx]) BAND 0FFH];
-      FOR py := 0 TO gScale-1 DO
-        dst := (sy*gScale+py) * surfW + sx*gScale;
-        FOR qx := 0 TO gScale-1 DO gRGBA[dst+qx] := c END
+      c := gActive^.pal[VAL(CARDINAL, gActive^.fb^[sy*w+sx]) BAND 0FFH];
+      FOR py := 0 TO gActive^.scale-1 DO
+        dst := (sy*gActive^.scale+py) * surfW + sx*gActive^.scale;
+        FOR qx := 0 TO gActive^.scale-1 DO gActive^.rgba^[dst+qx] := c END
       END
     END
   END;
-  hdc := GetDC(gHwnd);
-  r := SetDIBitsToDevice(hdc, 0, 0, surfW, surfH, 0, 0, 0, surfH, ADR(gRGBA), ADR(gBmi), 0);
-  r := ReleaseDC(gHwnd, hdc)
+  hdc := GetDC(gActive^.hwnd);
+  r := SetDIBitsToDevice(hdc, 0, 0, surfW, surfH, 0, 0, 0, surfH, ADR(gActive^.rgba^), ADR(gActive^.bmi), 0);
+  r := ReleaseDC(gActive^.hwnd, hdc)
 END Present;
 
 (* ---- init -------------------------------------------------------------- *)
@@ -327,17 +344,17 @@ BEGIN
   IF (w = 0) OR (h = 0) OR (scale = 0) OR (scale > 8) THEN RETURN FALSE END;
   IF (w > MaxIdxW) OR (h > MaxIdxH) THEN RETURN FALSE END;
   IF (w * scale > MaxSurfW) OR (h * scale > MaxSurfH) THEN RETURN FALSE END;
-  gHwnd := hwnd; gW := VAL(INTEGER, w); gH := VAL(INTEGER, h); gScale := scale;
-  gBmi.biSize := 40;
-  gBmi.biWidth := VAL(INTEGER32, w * scale);
-  gBmi.biHeight := -VAL(INTEGER32, h * scale);     (* negative = top-down *)
-  gBmi.biPlanes := 1;
-  gBmi.biBitCount := 32;
-  gBmi.biCompression := 0;                         (* BI_RGB *)
-  gBmi.biSizeImage := 0;
-  gBmi.biXPelsPerMeter := 0; gBmi.biYPelsPerMeter := 0;
-  gBmi.biClrUsed := 0; gBmi.biClrImportant := 0;
-  gReady := TRUE;
+  gActive^.hwnd := hwnd; gActive^.w := VAL(INTEGER, w); gActive^.h := VAL(INTEGER, h); gActive^.scale := scale;
+  gActive^.bmi.biSize := 40;
+  gActive^.bmi.biWidth := VAL(INTEGER32, w * scale);
+  gActive^.bmi.biHeight := -VAL(INTEGER32, h * scale);     (* negative = top-down *)
+  gActive^.bmi.biPlanes := 1;
+  gActive^.bmi.biBitCount := 32;
+  gActive^.bmi.biCompression := 0;                         (* BI_RGB *)
+  gActive^.bmi.biSizeImage := 0;
+  gActive^.bmi.biXPelsPerMeter := 0; gActive^.bmi.biYPelsPerMeter := 0;
+  gActive^.bmi.biClrUsed := 0; gActive^.bmi.biClrImportant := 0;
+  gActive^.ready := TRUE;
   RETURN TRUE
 END Attach;
 
@@ -416,17 +433,96 @@ BEGIN
   G(')', "..X..", "...X.", "....X", "....X", "....X", "...X.", "..X..")
 END BuildFont;
 
+(* ---- instancing (S3) --------------------------------------------------- *)
+
+PROCEDURE InitGInst (p: GInstPtr);
+  VAR i: CARDINAL;
+BEGIN
+  FOR i := 0 TO 255 DO p^.pal[i] := VAL(CARDINAL32, 0) END;
+  p^.pal[0]  := VAL(CARDINAL32, 000000H);  p^.pal[1]  := VAL(CARDINAL32, 0000AAH);
+  p^.pal[2]  := VAL(CARDINAL32, 000AA00H); p^.pal[3]  := VAL(CARDINAL32, 00AAAAH);
+  p^.pal[4]  := VAL(CARDINAL32, 0AA0000H); p^.pal[5]  := VAL(CARDINAL32, 0AA00AAH);
+  p^.pal[6]  := VAL(CARDINAL32, 0AA5500H); p^.pal[7]  := VAL(CARDINAL32, 0AAAAAAH);
+  p^.pal[8]  := VAL(CARDINAL32, 0555555H); p^.pal[9]  := VAL(CARDINAL32, 05555FFH);
+  p^.pal[10] := VAL(CARDINAL32, 055FF55H); p^.pal[11] := VAL(CARDINAL32, 055FFFFH);
+  p^.pal[12] := VAL(CARDINAL32, 0FF5555H); p^.pal[13] := VAL(CARDINAL32, 0FF55FFH);
+  p^.pal[14] := VAL(CARDINAL32, 0FFFF55H); p^.pal[15] := VAL(CARDINAL32, 0FFFFFFH);
+  FOR i := 0 TO MaxSprites-1 DO p^.spr[i].used := FALSE END;
+  p^.w := 0; p^.h := 0; p^.scale := 1; p^.hwnd := NIL; p^.ready := FALSE
+END InitGInst;
+
+PROCEDURE AllocGInst (): GInstPtr;
+  VAR a: ADDRESS; p: GInstPtr;
+BEGIN
+  a := NIL; ALLOCATE(a, SIZE(GInstRec)); p := CAST(GInstPtr, a);
+  a := NIL; ALLOCATE(a, MaxIdx);          (* index framebuffer, 1 byte/pixel *)
+  p^.fb := CAST(PFb, a);
+  a := NIL; ALLOCATE(a, MaxSurf * 4);     (* scaled RGBA present buffer *)
+  p^.rgba := CAST(PSurf, a);
+  InitGInst(p);
+  RETURN p
+END AllocGInst;
+
+PROCEDURE EnsureFont;
+BEGIN IF NOT gFontReady THEN BuildFont; gFontReady := TRUE END END EnsureFont;
+
+PROCEDURE Create (w, h, scale: CARDINAL): Instance;
+  VAR p: GInstPtr;
+BEGIN
+  EnsureFont;
+  IF w > MaxIdxW THEN w := MaxIdxW ELSIF w = 0 THEN w := 1 END;
+  IF h > MaxIdxH THEN h := MaxIdxH ELSIF h = 0 THEN h := 1 END;
+  IF scale > 8 THEN scale := 8 ELSIF scale = 0 THEN scale := 1 END;
+  p := AllocGInst();
+  p^.w := VAL(INTEGER, w); p^.h := VAL(INTEGER, h); p^.scale := scale;
+  RETURN CAST(Instance, p)
+END Create;
+
+PROCEDURE Use (i: Instance);
+BEGIN
+  IF i = NIL THEN gActive := gDefault ELSE gActive := CAST(GInstPtr, i) END
+END Use;
+
+PROCEDURE Free (VAR i: Instance);
+  VAR p: GInstPtr; b: ADDRESS;
+BEGIN
+  IF i # NIL THEN
+    p := CAST(GInstPtr, i);
+    IF p = gActive THEN gActive := gDefault END;
+    IF p # gDefault THEN
+      b := p^.fb;   DEALLOCATE(b, MaxIdx);
+      b := p^.rgba; DEALLOCATE(b, MaxSurf * 4);
+      DEALLOCATE(i, SIZE(GInstRec))
+    END;
+    i := NIL
+  END
+END Free;
+
+PROCEDURE IndexAt (i: Instance; x, y: CARDINAL): CARDINAL;
+  VAR p: GInstPtr; xi, yi: INTEGER;
+BEGIN
+  IF i = NIL THEN RETURN 0 END;
+  p := CAST(GInstPtr, i);
+  xi := VAL(INTEGER, x); yi := VAL(INTEGER, y);
+  IF (xi < p^.w) AND (yi < p^.h) THEN
+    RETURN VAL(CARDINAL, p^.fb^[VAL(CARDINAL, yi * p^.w + xi)]) BAND 0FFH
+  END;
+  RETURN 0
+END IndexAt;
+
 PROCEDURE Startup (): BOOLEAN;
   VAR i: CARDINAL;
 BEGIN
-  BuildFont;
-  FOR i := 0 TO 255 DO gPal[i] := VAL(CARDINAL32, 0) END;
+  EnsureFont;
+  FOR i := 0 TO 255 DO gActive^.pal[i] := VAL(CARDINAL32, 0) END;
   LoadDefaultPalette;
-  FOR i := 0 TO MaxSprites-1 DO gSpr[i].used := FALSE END;
-  gReady := FALSE;
+  FOR i := 0 TO MaxSprites-1 DO gActive^.spr[i].used := FALSE END;
+  gActive^.ready := FALSE;
   RETURN TRUE
 END Startup;
 
 BEGIN
-  gW := 0; gH := 0; gScale := 1; gHwnd := NIL; gReady := FALSE
+  gFontReady := FALSE;
+  gDefault := AllocGInst();
+  gActive  := gDefault
 END GameView.

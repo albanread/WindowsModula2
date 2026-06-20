@@ -1,0 +1,25 @@
+(* PipeServer — a non-blocking named-pipe SERVER, polled from a message loop.
+   The inverse of PipeClient: a host (e.g. the FastPanesM2 IDE) listens on
+   \\.\pipe\<name>, and an external tool connects + sends length-framed requests.
+   Single client at a time, served serially. Same wire framing as PipeClient /
+   the compiler daemon: a 4-byte little-endian length prefix + a UTF-8 payload.
+
+   Usage: Start once; call Poll() each timer tick — when it returns TRUE a full
+   command has arrived; run it and call Reply() with the result (which sends the
+   reply, disconnects the client, and resumes listening). Poll never blocks. *)
+DEFINITION MODULE PipeServer;
+
+(* create \\.\pipe\<bareName> and begin listening; TRUE on success (idempotent) *)
+PROCEDURE Start (bareName: ARRAY OF CHAR): BOOLEAN;
+
+(* non-blocking: TRUE iff a complete request arrived (cmd := its payload). After a
+   TRUE you MUST call Reply exactly once before the next request can be served. *)
+PROCEDURE Poll (VAR cmd: ARRAY OF CHAR): BOOLEAN;
+
+(* send the result to the current client, disconnect it, resume listening *)
+PROCEDURE Reply (result: ARRAY OF CHAR);
+
+(* close the pipe and stop serving *)
+PROCEDURE Stop;
+
+END PipeServer.

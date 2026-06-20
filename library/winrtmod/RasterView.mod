@@ -4,31 +4,44 @@ IMPLEMENTATION MODULE RasterView;
    top-down (row 0 = top). The 32-bpp BI_RGB DIB format reads each word as
    0x00RRGGBB, so Present() and SaveBMP() ship gBuf verbatim — no byte swizzling. *)
 
-FROM SYSTEM IMPORT ADDRESS, ADR;
+FROM SYSTEM IMPORT ADDRESS, ADR, CAST, SIZE;
+FROM Storage IMPORT ALLOCATE, DEALLOCATE;
 FROM Graphics_Gdi IMPORT GetDC, ReleaseDC, SetDIBitsToDevice, BITMAPINFOHEADER;
 IMPORT StreamFile, IOChan, ChanConsts;
 
 CONST
   MaxW = 1280; MaxH = 800; MaxPix = MaxW * MaxH;
 
+TYPE
+  (* S2 (PaneShell): per-instance state on the heap. The framebuffer (~4 MiB) is
+     kept off module globals (the §0.4 mandate); the 5x7 font table is read-only
+     and stays shared. gActive points at the current instance (never NIL); an
+     eager default backs the legacy singleton API. *)
+  PFrame   = POINTER TO ARRAY [0..MaxPix-1] OF CARDINAL32;
+  RInstRec = RECORD
+    buf:   PFrame;          (* one 0x00RRGGBB word per pixel, row-major top-down *)
+    w, h:  INTEGER;
+    hwnd:  ADDRESS;
+    bmi:   BITMAPINFOHEADER;
+    ready: BOOLEAN;
+  END;
+  RInstPtr = POINTER TO RInstRec;
+
 VAR
-  gBuf:   ARRAY [0..MaxPix-1] OF CARDINAL32;
-  gW, gH: INTEGER;
-  gHwnd:  ADDRESS;
-  gBmi:   BITMAPINFOHEADER;
-  gReady: BOOLEAN;
-  gGlyph: ARRAY [0..127] OF ARRAY [0..6] OF CARDINAL;   (* 5x7 font, bit 4 = leftmost *)
-  BV:     ARRAY [0..4] OF CARDINAL;                     (* column bit values 16..1 *)
+  gActive, gDefault: RInstPtr;
+  gFontReady: BOOLEAN;
+  gGlyph: ARRAY [0..127] OF ARRAY [0..6] OF CARDINAL;   (* 5x7 font, bit 4 = leftmost — SHARED *)
+  BV:     ARRAY [0..4] OF CARDINAL;                     (* column bit values 16..1 — SHARED *)
 
 (* ---- low-level pixel access (clipped) ---------------------------------- *)
 
-PROCEDURE Width  (): CARDINAL; BEGIN RETURN VAL(CARDINAL, gW) END Width;
-PROCEDURE Height (): CARDINAL; BEGIN RETURN VAL(CARDINAL, gH) END Height;
+PROCEDURE Width  (): CARDINAL; BEGIN RETURN VAL(CARDINAL, gActive^.w) END Width;
+PROCEDURE Height (): CARDINAL; BEGIN RETURN VAL(CARDINAL, gActive^.h) END Height;
 
 PROCEDURE Pixel (x, y: INTEGER; rgb: CARDINAL);
 BEGIN
-  IF (x >= 0) AND (x < gW) AND (y >= 0) AND (y < gH) THEN
-    gBuf[VAL(CARDINAL, y * gW + x)] := VAL(CARDINAL32, rgb BAND 0FFFFFFH)
+  IF (x >= 0) AND (x < gActive^.w) AND (y >= 0) AND (y < gActive^.h) THEN
+    gActive^.buf^[VAL(CARDINAL, y * gActive^.w + x)] := VAL(CARDINAL32, rgb BAND 0FFFFFFH)
   END
 END Pixel;
 
@@ -36,8 +49,8 @@ PROCEDURE Clear (rgb: CARDINAL);
   VAR i, n: CARDINAL; v: CARDINAL32;
 BEGIN
   v := VAL(CARDINAL32, rgb BAND 0FFFFFFH);
-  n := VAL(CARDINAL, gW * gH); i := 0;
-  WHILE i < n DO gBuf[i] := v; INC(i) END
+  n := VAL(CARDINAL, gActive^.w * gActive^.h); i := 0;
+  WHILE i < n DO gActive^.buf^[i] := v; INC(i) END
 END Clear;
 
 PROCEDURE HLine (x, y, len: INTEGER; rgb: CARDINAL);
@@ -221,36 +234,96 @@ BEGIN
   G(')', "..X..", "...X.", "....X", "....X", "....X", "...X.", "..X..")
 END BuildFont;
 
+(* ---- instancing (S2) --------------------------------------------------- *)
+
+PROCEDURE AllocRInst (): RInstPtr;
+  VAR a: ADDRESS; p: RInstPtr;
+BEGIN
+  a := NIL; ALLOCATE(a, SIZE(RInstRec));
+  p := CAST(RInstPtr, a);
+  a := NIL; ALLOCATE(a, MaxPix * 4);              (* the framebuffer; CARDINAL32 = 4 bytes *)
+  p^.buf := CAST(PFrame, a);
+  p^.w := 0; p^.h := 0; p^.hwnd := NIL; p^.ready := FALSE;
+  RETURN p
+END AllocRInst;
+
+PROCEDURE EnsureFont;
+BEGIN
+  IF NOT gFontReady THEN BuildFont; gFontReady := TRUE END
+END EnsureFont;
+
+PROCEDURE Create (w, h: CARDINAL): Instance;
+  VAR p: RInstPtr;
+BEGIN
+  EnsureFont;
+  IF w > MaxW THEN w := MaxW ELSIF w = 0 THEN w := 1 END;
+  IF h > MaxH THEN h := MaxH ELSIF h = 0 THEN h := 1 END;
+  p := AllocRInst();
+  p^.w := VAL(INTEGER, w); p^.h := VAL(INTEGER, h);
+  RETURN CAST(Instance, p)
+END Create;
+
+PROCEDURE Use (i: Instance);
+BEGIN
+  IF i = NIL THEN gActive := gDefault ELSE gActive := CAST(RInstPtr, i) END
+END Use;
+
+PROCEDURE Free (VAR i: Instance);
+  VAR p: RInstPtr; b: ADDRESS;
+BEGIN
+  IF i # NIL THEN
+    p := CAST(RInstPtr, i);
+    IF p = gActive THEN gActive := gDefault END;
+    IF p # gDefault THEN
+      b := p^.buf; DEALLOCATE(b, MaxPix * 4);
+      DEALLOCATE(i, SIZE(RInstRec))
+    END;
+    i := NIL
+  END
+END Free;
+
+PROCEDURE PixelAt (i: Instance; x, y: CARDINAL): CARDINAL;
+  VAR p: RInstPtr; xi, yi: INTEGER;
+BEGIN
+  IF i = NIL THEN RETURN 0 END;
+  p := CAST(RInstPtr, i);
+  xi := VAL(INTEGER, x); yi := VAL(INTEGER, y);
+  IF (xi < p^.w) AND (yi < p^.h) THEN
+    RETURN VAL(CARDINAL, p^.buf^[VAL(CARDINAL, yi * p^.w + xi)])
+  END;
+  RETURN 0
+END PixelAt;
+
 (* ---- present + export -------------------------------------------------- *)
 
 PROCEDURE Startup (): BOOLEAN;
-BEGIN BuildFont; gReady := FALSE; RETURN TRUE END Startup;
+BEGIN EnsureFont; gActive^.ready := FALSE; RETURN TRUE END Startup;
 
 PROCEDURE Attach (hwnd: ADDRESS; w, h: CARDINAL): BOOLEAN;
 BEGIN
   IF (w > MaxW) OR (h > MaxH) OR (w = 0) OR (h = 0) THEN RETURN FALSE END;
-  gHwnd := hwnd; gW := VAL(INTEGER, w); gH := VAL(INTEGER, h);
-  gBmi.biSize := 40;
-  gBmi.biWidth := VAL(INTEGER32, w);
-  gBmi.biHeight := -VAL(INTEGER32, h);            (* negative = top-down *)
-  gBmi.biPlanes := 1;
-  gBmi.biBitCount := 32;
-  gBmi.biCompression := 0;                        (* BI_RGB *)
-  gBmi.biSizeImage := 0;
-  gBmi.biXPelsPerMeter := 0; gBmi.biYPelsPerMeter := 0;
-  gBmi.biClrUsed := 0; gBmi.biClrImportant := 0;
-  gReady := TRUE;
+  gActive^.hwnd := hwnd; gActive^.w := VAL(INTEGER, w); gActive^.h := VAL(INTEGER, h);
+  gActive^.bmi.biSize := 40;
+  gActive^.bmi.biWidth := VAL(INTEGER32, w);
+  gActive^.bmi.biHeight := -VAL(INTEGER32, h);    (* negative = top-down *)
+  gActive^.bmi.biPlanes := 1;
+  gActive^.bmi.biBitCount := 32;
+  gActive^.bmi.biCompression := 0;                (* BI_RGB *)
+  gActive^.bmi.biSizeImage := 0;
+  gActive^.bmi.biXPelsPerMeter := 0; gActive^.bmi.biYPelsPerMeter := 0;
+  gActive^.bmi.biClrUsed := 0; gActive^.bmi.biClrImportant := 0;
+  gActive^.ready := TRUE;
   RETURN TRUE
 END Attach;
 
 PROCEDURE Present;
   VAR hdc: ADDRESS; r: INTEGER;
 BEGIN
-  IF NOT gReady THEN RETURN END;
-  hdc := GetDC(gHwnd);
-  r := SetDIBitsToDevice(hdc, 0, 0, VAL(CARDINAL, gW), VAL(CARDINAL, gH),
-                         0, 0, 0, VAL(CARDINAL, gH), ADR(gBuf), ADR(gBmi), 0);
-  r := ReleaseDC(gHwnd, hdc)
+  IF NOT gActive^.ready THEN RETURN END;
+  hdc := GetDC(gActive^.hwnd);
+  r := SetDIBitsToDevice(hdc, 0, 0, VAL(CARDINAL, gActive^.w), VAL(CARDINAL, gActive^.h),
+                         0, 0, 0, VAL(CARDINAL, gActive^.h), ADR(gActive^.buf^), ADR(gActive^.bmi), 0);
+  r := ReleaseDC(gActive^.hwnd, hdc)
 END Present;
 
 PROCEDURE PutU16 (VAR b: ARRAY OF BYTE; off, v: CARDINAL);
@@ -271,28 +344,30 @@ PROCEDURE SaveBMP (name: ARRAY OF CHAR): BOOLEAN;
   VAR cid: StreamFile.ChanId; res: ChanConsts.OpenResults;
       hdr: ARRAY [0..53] OF BYTE; i, pixBytes, negH: CARDINAL;
 BEGIN
-  IF NOT gReady THEN RETURN FALSE END;
+  IF NOT gActive^.ready THEN RETURN FALSE END;
   StreamFile.Open(cid, name, StreamFile.write + StreamFile.raw, res);
   IF res # ChanConsts.opened THEN RETURN FALSE END;
-  pixBytes := VAL(CARDINAL, gW * gH) * 4;
+  pixBytes := VAL(CARDINAL, gActive^.w * gActive^.h) * 4;
   FOR i := 0 TO 53 DO hdr[i] := VAL(BYTE, 0) END;
   hdr[0] := VAL(BYTE, 42H); hdr[1] := VAL(BYTE, 4DH);       (* 'BM' *)
   PutU32(hdr, 2, 54 + pixBytes);                            (* bfSize *)
   PutU32(hdr, 10, 54);                                      (* bfOffBits *)
   PutU32(hdr, 14, 40);                                      (* biSize *)
-  PutU32(hdr, 18, VAL(CARDINAL, gW));                       (* biWidth *)
-  negH := 4294967296 - VAL(CARDINAL, gH);                   (* biHeight = -gH (top-down) *)
+  PutU32(hdr, 18, VAL(CARDINAL, gActive^.w));               (* biWidth *)
+  negH := 4294967296 - VAL(CARDINAL, gActive^.h);           (* biHeight = -h (top-down) *)
   PutU32(hdr, 22, negH);
   PutU16(hdr, 26, 1);                                       (* planes *)
   PutU16(hdr, 28, 32);                                      (* bpp *)
   PutU32(hdr, 30, 0);                                       (* BI_RGB *)
   PutU32(hdr, 34, pixBytes);                                (* biSizeImage *)
   IOChan.RawWrite(cid, ADR(hdr), 54);
-  IOChan.RawWrite(cid, ADR(gBuf), pixBytes);
+  IOChan.RawWrite(cid, ADR(gActive^.buf^), pixBytes);
   StreamFile.Close(cid);
   RETURN TRUE
 END SaveBMP;
 
 BEGIN
-  gW := 0; gH := 0; gHwnd := NIL; gReady := FALSE
+  gFontReady := FALSE;
+  gDefault := AllocRInst();
+  gActive  := gDefault
 END RasterView.

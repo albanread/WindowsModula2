@@ -1,0 +1,26 @@
+(* PaneLayout — the reactive facade: Split / Tabs / Stack builders over a
+   rectangle solver. layout = f(structure): the arrangement is a function of app
+   structure, retained (not diffed, D1) — the change path is mutate the held tree
+   then PaneShell.Retile. Consumes and produces PaneShell.Pane. Part of the UI
+   family. See docs/design/pane-shell-mdi.md §10.3. Sprint 0: compiling stubs. *)
+DEFINITION MODULE PaneLayout;
+
+IMPORT PaneShell;
+
+TYPE Orientation = (Horizontal, Vertical);
+
+PROCEDURE Split (dir: Orientation; weight: REAL; minFirst, minSecond: CARDINAL;
+                 first, second: PaneShell.Pane): PaneShell.Pane;   (* draggable divider *)
+PROCEDURE NewTabs  (): PaneShell.Pane;                             (* fixed, author tabs *)
+PROCEDURE AddTab   (tabs: PaneShell.Pane; title: ARRAY OF CHAR; child: PaneShell.Pane);
+PROCEDURE SelectTab (tabs: PaneShell.Pane; index: CARDINAL);       (* switch active tab; raises EvTabChanged *)
+PROCEDURE ActiveTab (tabs: PaneShell.Pane): CARDINAL;
+PROCEDURE NewStack (dir: Orientation; gap: CARDINAL): PaneShell.Pane;
+PROCEDURE AddChild (stack, child: PaneShell.Pane);
+
+(* mutate the held tree, then PaneShell.Retile — the "reactive" change path (D1) *)
+PROCEDURE SetWeight (split: PaneShell.Pane; weight: REAL);
+PROCEDURE Replace   (old, new: PaneShell.Pane);
+PROCEDURE SetHidden (p: PaneShell.Pane; hidden: BOOLEAN);
+
+END PaneLayout.

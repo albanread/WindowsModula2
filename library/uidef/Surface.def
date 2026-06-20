@@ -1,0 +1,58 @@
+(* Surface — instanced leaves for PaneShell: custom render surfaces and native
+   controls, behind one CLASS-as-vtable Backend (the house COM idiom). The pixels
+   of a leaf. The leaf spectrum runs native control -> custom surface, one
+   abstraction spanning it, with the surface end primary. Part of the
+   library/uidef + library/uimod (UI) family. See docs/design/pane-shell-mdi.md
+   §6/§10.1. Sprint 0: compiling stubs only (no behaviour). *)
+DEFINITION MODULE Surface;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+TYPE
+  Kind = (TextGrid, Raster, Canvas, Indexed, Shader, NativeControl, Custom);
+
+(* CLASS-as-vtable, the house COM idiom. Declared at TOP LEVEL (not inside a
+   TYPE block); ABSTRACT is a per-method prefix; the class closes with the named
+   END Backend; and must be RE-DECLARED verbatim in Surface.mod. *)
+ABSTRACT CLASS Backend;
+  ABSTRACT PROCEDURE Attach (hwnd: ADDRESS; pxW, pxH: CARDINAL): BOOLEAN;
+  ABSTRACT PROCEDURE Resize (pxW, pxH: CARDINAL): BOOLEAN;
+  ABSTRACT PROCEDURE Paint;                         (* re-render; a NO-OP for a control *)
+  ABSTRACT PROCEDURE KindOf (): Kind;
+  ABSTRACT PROCEDURE Close;
+END Backend;
+
+(* custom-surface adapters — each wraps an *instance* of an existing renderer *)
+PROCEDURE NewTextGrid (cols, rows: CARDINAL; font: ARRAY OF CHAR; pt: REAL): Backend;
+PROCEDURE NewRaster   (w, h: CARDINAL): Backend;
+PROCEDURE NewCanvas   (): Backend;
+PROCEDURE NewIndexed    (w, h, scale: CARDINAL): Backend;
+PROCEDURE NewIndexedGpu (w, h, scale: CARDINAL): Backend;   (* GPU-backed indexed leaf (GameViewGpu) *)
+PROCEDURE NewShader     (w, h: CARDINAL): Backend;
+
+(* native-control adapters — the simplest leaves; the OS paints them (§6) *)
+PROCEDURE NewButton (label: ARRAY OF CHAR; event: ARRAY OF CHAR): Backend;
+PROCEDURE NewEdit   (multiline: BOOLEAN): Backend;
+PROCEDURE NewList   (): Backend;
+PROCEDURE NewTree   (): Backend;
+PROCEDURE NewCombo  (): Backend;
+
+(* the Terminal.Instance behind a TextGrid leaf (NIL otherwise): Terminal.Use it,
+   write cells (Terminal.WriteColAt / Fill / Box / SetStatus / menus), then b.Paint *)
+PROCEDURE TermOf (b: Backend): ADDRESS;
+
+(* how many whole cells fit the TextGrid leaf's current pixel area (after it has been
+   shown/resized); 0,0 if not a TextGrid or not yet sized. Lets a text app reflow its
+   layout (menu row / body / status row) to the actual pane size, not the model size. *)
+PROCEDURE VisibleCells (b: Backend; VAR cols, rows: CARDINAL);
+
+(* the TextGrid leaf's cell size in pixels (0,0 if not a TextGrid) — for mouse hit-testing *)
+PROCEDURE CellSize (b: Backend; VAR w, h: CARDINAL);
+
+(* control value access (a control Backend has no renderer module to drive) *)
+PROCEDURE SetText   (b: Backend; s: ARRAY OF CHAR);
+PROCEDURE GetText   (b: Backend; VAR s: ARRAY OF CHAR);
+PROCEDURE AddRow    (b: Backend; s: ARRAY OF CHAR);    (* list/combo/tree *)
+PROCEDURE Selected  (b: Backend): CARDINAL;
+
+END Surface.

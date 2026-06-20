@@ -15,6 +15,9 @@ VAR gFactory: ADDRESS;
 PROCEDURE Startup (): BOOLEAN;
   VAR iid: ARRAY [0..15] OF BYTE; hr: INTEGER32;
 BEGIN
+  IF gFactory # NIL THEN RETURN TRUE END;   (* idempotent: the shared factory is created once
+                                               so instanced text/canvas surfaces don't clobber it
+                                               (PaneShell S1/S2 amendment A/N) *)
   IF NOT FromString("{b859ee5a-d838-4b5b-a2e8-1adc7d93db48}", iid) THEN RETURN FALSE END;
   gFactory := NIL;
   hr := DWriteCreateFactory(0, ADR(iid), ADR(gFactory));    (* 0 = SHARED *)

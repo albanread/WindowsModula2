@@ -25,6 +25,18 @@ DEFINITION MODULE RasterView;
 
 FROM SYSTEM IMPORT ADDRESS;
 
+TYPE Instance = ADDRESS;            (* an instanced framebuffer; NIL = none *)
+
+(* ---- instancing (S2): several RGBA framebuffers coexist, each owning its own
+   heap-allocated pixel buffer (the §0.4 mandate — the framebuffer is off module
+   globals). Every singleton procedure below operates on the *current* instance
+   (Use); an eager default backs the legacy singleton API. Drawing + PixelAt work
+   headlessly (no window); Present/SaveBMP need Attach. ---- *)
+PROCEDURE Create  (w, h: CARDINAL): Instance;        (* a drawable w x h framebuffer *)
+PROCEDURE Use     (i: Instance);                     (* make i current (NIL -> the default) *)
+PROCEDURE Free    (VAR i: Instance);                 (* destroy i; i := NIL (default never freed) *)
+PROCEDURE PixelAt (i: Instance; x, y: CARDINAL): CARDINAL;  (* per-instance RGBA read-back *)
+
 (* One-time init (no window needed). *)
 PROCEDURE Startup (): BOOLEAN;
 

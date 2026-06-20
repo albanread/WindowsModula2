@@ -1,0 +1,36 @@
+(* Harness — a headless self-test harness for PaneShell / Win32 apps: capture a
+   window's client area to a PNG (so an automated/agent driver can SEE the render),
+   and post synthetic keyboard input (so it can TYPE into the app like a user).
+   PNG capture = PrintWindow (PW_RENDERFULLCONTENT, so Direct2D/GPU content is
+   included) + GDI+ encode. Input = PostMessage WM_CHAR / WM_KEYDOWN+UP. *)
+DEFINITION MODULE Harness;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+(* capture hwnd's client area to a PNG file. TRUE on success. *)
+PROCEDURE SnapClient (hwnd: ADDRESS; path: ARRAY OF CHAR): BOOLEAN;
+
+(* post one WM_CHAR (a typed character) to hwnd *)
+PROCEDURE SendChar (hwnd: ADDRESS; ch: CHAR);
+
+(* post WM_KEYDOWN + WM_KEYUP for a virtual-key code to hwnd *)
+PROCEDURE SendKey (hwnd: ADDRESS; vk: CARDINAL);
+
+(* post WM_KEYDOWN / WM_KEYUP separately, so a modifier (Shift/Ctrl) can be held
+   down across other keys (SendKeyDown 16; SendKey arrows...; SendKeyUp 16) *)
+PROCEDURE SendKeyDown (hwnd: ADDRESS; vk: CARDINAL);
+PROCEDURE SendKeyUp   (hwnd: ADDRESS; vk: CARDINAL);
+
+(* post each character of s as a WM_CHAR (type a string) *)
+PROCEDURE SendText (hwnd: ADDRESS; s: ARRAY OF CHAR);
+
+(* post a left click (move + down + up) at client (x,y) of hwnd *)
+PROCEDURE SendClick (hwnd: ADDRESS; x, y: CARDINAL);
+
+(* post a vertical wheel notch to hwnd; delta > 0 = wheel up/away (multiples of 120) *)
+PROCEDURE SendWheel (hwnd: ADDRESS; delta: INTEGER);
+
+(* post a left-button drag from (x0,y0) to (x1,y1): down, a couple of moves, up *)
+PROCEDURE SendDrag (hwnd: ADDRESS; x0, y0, x1, y1: CARDINAL);
+
+END Harness.

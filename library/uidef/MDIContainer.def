@@ -1,0 +1,35 @@
+(* MDIContainer — the MDI/dock facade: a container Pane whose arrangement is a
+   mutable, user-driven, persistable set of document/tool Panes. Imperative ops
+   (AddDocument/Close/Activate/Tile/Cascade/Float/Dock/TabTogether) + user drag;
+   the arrangement is its own state and must be serialized (Save/LoadLayout —
+   arrangement only, never content; the app re-supplies content by id). A
+   container IS a PaneShell.Pane. Part of the UI family. See
+   docs/design/pane-shell-mdi.md §10.4. Sprint 0: compiling stubs. *)
+DEFINITION MODULE MDIContainer;
+
+IMPORT PaneShell;
+
+TYPE
+  Style = (Tabbed, Tiled, Cascaded);
+  Side  = (Left, Right, Top, Bottom, Centre);
+
+PROCEDURE Create (style: Style): PaneShell.Pane;
+
+(* documents are Panes — a document may be a leaf, a reactive split, or a container *)
+PROCEDURE AddDocument (c: PaneShell.Pane; title: ARRAY OF CHAR;
+                       content: PaneShell.Pane): CARDINAL;          (* -> doc id; MAX(CARDINAL) = not added (full) *)
+PROCEDURE CloseDocument (c: PaneShell.Pane; doc: CARDINAL);
+PROCEDURE Activate      (c: PaneShell.Pane; doc: CARDINAL);
+PROCEDURE ActiveDocument(c: PaneShell.Pane): CARDINAL;
+PROCEDURE Tile    (c: PaneShell.Pane);
+PROCEDURE Cascade (c: PaneShell.Pane);
+PROCEDURE Float   (c: PaneShell.Pane; doc: CARDINAL);              (* pop into a floater *)
+PROCEDURE Dock    (c: PaneShell.Pane; doc: CARDINAL; side: Side);
+PROCEDURE DockInto (c: PaneShell.Pane; doc: CARDINAL; zone: PaneShell.DropZone): BOOLEAN;  (* apply a DropAt result *)
+PROCEDURE TabTogether (c: PaneShell.Pane; docA, docB: CARDINAL);
+
+(* persistence — arrangement only, NOT content; the app re-supplies content by id *)
+PROCEDURE SaveLayout (c: PaneShell.Pane; VAR blob: ARRAY OF CHAR): BOOLEAN;
+PROCEDURE LoadLayout (c: PaneShell.Pane; blob: ARRAY OF CHAR; supply: PaneShell.Pane): BOOLEAN;
+
+END MDIContainer.

@@ -23,6 +23,18 @@ TYPE
      constant-buffer record and return its address. *)
   BuildProc = PROCEDURE (SHORTREAL): ADDRESS;
 
+  Instance = ADDRESS;               (* an instanced renderer (own device + swapchain); NIL = none *)
+
+(* ---- instancing (S3): several renderers coexist, each owning its own D3D11
+   device + swapchain + render target + shaders + textures + sprite layer (so
+   GameViewGpu can layer one per game). Every singleton procedure below operates
+   on the *current* renderer (Use); an eager default backs the legacy singleton
+   API. Create/Free are headless; Attach (device + swapchain) needs a real
+   window. ---- *)
+PROCEDURE Create (): Instance;
+PROCEDURE Use    (i: Instance);
+PROCEDURE Free   (VAR i: Instance);
+
 (* One-time init (the d3d11/d3dcompiler entry points load lazily). *)
 PROCEDURE Startup (): BOOLEAN;
 

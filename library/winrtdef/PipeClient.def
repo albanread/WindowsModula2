@@ -1,0 +1,24 @@
+(* PipeClient — a tiny Windows named-pipe client for talking to the resident
+   newm2 compiler daemon (or any ptcl service). One request = one command line,
+   one response = one string; framed with a 4-byte little-endian length prefix.
+   The wire is UTF-8; this client handles ASCII (paths, ptcl) by low-byte
+   transcoding — fine for commands and diagnostics. *)
+DEFINITION MODULE PipeClient;
+
+FROM SYSTEM IMPORT ADDRESS;
+
+(* Connect to \\.\pipe\<bareName>. Returns a handle, or NIL if the pipe is not
+   available (e.g. the daemon is not running) — the caller should then fall back. *)
+PROCEDURE Connect (bareName: ARRAY OF CHAR): ADDRESS;
+
+(* Send one command and read the reply (truncated to fit `reply`, NUL-terminated).
+   TRUE on success; FALSE on any pipe error (caller should Close + fall back). *)
+PROCEDURE Request (h: ADDRESS; cmd: ARRAY OF CHAR; VAR reply: ARRAY OF CHAR): BOOLEAN;
+
+(* Convenience: Connect, Request, Close in one call. FALSE if the daemon is absent
+   or the exchange failed. *)
+PROCEDURE Ask (bareName, cmd: ARRAY OF CHAR; VAR reply: ARRAY OF CHAR): BOOLEAN;
+
+PROCEDURE Close (h: ADDRESS);
+
+END PipeClient.

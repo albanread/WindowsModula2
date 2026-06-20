@@ -6,9 +6,25 @@
 DEFINITION MODULE TermRender;
 
 FROM SYSTEM IMPORT ADDRESS;
+IMPORT Terminal;
 
-(* Create the Direct2D factory and a DirectWrite monospaced text format.
-   Headless-safe (no window needed). *)
+TYPE Instance = ADDRESS;            (* an instanced renderer (own format + per-HWND target); NIL = none *)
+
+(* ---- instancing (S1): several renderers coexist, each with its own text
+   format and (after Attach) its own HWND render target + brush. The Direct2D
+   factory and the DirectWrite factory are shared singletons. Every singleton
+   procedure below operates on the *current* renderer (Use); an eager default
+   renderer backs the legacy singleton API. Construction (factory + format) is
+   headless-safe; Attach/Paint need a real window (D2D HwndRenderTarget rejects
+   HWND_MESSAGE). ---- *)
+PROCEDURE Create (fontName: ARRAY OF CHAR; fontSize: SHORTREAL): Instance;
+PROCEDURE Use    (i: Instance);
+PROCEDURE Free   (VAR i: Instance);
+PROCEDURE Bind   (term: Terminal.Instance);   (* the grid the current renderer paints; NIL = current Terminal *)
+PROCEDURE FormatReady (i: Instance): BOOLEAN;  (* per-instance read-back: the text format was created *)
+
+(* Create the Direct2D factory and a DirectWrite monospaced text format on the
+   current renderer. Headless-safe (no window needed). *)
 PROCEDURE Startup (fontName: ARRAY OF CHAR; fontSize: SHORTREAL): BOOLEAN;
 PROCEDURE Ready (): BOOLEAN;
 

@@ -1,0 +1,33 @@
+(* Ptcl — a tiny embeddable Tcl dialect (PaneShell Tcl). The host registers verbs
+   as commands; a script is a sequence of `command arg arg` lines. Substitutions:
+   $var, [command], "double-quoted" (substituted), {braced} (literal/deferred).
+   Everything is a string. See docs/design/fastpanes-script-language.md.
+
+   A registered command reads its arguments with Arg(i) (0 = the command name) and
+   returns a value with Result(s); its CmdProc returns FALSE to signal an error. *)
+DEFINITION MODULE Ptcl;
+
+TYPE CmdProc = PROCEDURE (): BOOLEAN;
+
+(* clear all variables + user procs (registered host commands survive) *)
+PROCEDURE Reset;
+
+(* register a host verb (idempotent: re-registering replaces) *)
+PROCEDURE Register (name: ARRAY OF CHAR; proc: CmdProc);
+
+(* --- for use inside a CmdProc --- *)
+PROCEDURE Argc (): CARDINAL;                          (* number of words (incl. the command name) *)
+PROCEDURE Arg  (i: CARDINAL; VAR s: ARRAY OF CHAR);   (* the i-th word (i=0 is the command name) *)
+PROCEDURE ArgInt (i: CARDINAL): INTEGER;              (* the i-th word parsed as an integer (0 if not) *)
+PROCEDURE Result (s: ARRAY OF CHAR);                  (* set this command's result string *)
+PROCEDURE Fail   (msg: ARRAY OF CHAR);                (* set an error message (CmdProc should RETURN FALSE) *)
+
+(* variables *)
+PROCEDURE SetVar (name, val: ARRAY OF CHAR);
+PROCEDURE GetVar (name: ARRAY OF CHAR; VAR val: ARRAY OF CHAR): BOOLEAN;
+
+(* run a script; `out` receives the last command's result, or the error message.
+   Returns FALSE on the first command that errors. *)
+PROCEDURE Eval (script: ARRAY OF CHAR; VAR out: ARRAY OF CHAR): BOOLEAN;
+
+END Ptcl.
