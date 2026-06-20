@@ -2073,6 +2073,363 @@ fn t90_252_system_process() {
 }
 
 #[test]
+fn t90_260_paneshell_smoke() {
+    // PaneShell Sprint 0 scaffolding: the new library/uidef + library/uimod (UI)
+    // family exists, compiles, is auto-discovered (zero driver/loader/test
+    // registration), and links cross-family to winrt (WinShell). Declaring a
+    // Surface.Backend var forces the abstract CLASS-as-vtable through codegen.
+    check("t-90-260-paneshell-smoke.mod", "paneshell-scaffolding-ok\n");
+}
+
+#[test]
+fn t90_260b_paneshell_badref() {
+    // Negative: a reference to a non-existent UI-family module must fail to
+    // resolve — auto-discovery is by real file presence, not magic.
+    check_run_error("t-90-260b-paneshell-badref.mod", &["not found in search path"]);
+}
+
+#[test]
+fn t90_261_terminal_instance() {
+    // PaneShell S1: Terminal is instanceable — two independent text-grid
+    // instances of different sizes hold distinct cell content simultaneously
+    // (coexistence), read back per-instance via CellCharOf; per-instance state
+    // is heap-allocated so the module still loads under JIT. The default
+    // (singleton) instance is untouched by writes routed to explicit instances.
+    check(
+        "t-90-261-terminal-instance.mod",
+        "a00: A\nb00: B\nacols: 20\nbcols: 40\ndefok: Y\n",
+    );
+}
+
+#[test]
+fn t90_261b_terminal_shim() {
+    // PaneShell S1, D4 shim-equivalence gate (sprints amendment K): the
+    // singleton API is a behavioural shim over the current instance — the same
+    // ops give identical cells on the default vs an explicit instance, and a
+    // singleton write after Use(x) lands in x, not the default.
+    check(
+        "t-90-261b-terminal-shim.mod",
+        "shim-eq: Y\nlanded: Y\ndefault-clean: Y\n",
+    );
+}
+
+#[test]
+fn t90_261c_termrender_instance() {
+    // PaneShell S1: TermRender is instanceable to construction level — two
+    // renderer instances each create their own DirectWrite text format from the
+    // shared factory (headless; Attach/Paint need a real window, manual demo).
+    // The DWrite factory is now idempotent so the instances don't clobber it.
+    check("t-90-261c-termrender-instance.mod", "two-formats: Y\n");
+}
+
+#[test]
+fn t90_262_raster_instance() {
+    // PaneShell S2: RasterView is instanceable — two independent RGBA
+    // framebuffers of different sizes hold distinct pixel content simultaneously,
+    // read back per-instance via PixelAt (fully headless CPU buffers). Each
+    // ~4 MiB buffer is heap-allocated (§0.4), so the module still loads under JIT.
+    check(
+        "t-90-262-raster-instance.mod",
+        "a-dot: 65280\nb-bg: 255\na-bg: 16711680\na-width: 64\n",
+    );
+}
+
+#[test]
+fn t90_262b_canvas_construct() {
+    // PaneShell S2: Canvas2D is instanceable to construction level — two canvas
+    // instances each create their own DirectWrite text format from the shared
+    // factory (headless; Attach/draw need a real window, manual demo). The DWrite
+    // factory is idempotent so the instances don't clobber it.
+    check("t-90-262b-canvas-construct.mod", "two-canvas: Y\n");
+}
+
+#[test]
+fn t90_263_gameview_instance() {
+    // PaneShell S3: GameView is instanceable — two independent indexed
+    // framebuffers hold distinct content simultaneously, read back per-instance
+    // via IndexAt (headless CPU buffers); the big buffers are heap-allocated
+    // (§0.4) so the module still loads under JIT.
+    check(
+        "t-90-263-gameview-instance.mod",
+        "a-dot: 9\na-bg: 4\nb-bg: 7\na-width: 64\n",
+    );
+}
+
+#[test]
+fn t90_263b_shader_construct() {
+    // PaneShell S3: ShaderView (D3D11) is instanceable — two instances coexist
+    // at construction level (distinct, non-NIL, freeable). Attach creates the
+    // device/swapchain (needs a real window), so present coexistence is the
+    // manual demo; S4's GameViewGpu owns one ShaderView instance per game.
+    check("t-90-263b-shader-construct.mod", "two-shaders: Y\nfreed: Y\n");
+}
+
+#[test]
+fn t90_264_gameviewgpu_construct() {
+    // PaneShell S4 (closes P1): GameViewGpu is instanceable and owns no device
+    // of its own — two instances coexist, each owning a DISTINCT ShaderView
+    // instance (its GPU device). Headless construction; Attach needs a real
+    // window (manual demo). This is the load-bearing intra-P1 edge.
+    check(
+        "t-90-264-gameviewgpu-construct.mod",
+        "two-gpu: Y\ndistinct-renderers: Y\n",
+    );
+}
+
+#[test]
+fn t90_265_surface_backend() {
+    // PaneShell S5 (P2 part 1/2): Surface.Backend ABSTRACT CLASS is the one
+    // polymorphic handle — each concrete adapter wraps an instanced renderer, and
+    // a virtual KindOf() on a single Backend variable dispatches to the right
+    // surface. Construction + KindOf + Close are headless; real Attach/Paint (S7).
+    check(
+        "t-90-265-surface-backend.mod",
+        "textgrid: 0\nraster: 1\ncanvas: 2\nindexed: 3\nindexedgpu: 3\nshader: 4\npoly-tg: 0\npoly-cv: 2\n",
+    );
+}
+
+#[test]
+fn t90_266_control_backend() {
+    // PaneShell S6 (P2 part 2/2, closes P2): native controls as the simplest leaf
+    // — a control Backend Attaches a real Win32 child control (message-window-safe),
+    // KindOf=NativeControl (5), the generic value API SetText/GetText round-trips
+    // through the control HWND (via a class CAST downcast — see the is_pointer_like
+    // codegen fix), and an app-defined Backend reports Kind.Custom (6).
+    check(
+        "t-90-266-control-backend.mod",
+        "btn-kind: 5\nattach-btn: Y\nedit-text: hello\ncustom-kind: 6\n",
+    );
+}
+
+#[test]
+fn t90_267_pane_tree() {
+    // PaneShell S7 (P3) slice 1: the universal Pane as a heap tree node — leaves
+    // under an arrangement, the named-pane registry (PaneByName/BackendOf), rects
+    // (SetRect/RectOf), and the DumpTree introspection probe. Fully headless; host
+    // HWNDs, the event router, channel + Layout class land in later S7 slices.
+    check(
+        "t-90-267-pane-tree.mod",
+        "found-console: Y\nfound-missing: Y\nleaf-backend: Y\narrange-backend: Y\na-rect: 0,0,70,50\ndump: root:A(0,0,100,50)[canvas:L(0,0,70,50) console:L(70,0,30,50)]\n",
+    );
+}
+
+#[test]
+fn t90_267b_pane_hosts() {
+    // PaneShell S7 (P3) slice 2: the host-HWND tree is a projection of the Pane
+    // tree. OpenWindow builds a host HWND per Pane (WS_CHILD|WS_CLIPCHILDREN);
+    // Win32 GetParent proves root-under-frame, mid-under-root, leaf-under-mid —
+    // the §4/§5 central bet. Leaf backends attach to their host (RasterView).
+    check(
+        "t-90-267b-pane-hosts.mod",
+        "frame: Y\nroot-host: Y\nleaf-host: Y\nroot-under-frame: Y\nmid-under-root: Y\nleaf-under-mid: Y\nclosed: Y\n",
+    );
+}
+
+#[test]
+fn t90_267c_event_router() {
+    // PaneShell S7 (P3) slice 3: the one event router. Every host HWND shares the
+    // WNDPROC; it recovers the Pane (GWLP_USERDATA), packages WM_* into a semantic
+    // Event keyed to that Pane, updates the polled-input snapshot, and fans the
+    // Event to the window Handler. Driven headlessly via synthesized SendMessage.
+    check(
+        "t-90-267c-event-router.mod",
+        "cmd-kind: 12\ncmd-pane: Y\ncmd-id: 42\nkey-kind: 3\nkey-val: 65\nchar-kind: 4\nchar-ch: X\nmouse-kind: 5\nmouse-ev: 11,22\nevcount: 4\n",
+    );
+}
+
+#[test]
+fn t90_267d_channel() {
+    // PaneShell S7 (P3) slice 4a: the per-pane channel — a lock-guarded FIFO ring
+    // (CRITICAL_SECTION-bounded per amendment C, drained inline, D2). Submit /
+    // ChannelDepth / ChannelNext (FIFO); SetThreaded is the callable dark seam
+    // that does not change behaviour until P8.
+    check(
+        "t-90-267d-channel.mod",
+        "depth: 3\npop1: Y\npop2: Y\npop3: Y\ndepth0: 0\nempty: Y\nthreaded-submit: Y\nthreaded-pop: Y\n",
+    );
+}
+
+#[test]
+fn t90_267e_layout() {
+    // PaneShell S7 (P3) slice 4b: the Layout ABSTRACT CLASS (D7). Retile delegates
+    // child placement to a pane's Layout (proven with an app-defined HalfSplit
+    // strategy); a pane with no Layout is left untouched (the non-Layout guard).
+    check(
+        "t-90-267e-layout.mod",
+        "a-rect: 0,0,50,40\nb-rect: 50,0,50,40\nc-rect: 7,7,7,7\n",
+    );
+}
+
+#[test]
+fn t90_268_rect_solver() {
+    // PaneShell S8 (P4 1/2): the PaneLayout reactive rect solver. Split + Stack as
+    // PaneShell.Layout strategies; Retile delegates to them. A 70/30 Split over a
+    // nested 3-way vertical Stack; SetWeight+Retile re-solves with min-size clamps
+    // (D1 mutate-then-Retile); SetHidden redistributes the Stack.
+    check(
+        "t-90-268-rect-solver.mod",
+        "a: 0,0,700,600\nstk: 700,0,300,600\nc: 700,0,300,200\nd: 700,200,300,200\ne: 700,400,300,200\na-min: 0,0,240,600\na-max: 0,0,840,600\nstk-max: 840,0,160,600\nd-hidden: 700,0,300,300\n",
+    );
+}
+
+#[test]
+fn t90_269_splitter_tabs() {
+    // PaneShell S9 (P4 2/2, closes P4): draggable splitter divider + fixed tabs as
+    // Layout strategies. SplitLayout.HitTest finds the divider (0) / misses (MAX);
+    // Drag re-weights (700->750) and raises EvSplitterMoved. TabLayout shows the
+    // active tab's child below a 24px strip; SelectTab switches it + raises
+    // EvTabChanged. Semantic events are LATCHED (the real frame's WM_SIZE ->
+    // EvResize would otherwise clobber a last-kind read).
+    check(
+        "t-90-269-splitter-tabs.mod",
+        "a0: 0,0,700,600\nhit: Y\nmiss: Y\na1: 0,0,750,600\nsplit-evt: Y\nt0-active: 0,24,200,76\nt1-hidden: 0,0,0,0\nactive0: 0\nt1-active: 0,24,200,76\nactive1: 1\ntab-evt: Y\n",
+    );
+}
+
+#[test]
+fn t90_270_loop_drag() {
+    // PaneShell S10 (P5): the real message loop + multi-window + a mouse splitter
+    // drag routed through the WNDPROC by the parent-walk (the divider is occluded
+    // by child hosts). SendMessage drives down/move/up; SplitLayout.Drag re-weights
+    // (700->750) and raises EvSplitterMoved (latched). RunBounded proves the loop
+    // runs and terminates; Quit latches the workspace + posts WM_QUIT. A second
+    // OpenWindow registers with the workspace (WindowCount=2).
+    check(
+        "t-90-270-loop-drag.mod",
+        "b0: 700,0,300,600\nb1: 750,0,250,600\na1: 0,0,750,600\nsplit-evt: Y\nwins: 2\nquit-ok: Y\n",
+    );
+}
+
+#[test]
+fn t90_270b_nested_close() {
+    // PaneShell S10 hardening (post adversarial review): (1) ancestor-walk drag — a
+    // grandchild press over the OUTER split's divider climbs B->s2(miss)->s1(hit)
+    // and re-weights the outer split (A 500->550); (2) CloseWindow unregisters from
+    // the workspace (swap-remove) so WindowCount stays honest (4->3) and the later
+    // RunBounded's ShowWorkspace cannot dereference the freed window (the UAF the
+    // review found).
+    check(
+        "t-90-270b-nested-close.mod",
+        "A0: 0,0,500,600\nA1: 0,0,550,600\nnested-evt: Y\nwins4: 4\nwins-after-close: 3\nran-ok: Y\n",
+    );
+}
+
+#[test]
+fn t90_271_mdi_dock() {
+    // PaneShell S11 (P6 part 1): MDIContainer = DockLayout, an MDI document area as
+    // just ANOTHER PaneShell.Layout over the same Pane tree. Tiled (2x2 grid),
+    // Tabbed (active doc below a 24px strip, others 0-rect), Cascaded (offset
+    // stack). Documents are Panes with stable id = child index; Activate raises
+    // EvDocActivated (latched); CloseDocument hides a doc and the rest redistribute.
+    check(
+        "t-90-271-mdi-dock.mod",
+        "ids: 0,1,2,3\nd0: 0,0,400,300\nd1: 400,0,400,300\nd2: 0,300,400,300\nd3: 400,300,400,300\ne1-active: 0,24,400,276\ne0-hidden: 0,0,0,0\nactive: 1\ndoc-evt: Y\nf0: 0,0,740,540\nf1: 30,30,740,540\nf2: 60,60,740,540\nf1-closed: 0,0,0,0\nf0-recascade: 0,0,770,570\n",
+    );
+}
+
+#[test]
+fn t90_272_float_dock() {
+    // PaneShell S12 slice 1 (P6 part 2): MDI float/dock re-parenting + dock zones.
+    // DockLayout.DropAt classifies a drop point into a DropZone (25% edge bands,
+    // nearest edge wins; centre tabs) + target rect. Float pops a doc into its own
+    // top-level window (substrate ReparentToNewWindow, destroy+rebuild repoints
+    // win/host across the subtree); Dock is the inverse (ReparentInto + close the
+    // empty frame). Stable doc ids (registry). EvDocFloated/EvDocDocked latched.
+    check(
+        "t-90-272-float-dock.mod",
+        "drop-left: 1 0,0,400,600\ndrop-right: 2 400,0,400,600\ndrop-top: 3 0,0,800,300\ndrop-bottom: 4 0,300,800,300\ndrop-centre: 5 0,0,800,600\ndrop-outside-nodrop: Y\nwins-before: 1\nwins-after-float: 2\ndoc0-detached: Y\ndoc0-float: 0,0,400,300\nfloat-evt: Y\nwins-after-dock: 1\ndoc0-redocked: Y\ndock-evt: Y\n",
+    );
+}
+
+#[test]
+fn t90_272b_float_hardening() {
+    // PaneShell S12 slice 1 hardening (post adversarial review): (1) Realize hosts a
+    // runtime-added doc (d2 tiles into the grid); (2) floating the active doc advances
+    // `active` so a Tabbed container stays visible (a1 fills, not blank); (3) floating
+    // a doc in a non-windowed container is refused before Detach (no orphan); (4)
+    // CloseDocument on a floated doc closes its window (count 3->2, no leak).
+    check(
+        "t-90-272b-float-hardening.mod",
+        "d2-hosted: Y\nd2-realized: 0,300,400,300\nactive-after-float: 1\na1-visible: 0,24,400,276\nrefused-safe: Y\nwins-before-close: 3\nwins-after-close: 2\nclose-evt: Y\n",
+    );
+}
+
+#[test]
+fn t90_273_mdi_persist() {
+    // PaneShell S12 slice 2a (P6): MDI re-arrange commands (Tile/Cascade switch the
+    // DockLayout style) + arrangement persistence (SaveLayout -> versioned text blob
+    // PSL1;..., LoadLayout re-applies style/active/closed) + the float-window
+    // lifecycle safety (CloseWindow nils owned panes' host/win, so closing a float
+    // directly then Dock-ing rebuilds instead of double-freeing).
+    check(
+        "t-90-273-mdi-persist.mod",
+        "tile-a0: 0,0,400,300\ntile-a3: 400,300,400,300\ncasc-a0: 0,0,710,510\ncasc-a1: 30,30,710,510\nsave-blob: PSL1;s=0;a=2;n=3;c=010;\nload-ok: Y\nactive-restored: 2\ne2-active: 0,24,400,276\ne1-hidden: 0,0,0,0\nf0-win-cleared: Y\nf0-redocked: Y\ndock-safe: Y\n",
+    );
+}
+
+#[test]
+fn t90_273b_persist_robust() {
+    // PaneShell S12 slice 2a hardening (post review): the arrangement serializer fails
+    // safe. SaveLayout into a too-small buffer returns FALSE (truncation signalled);
+    // LoadLayout of a wrong-magic blob is rejected with no mutation; LoadLayout of a
+    // valid-magic but truncated bit field is rejected (validated before applying) — so
+    // `active` survives both rejected loads.
+    check(
+        "t-90-273b-persist-robust.mod",
+        "trunc-signaled: Y\nbad-magic-rejected: Y\ntruncated-rejected: Y\nactive-intact: 2\n",
+    );
+}
+
+#[test]
+fn t90_274_lifecycle_dockinto() {
+    // PaneShell S12 slice 2b: window-close lifecycle + DockInto drop-apply. CloseWindow
+    // raises EvWindowClosed; the frame carries GWLP_USERDATA=root so a title-bar WM_CLOSE
+    // raises EvCloseRequest and is swallowed (frame survives, app controls close — IsWindow
+    // proves it). DockInto(NewFloat) pops a doc to its own window (count 1->2, detached);
+    // DockInto(DockCentre) re-docks it (2->1); DockInto(NoDrop) is a no-op (FALSE).
+    check(
+        "t-90-274-lifecycle-dockinto.mod",
+        "win-closed-evt: Y\nclose-req-evt: Y\nframe-alive: Y\nwins0: 1\nafter-float: 2\nfloat-detached: Y\nafter-dock: 1\nredocked: Y\nnodrop-false: Y\n",
+    );
+}
+
+#[test]
+fn t90_274b_close_reentrancy() {
+    // PaneShell S12 slice 2b hardening (post review): CloseWindow is re-entrancy-safe.
+    // A handler that re-closes the same window from inside its own EvWindowClosed (via a
+    // second alias) must no-op (a `closing` guard + detach-before-notify), not double-free.
+    check(
+        "t-90-274b-close-reentrancy.mod",
+        "closed-evt: Y\nreentry-safe: Y\nwins: 0\n",
+    );
+}
+
+#[test]
+fn t90_275_ptcl() {
+    // ptcl interpreter (library/uidef + library/uimod/Ptcl): a small Tcl dialect —
+    // variables, $ / [] / "" substitution (incl. nested command sub), set/puts builtins,
+    // host-verb registration + dispatch. Pins the 6 adversarial-review fixes: errors in
+    // [command] PROPAGATE (propagate/undefvar=ERR), re-entrant host recursion is bounded
+    // (recur=ERR, no crash), ArgInt overflow saturates, >MaxArgs words drop the tail
+    // (maxargs=3, no spurious command), NUL-safe Eq dispatch.
+    check(
+        "t-90-275-ptcl.mod",
+        "x=5\ny=7\nquote=x is 5 and y is 7\nnested=13\npropagate=ERR\nundefvar=ERR\nrecur=ERR\nmaxargs=3\n",
+    );
+}
+
+#[test]
+fn t90_276_ptcl_control() {
+    // ptcl control flow: expr (precedence-climbing infix with $/[] substitution), if/while/
+    // incr, and proc (user commands; params save/restore -> recursion works). The recurse
+    // case is factorial(5)=120 via a recursive proc with [..] command sub inside expr.
+    check(
+        "t-90-276-ptcl-control.mod",
+        "prec=11\nparens=14\nexprvar=25\nifthen=big\nifelse=small\nwhile=15\nproc=49\nrecurse=120\nifcmd=ELSE\ndupparm=7\n",
+    );
+}
+
+#[test]
 fn t91_010_subrange_range_reject() {
     // Negative: a constant out of the subrange's range must be rejected.
     check_run_error("t-91-010-subrange-range-reject.mod", &["out of range"]);

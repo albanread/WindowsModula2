@@ -117,7 +117,7 @@ fn emit_object_inner(
 
     emit_runtime_forwarders(&ctx, &module);
     if with_driver {
-        emit_aot_driver(&ctx, &module, irs);
+        emit_aot_driver(&ctx, &module, irs, opts.protect_heap);
     }
     finish_object(&module, opts, out_path)
 }
@@ -139,7 +139,7 @@ pub fn emit_aot_object_with_init_order(
     let aot_opts = CodegenOptions { aot: true, ..opts };
     let module = emit_linked_module(&ctx, irs, sema, aot_opts)?;
     emit_runtime_forwarders(&ctx, &module);
-    emit_aot_driver_with_order(&ctx, &module, init_order);
+    emit_aot_driver_with_order(&ctx, &module, init_order, opts.protect_heap);
     finish_object(&module, opts, out_path)
 }
 
@@ -336,7 +336,18 @@ fn emit_runtime_forwarders<'ctx>(ctx: &'ctx Context, module: &Module<'ctx>) {
 /// Synthesise the AOT entry driver into `module`: a constant `nm2_aot_table`
 /// of `{body, final}` function pointers (one record per module, in `irs`
 /// order) and `int main()` that tail-calls `nm2_aot_run(table, N)`.
-fn emit_aot_driver<'ctx>(ctx: &'ctx Context, module: &Module<'ctx>, irs: &[&IrModule]) {
+/// Emit `call void @nm2_heap_guard_force_on()` at the current builder position —
+/// the `--protect-heap` self-enable hook injected at program entry.
+fn emit_force_guard<'ctx>(ctx: &'ctx Context, module: &Module<'ctx>, builder: &inkwell::builder::Builder<'ctx>) {
+    use inkwell::module::Linkage;
+    let void_ty = ctx.void_type().fn_type(&[], false);
+    let force = module
+        .get_function("nm2_heap_guard_force_on")
+        .unwrap_or_else(|| module.add_function("nm2_heap_guard_force_on", void_ty, Some(Linkage::External)));
+    builder.build_call(force, &[], "").expect("build_call nm2_heap_guard_force_on");
+}
+
+fn emit_aot_driver<'ctx>(ctx: &'ctx Context, module: &Module<'ctx>, irs: &[&IrModule], protect_heap: bool) {
     use inkwell::module::Linkage;
     use inkwell::values::BasicValue;
 
@@ -379,6 +390,9 @@ fn emit_aot_driver<'ctx>(ctx: &'ctx Context, module: &Module<'ctx>, irs: &[&IrMo
     let builder = ctx.create_builder();
     let bb = ctx.append_basic_block(main_fn, "entry");
     builder.position_at_end(bb);
+    if protect_heap {
+        emit_force_guard(ctx, module, &builder);
+    }
     let n = i64_ty.const_int(irs.len() as u64, false);
     let table_ptr = table_gv.as_pointer_value();
     let rc = builder
@@ -399,6 +413,7 @@ fn emit_aot_driver_with_order<'ctx>(
     ctx: &'ctx Context,
     module: &Module<'ctx>,
     init_order: &[(String, bool, bool)],
+    protect_heap: bool,
 ) {
     use inkwell::module::Linkage;
     use inkwell::values::BasicValue;
@@ -452,6 +467,9 @@ fn emit_aot_driver_with_order<'ctx>(
     let builder = ctx.create_builder();
     let bb = ctx.append_basic_block(main_fn, "entry");
     builder.position_at_end(bb);
+    if protect_heap {
+        emit_force_guard(ctx, module, &builder);
+    }
     let n = i64_ty.const_int(init_order.len() as u64, false);
     let table_ptr = table_gv.as_pointer_value();
     let rc = builder

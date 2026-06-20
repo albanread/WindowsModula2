@@ -96,7 +96,7 @@ pub fn run_m2_status_full(
         return Err(msgs.join("\n"));
     }
 
-    let opts = CodegenOptions { memory_mode: mode, opt_level, aot: false, m2_heap };
+    let opts = CodegenOptions { memory_mode: mode, opt_level, aot: false, m2_heap, protect_heap: false };
     let entry_mid = *graph.topo_order.last()
         .ok_or("empty topo order")?;
     let entry_name = graph.get(entry_mid).name.clone();

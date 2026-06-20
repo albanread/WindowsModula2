@@ -61,6 +61,9 @@ pub struct CodegenOptions {
     /// `nm2_free`). Manual (non-GC) mode only; the driver force-links the `Heap`
     /// module when this is set. Off by default.
     pub m2_heap: bool,
+    /// `--protect-heap`: emit a `nm2_heap_guard_force_on()` call at program entry so
+    /// the AOT exe self-enables the runtime heap guard (no NM2_PROTECT_HEAP needed).
+    pub protect_heap: bool,
 }
 
 impl Default for CodegenOptions {
@@ -70,6 +73,7 @@ impl Default for CodegenOptions {
             opt_level: 0,
             aot: false,
             m2_heap: false,
+            protect_heap: false,
         }
     }
 }

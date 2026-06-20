@@ -5553,7 +5553,12 @@ fn integer_width(types: &newm2_sema::TypeArena, ty: newm2_sema::types::TypeId) -
 /// SYSTEM builtins.
 fn is_pointer_like(types: &newm2_sema::TypeArena, ty: newm2_sema::types::TypeId) -> bool {
     match types.get(ty) {
-        TypeKind::Pointer { .. } | TypeKind::Proc { .. } => true,
+        // A CLASS is a reference type (a pointer to the object, base fields first
+        // under single inheritance), so SYSTEM.CAST between classes — or a class
+        // and ADDRESS — is a pointer reinterpret (BitCast), e.g. a Backend ->
+        // ControlBackend downcast. Without this a class CAST lowers to no Cast
+        // inst and leaves its result ValueId undefined in codegen.
+        TypeKind::Pointer { .. } | TypeKind::Proc { .. } | TypeKind::Class { .. } => true,
         TypeKind::Builtin(b) => matches!(
             b,
             Builtin::Address

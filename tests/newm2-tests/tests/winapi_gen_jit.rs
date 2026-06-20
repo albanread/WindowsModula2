@@ -122,7 +122,7 @@ fn run_generated_pid(namespaces: &[&str], tag: &str) -> Option<String> {
         &lowered_refs,
         &entry_name,
         &sema,
-        CodegenOptions { memory_mode: mode, opt_level: 0, aot: false, m2_heap: false },
+        CodegenOptions { memory_mode: mode, opt_level: 0, aot: false, m2_heap: false, protect_heap: false },
     );
     let output = nm2_test_capture_drain();
     result.expect("JIT run");

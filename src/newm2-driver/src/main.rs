@@ -21,6 +21,8 @@ use newm2_runtime::HEAP_STATS;
 use newm2_sema::{check_module_graph, export_interface, format_module_interface, format_sema};
 use rusqlite::{Connection, params};
 
+mod server;
+
 const COMMANDS: &[&str] = &[
     "dump-tokens",
     "dump-ast",
@@ -35,8 +37,11 @@ const COMMANDS: &[&str] = &[
     "dump-asm",
     "dump-heap",
     "check",
+    "analyze",
+    "complete",
     "run",
     "build",
+    "daemon",
     "build-stdlib",
     "fmt",
     "deps",
@@ -57,6 +62,7 @@ const GLOBAL_FLAGS: &[&str] = &[
     "--no-gc",
     "--gc",
     "--m2-heap",
+    "--protect-heap",
     "--sanitize",
     "--no-cache",
     "--cache",
@@ -110,6 +116,10 @@ struct DriverOptions {
     /// `--m2-heap`: route NEW/DISPOSE through the self-hosted Modula-2 `Heap`
     /// (force-linked) instead of the Rust runtime allocator. Off by default.
     m2_heap: bool,
+    /// `--protect-heap`: enable the runtime heap guard (a counting Bloom filter of
+    /// live allocations) — catches double/invalid frees and reports leaks at exit.
+    /// For `run` (JIT) it sets NM2_PROTECT_HEAP in-process; AOT exes honor that env var.
+    protect_heap: bool,
     /// `--cache`: use the separate-compilation symbol cache (re-intern unchanged
     /// module interfaces instead of re-checking them). Off by default.
     cache: bool,
@@ -130,6 +140,7 @@ impl DriverOptions {
         let mut gui = false;
         let mut out: Option<PathBuf> = None;
         let mut m2_heap = false;
+        let mut protect_heap = false;
         let mut cache = false;
         let mut stdlib: Option<PathBuf> = None;
         let mut index = 0usize;
@@ -157,6 +168,9 @@ impl DriverOptions {
                 index += 1;
             } else if raw_args[index] == "--m2-heap" {
                 m2_heap = true;
+                index += 1;
+            } else if raw_args[index] == "--protect-heap" {
+                protect_heap = true;
                 index += 1;
             } else if raw_args[index] == "--cache" {
                 cache = true;
@@ -207,6 +221,7 @@ impl DriverOptions {
             gui,
             out,
             m2_heap,
+            protect_heap,
             cache,
             stdlib,
         })
@@ -273,6 +288,11 @@ fn main() -> ExitCode {
         return ExitCode::from(2);
     }
 
+    // The resident compiler service runs its own arg parse + server loop.
+    if command == "daemon" {
+        return server::run_daemon(&rest);
+    }
+
     let options = match DriverOptions::parse(&rest) {
         Ok(options) => options,
         Err(message) => {
@@ -315,6 +335,8 @@ fn main() -> ExitCode {
         "dump-llvm" => run_dump_llvm(&paths, &rest, &options),
         "dump-asm" => run_dump_asm(&paths, &rest, &options),
         "check" => run_check(&paths, &options),
+        "analyze" => run_analyze(&paths, &options),
+        "complete" => run_complete(&paths, &options),
         "run" => run_run(&paths, &rest, &options),
         "build" => run_build(&paths, &rest, &options),
         "build-stdlib" => run_build_stdlib(&options, &rest),
@@ -677,6 +699,177 @@ fn run_dump_interface(paths: &[PathBuf], options: &DriverOptions) -> ExitCode {
     }
 }
 
+/// `analyze` — sema (errors) plus the static NEW/DISPOSE pass (warnings: leak,
+/// double-DISPOSE, use-after-DISPOSE). Never fails the build on warnings alone.
+fn run_analyze(paths: &[PathBuf], options: &DriverOptions) -> ExitCode {
+    let Some(entry) = paths.first() else {
+        eprintln!("newm2 analyze: expected a file argument");
+        return ExitCode::from(2);
+    };
+    let graph = match build_graph_from_entry(entry, options) {
+        Ok(g) => g,
+        Err(e) => {
+            eprintln!("newm2: {e}");
+            return ExitCode::from(1);
+        }
+    };
+    let result = check_graph(&graph, options);
+    let warns = newm2_sema::analyze_new_dispose(&graph);
+    let mut all: Vec<&newm2_sema::Diagnostic> = result.diagnostics.iter().chain(warns.iter()).collect();
+    all.sort_by_key(|d| (d.module_id.0, d.span.start.line, d.span.start.column));
+    for d in &all {
+        let sev = match d.severity {
+            newm2_sema::Severity::Error => "error",
+            newm2_sema::Severity::Warning => "warning",
+        };
+        let node = graph.get(d.module_id);
+        eprintln!("{}:{}: {sev}: {}", node.name, d.span.start.line, d.message);
+    }
+    if result.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+// ---- autocomplete ---------------------------------------------------------
+
+/// A dummy selector injected after a bare trailing `.` so the (fatal-first)
+/// parser still produces an AST; sema flags it as an unknown field, which we
+/// ignore — we only need the receiver's type + the module's scopes/types.
+const COMPLETE_PLACEHOLDER: &str = "M2xComplete";
+
+/// Find the entry module's id in the graph by matching its source path; falls
+/// back to the last topological module (the root dependent).
+fn entry_module_id(graph: &newm2_loader::ModuleGraph, path: &Path) -> newm2_loader::ModuleId {
+    if let Ok(want) = std::fs::canonicalize(path) {
+        for node in &graph.modules {
+            for p in [node.impl_path.as_ref(), node.def_path.as_ref()].into_iter().flatten() {
+                if std::fs::canonicalize(p).map(|c| c == want).unwrap_or(false) {
+                    return node.id;
+                }
+            }
+        }
+    }
+    graph
+        .topo_order
+        .last()
+        .copied()
+        .unwrap_or(newm2_loader::ModuleId(graph.modules.len().saturating_sub(1)))
+}
+
+fn complete_sibling_temp(entry: &Path) -> PathBuf {
+    entry.parent().unwrap_or_else(|| Path::new(".")).join("__m2complete__.mod")
+}
+
+fn is_ident_b(b: u8) -> bool {
+    b == b'_' || b.is_ascii_alphanumeric()
+}
+
+/// Make a mid-edit buffer parseable by rewriting ONLY the cursor's logical line
+/// into a self-contained, terminated statement, leaving the rest untouched.
+/// The fatal-first parser otherwise dies on the half-typed line (a bare partial
+/// `Write` runs into the next statement; a trailing `rt.` has no selector).
+///
+/// Returns the repaired source + the new cursor offset (pointing right after the
+/// receiver's dot for member access, or at the word start for a bare identifier),
+/// from which `complete_at` re-derives the receiver. Client-side prefix filtering
+/// in the IDE means we can drop the half-typed word here without losing anything.
+fn repair_for_completion(raw: &str, line: usize, col: usize) -> (String, usize) {
+    let cursor = newm2_sema::line_col_to_offset(raw, line, col);
+    let b = raw.as_bytes();
+    let ls = raw[..cursor].rfind('\n').map(|i| i + 1).unwrap_or(0);
+    let le = raw[cursor..].find('\n').map(|i| cursor + i).unwrap_or(raw.len());
+
+    let mut ind = ls;
+    while ind < le && (b[ind] == b' ' || b[ind] == b'\t') {
+        ind += 1;
+    }
+    let indent = &raw[ls..ind];
+
+    // The partial word ending at the cursor, then whether a `.` precedes it.
+    let mut ps = cursor;
+    while ps > ls && is_ident_b(b[ps - 1]) {
+        ps -= 1;
+    }
+    let is_member = ps > ls && b[ps - 1] == b'.';
+
+    let (repaired_line, cursor_in_line) = if is_member {
+        // Receiver = the ident/`.` run ending at the dot.
+        let dot = ps - 1;
+        let mut rs = dot;
+        while rs > ls && (is_ident_b(b[rs - 1]) || b[rs - 1] == b'.') {
+            rs -= 1;
+        }
+        let receiver = &raw[rs..dot];
+        if receiver.is_empty() {
+            (indent.to_string(), indent.len()) // no real receiver -> bare
+        } else {
+            (
+                format!("{indent}{receiver}.{COMPLETE_PLACEHOLDER};"),
+                indent.len() + receiver.len() + 1, // right after the dot
+            )
+        }
+    } else {
+        // Bare identifier: blank the line to whitespace; the cursor's position
+        // still selects the enclosing scope, and we enumerate everything in it.
+        (indent.to_string(), indent.len())
+    };
+
+    let mut out = String::with_capacity(raw.len() + repaired_line.len());
+    out.push_str(&raw[..ls]);
+    out.push_str(&repaired_line);
+    out.push_str(&raw[le..]);
+    (out, ls + cursor_in_line)
+}
+
+/// Core completion, shared by the `complete` CLI verb and the daemon verb.
+/// Reads `file`, repairs the cursor line so the buffer parses, builds the graph +
+/// runs sema, and resolves the members visible at (1-based `line`, 0-based
+/// `col`). Returns candidates (possibly empty); never panics.
+pub(crate) fn complete_core(
+    file: &str,
+    line: usize,
+    col: usize,
+    options: &DriverOptions,
+) -> Vec<newm2_sema::Completion> {
+    let raw = match std::fs::read_to_string(file) {
+        Ok(s) => s,
+        Err(_) => return Vec::new(),
+    };
+    let (source, cursor) = repair_for_completion(&raw, line, col);
+    let build_path = complete_sibling_temp(Path::new(file));
+    if std::fs::write(&build_path, &source).is_err() {
+        return Vec::new();
+    }
+    let cands = match build_graph_from_entry(&build_path, options) {
+        Ok(graph) => {
+            let sema = check_graph(&graph, options);
+            let mid = entry_module_id(&graph, &build_path);
+            newm2_sema::complete_at(&graph, &sema, mid, &source, cursor)
+        }
+        Err(_) => Vec::new(),
+    };
+    let _ = std::fs::remove_file(&build_path);
+    cands
+}
+
+/// `newm2 complete <file> <line> <col>` — prints `name\tkind\tdetail` lines.
+fn run_complete(paths: &[PathBuf], options: &DriverOptions) -> ExitCode {
+    let Some(file) = paths.first().and_then(|p| p.to_str()) else {
+        eprintln!("newm2 complete: expected <file> <line> <col>");
+        return ExitCode::from(2);
+    };
+    let line: usize =
+        paths.get(1).and_then(|p| p.to_str()).and_then(|s| s.parse().ok()).unwrap_or(0);
+    let col: usize =
+        paths.get(2).and_then(|p| p.to_str()).and_then(|s| s.parse().ok()).unwrap_or(0);
+    for c in complete_core(file, line, col, options) {
+        println!("{}\t{}\t{}", c.name, c.kind, c.detail);
+    }
+    ExitCode::SUCCESS
+}
+
 fn run_check(paths: &[PathBuf], options: &DriverOptions) -> ExitCode {
     let Some(entry) = paths.first() else {
         eprintln!("newm2 check: expected a file argument");
@@ -820,7 +1013,7 @@ fn run_dump_llvm(paths: &[PathBuf], raw_args: &[String], options: &DriverOptions
         eprintln!("newm2 dump-llvm: semantic errors; cannot lower");
         return ExitCode::from(1);
     }
-    let opts = CodegenOptions { memory_mode: mode, opt_level: parse_opt_level(raw_args), aot: false, m2_heap: options.m2_heap };
+    let opts = CodegenOptions { memory_mode: mode, opt_level: parse_opt_level(raw_args), aot: false, m2_heap: options.m2_heap, protect_heap: options.protect_heap };
     let mut any = false;
     for &mid in &graph.topo_order {
         if let Some(ir) = lower_module(&graph, mid, &sema, mode) {
@@ -851,7 +1044,7 @@ fn run_dump_asm(paths: &[PathBuf], raw_args: &[String], options: &DriverOptions)
         eprintln!("newm2 dump-asm: semantic errors; cannot lower");
         return ExitCode::from(1);
     }
-    let opts = CodegenOptions { memory_mode: mode, opt_level: parse_opt_level(raw_args), aot: false, m2_heap: options.m2_heap };
+    let opts = CodegenOptions { memory_mode: mode, opt_level: parse_opt_level(raw_args), aot: false, m2_heap: options.m2_heap, protect_heap: options.protect_heap };
     let mut any = false;
     for &mid in &graph.topo_order {
         if let Some(ir) = lower_module(&graph, mid, &sema, mode) {
@@ -873,6 +1066,11 @@ fn run_run(paths: &[PathBuf], raw_args: &[String], options: &DriverOptions) -> E
         eprintln!("newm2 run: expected a file argument");
         return ExitCode::from(2);
     };
+    // `--protect-heap`: the JIT runs in-process, so enabling the runtime guard is
+    // just setting the env var the allocator reads (lazily, on first NEW).
+    if options.protect_heap {
+        unsafe { std::env::set_var("NM2_PROTECT_HEAP", "1") };
+    }
     let mode = parse_memory_mode(raw_args);
 
     // Program-argument forwarding for ISO `ProgramArgs`: argument 0 is the
@@ -912,7 +1110,7 @@ fn run_run(paths: &[PathBuf], raw_args: &[String], options: &DriverOptions) -> E
         }
         return ExitCode::from(1);
     }
-    let opts = CodegenOptions { memory_mode: mode, opt_level: parse_opt_level(raw_args), aot: false, m2_heap: options.m2_heap };
+    let opts = CodegenOptions { memory_mode: mode, opt_level: parse_opt_level(raw_args), aot: false, m2_heap: options.m2_heap, protect_heap: options.protect_heap };
     // Run modules in topo order; execute the entry module's body last.
     let entry_mid = *graph.topo_order.last().unwrap_or(&graph.topo_order[0]);
     for &mid in &graph.topo_order {
@@ -998,6 +1196,7 @@ fn run_build_stdlib(options: &DriverOptions, raw_args: &[String]) -> ExitCode {
         opt_level: parse_opt_level(raw_args),
         aot: true,
         m2_heap: options.m2_heap,
+        protect_heap: options.protect_heap,
     };
     const ROOT: &str = "__m2stdlib__";
     let lowered: Vec<_> = graph
@@ -1153,6 +1352,7 @@ fn run_build(paths: &[PathBuf], raw_args: &[String], options: &DriverOptions) ->
         opt_level: parse_opt_level(raw_args),
         aot: true,
         m2_heap: options.m2_heap,
+        protect_heap: options.protect_heap,
     };
 
     if options.stdlib.is_some() {
@@ -1486,7 +1686,7 @@ fn run_dump_heap(paths: &[PathBuf], raw_args: &[String], options: &DriverOptions
         }
         return ExitCode::from(1);
     }
-    let opts = CodegenOptions { memory_mode: MemoryMode::NoGc, opt_level: 0, aot: false, m2_heap: options.m2_heap };
+    let opts = CodegenOptions { memory_mode: MemoryMode::NoGc, opt_level: 0, aot: false, m2_heap: options.m2_heap, protect_heap: options.protect_heap };
     let entry_mid = *graph.topo_order.last().unwrap_or(&graph.topo_order[0]);
     let lowered: Vec<_> = graph
         .topo_order
