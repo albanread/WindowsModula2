@@ -1,9 +1,9 @@
 MODULE AudioSfx;
 (*
- * Audio SFX generator — renders the NewAudio-ported game sound library to .wav
+ * Audio SFX generator â renders the NewAudio-ported game sound library to .wav
  * files entirely in Modula-2 (no device needed), then you can play them. This is
  * Phase 1 of the M2 audio port: pure synthesis + WAV export, the headless-testable
- * core (the live waveOut player is Phase 2). A console program — run it and it
+ * core (the live waveOut player is Phase 2). A console program â run it and it
  * drops a pack of game SFX next to itself.
  *
  *   build: newm2 build demos/audio_sfx.mod   then run the .exe

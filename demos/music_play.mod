@@ -1,6 +1,6 @@
 MODULE MusicPlay;
 (*
- * ABC music playback — Phase 3 of the M2 audio port. Parses ABC notation with the
+ * ABC music playback â Phase 3 of the M2 audio port. Parses ABC notation with the
  * Abc module and plays it live through WinMM midiOut (a background scheduler thread,
  * direct from Modula-2). The timing-critical part: each note fires at its precomputed
  * millisecond deadline, no GC pauses between notes. Run it and you should hear the

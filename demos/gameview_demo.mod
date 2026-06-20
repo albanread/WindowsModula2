@@ -1,14 +1,14 @@
 MODULE GameViewDemo;
 <*GUI*>   (* windowed app: GUI subsystem, no console *)
 (*
- * GameView demo — the INDEXED-COLOUR retro game mode. A small framebuffer
+ * GameView demo â the INDEXED-COLOUR retro game mode. A small framebuffer
  * (200x130 palette indices) is presented at 4x as chunky pixels, exactly like a
  * 90s console: 16-colour sprites authored from text rows, bit-blits with
  * transparency and horizontal flip, and a palette-cycled rainbow band that
  * shimmers without redrawing a single pixel (classic copper-bar trick).
  *
  * It exercises GameView end to end: Cls/Pset/Text indexed drawing, SpriteRows
- * authoring, Blit/BlitFlip, CyclePalette animation, and the scaled Present — all
+ * authoring, Blit/BlitFlip, CyclePalette animation, and the scaled Present â all
  * driven by WinShell's non-blocking message pump.
  *
  *   build: newm2 build demos/gameview_demo.mod   then run the .exe
