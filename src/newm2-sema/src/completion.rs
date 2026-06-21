@@ -284,7 +284,7 @@ fn symbol_completion(sema: &SemaResult, name: &str, kind: &SymbolKind) -> Comple
 }
 
 /// A readable name for a type (for display only).
-fn type_name(sema: &SemaResult, ty: TypeId, depth: u32) -> String {
+pub(crate) fn type_name(sema: &SemaResult, ty: TypeId, depth: u32) -> String {
     if depth > 6 {
         return "...".to_string();
     }
@@ -305,7 +305,7 @@ fn type_name(sema: &SemaResult, ty: TypeId, depth: u32) -> String {
     }
 }
 
-fn sig_detail(sema: &SemaResult, sig: &ProcSig) -> String {
+pub(crate) fn sig_detail(sema: &SemaResult, sig: &ProcSig) -> String {
     let mut s = String::from("(");
     for (i, p) in sig.params.iter().enumerate() {
         if i > 0 {

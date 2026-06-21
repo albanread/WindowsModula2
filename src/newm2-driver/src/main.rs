@@ -39,6 +39,7 @@ const COMMANDS: &[&str] = &[
     "check",
     "analyze",
     "complete",
+    "describe",
     "run",
     "build",
     "daemon",
@@ -337,6 +338,7 @@ fn main() -> ExitCode {
         "check" => run_check(&paths, &options),
         "analyze" => run_analyze(&paths, &options),
         "complete" => run_complete(&paths, &options),
+        "describe" => run_describe(&paths, &options),
         "run" => run_run(&paths, &rest, &options),
         "build" => run_build(&paths, &rest, &options),
         "build-stdlib" => run_build_stdlib(&options, &rest),
@@ -866,6 +868,133 @@ fn run_complete(paths: &[PathBuf], options: &DriverOptions) -> ExitCode {
         paths.get(2).and_then(|p| p.to_str()).and_then(|s| s.parse().ok()).unwrap_or(0);
     for c in complete_core(file, line, col, options) {
         println!("{}\t{}\t{}", c.name, c.kind, c.detail);
+    }
+    ExitCode::SUCCESS
+}
+
+// ---- context help (describe) ----------------------------------------------
+
+/// Core context-help, shared by the `describe` CLI verb and the daemon verb.
+/// Reads `file`, builds the graph + runs sema over the **real** buffer (the
+/// span annotations describe must read point into the un-edited source, and the
+/// cursor sits on a settled identifier — so unlike `complete` there is no
+/// line-repair), resolves the symbol at (1-based `line`, 0-based `col`), and
+/// returns markdown. Then enriches a Win32 function with its DLL + docs link
+/// from the shared Windows-API DB (graceful — skipped silently when absent).
+/// Returns `None` when nothing resolves at the cursor.
+pub(crate) fn describe_core(
+    file: &str,
+    line: usize,
+    col: usize,
+    options: &DriverOptions,
+) -> Option<String> {
+    let source = std::fs::read_to_string(file).ok()?;
+    let cursor = newm2_sema::line_col_to_offset(&source, line, col);
+    let entry = Path::new(file);
+    let graph = build_graph_from_entry(entry, options).ok()?;
+    let sema = check_graph(&graph, options);
+    let mid = entry_module_id(&graph, entry);
+    let mut md = newm2_sema::describe_at(&graph, &sema, mid, &source, cursor)?;
+
+    // Driver-side enrichment: if the described symbol's heading names a Win32
+    // function present in the shared DB, append its DLL + a Microsoft-docs link.
+    if let Some(name) = describe_heading_name(&md) {
+        if let Some(extra) = win32_db_enrichment(entry, &name) {
+            md.push_str(&extra);
+        }
+    }
+    Some(md)
+}
+
+/// The `## Name` heading the describe markdown opens with (the symbol name),
+/// for the DB lookup. `None` for the generic `(expression)` heading.
+fn describe_heading_name(md: &str) -> Option<String> {
+    let first = md.lines().next()?;
+    let name = first.strip_prefix("## ")?.trim();
+    if name.is_empty() || name.starts_with('(') {
+        return None;
+    }
+    Some(name.to_string())
+}
+
+/// Look up `func` in the shared Windows-API DB and, if found, return a markdown
+/// `**DLL** … · [Microsoft docs](url)` line. Graceful: `None` if the DB is
+/// missing, the function is absent, or any query fails — context help stays
+/// fully functional offline without it.
+fn win32_db_enrichment(entry: &Path, func: &str) -> Option<String> {
+    let db_path = locate_describe_db(entry)?;
+    let conn = Connection::open(&db_path).ok()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT COALESCE(dll_name, ''), COALESCE(documentation_url, '') \
+             FROM functions \
+             WHERE function_name = ?1 COLLATE NOCASE OR import_name = ?1 COLLATE NOCASE \
+             LIMIT 1",
+        )
+        .ok()?;
+    let row: Option<(String, String)> = stmt
+        .query_row(params![func], |r| Ok((r.get(0)?, r.get(1)?)))
+        .ok();
+    let (dll, url) = row?;
+    if dll.is_empty() && url.is_empty() {
+        return None;
+    }
+    let mut s = String::from("\n");
+    if !dll.is_empty() {
+        s.push_str(&format!("**DLL** {}", dll));
+    }
+    if !url.is_empty() {
+        if !dll.is_empty() {
+            s.push_str("  ·  ");
+        }
+        s.push_str(&format!("[Microsoft docs]({})", url));
+    }
+    s.push('\n');
+    Some(s)
+}
+
+/// Locate the shared Windows-API DB for describe enrichment. Prefers the
+/// well-known absolute path, then the existing `windows_api/windows_api.db`
+/// walk-up from the entry file / CWD. Returns the first that exists on disk.
+fn locate_describe_db(entry: &Path) -> Option<PathBuf> {
+    const WELL_KNOWN: &str = r"E:\windows_api\windows_api.db";
+    let well_known = PathBuf::from(WELL_KNOWN);
+    if well_known.is_file() {
+        return Some(well_known);
+    }
+    let try_root = |root: PathBuf| -> Option<PathBuf> {
+        let db = root.join("windows_api").join("windows_api.db");
+        db.is_file().then_some(db)
+    };
+    for ancestor in entry.ancestors() {
+        if let Some(db) = try_root(ancestor.to_path_buf()) {
+            return Some(db);
+        }
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        for ancestor in cwd.ancestors() {
+            if let Some(db) = try_root(ancestor.to_path_buf()) {
+                return Some(db);
+            }
+        }
+    }
+    None
+}
+
+/// `newm2 describe <file> <line> <col>` — prints the context-help markdown for
+/// the symbol at the cursor (1-based `line`, 0-based `col`), or nothing when no
+/// symbol resolves there.
+fn run_describe(paths: &[PathBuf], options: &DriverOptions) -> ExitCode {
+    let Some(file) = paths.first().and_then(|p| p.to_str()) else {
+        eprintln!("newm2 describe: expected <file> <line> <col>");
+        return ExitCode::from(2);
+    };
+    let line: usize =
+        paths.get(1).and_then(|p| p.to_str()).and_then(|s| s.parse().ok()).unwrap_or(0);
+    let col: usize =
+        paths.get(2).and_then(|p| p.to_str()).and_then(|s| s.parse().ok()).unwrap_or(0);
+    if let Some(md) = describe_core(file, line, col, options) {
+        print!("{md}");
     }
     ExitCode::SUCCESS
 }

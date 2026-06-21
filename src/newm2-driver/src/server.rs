@@ -269,6 +269,7 @@ fn handle(req: &str, base_args: &[String]) -> (String, bool) {
         "check" => (cmd_check(words.get(1), base_args), false),
         "analyze" => (cmd_analyze(words.get(1), base_args), false),
         "complete" => (cmd_complete(words.get(1), words.get(2), words.get(3), base_args), false),
+        "describe" => (cmd_describe(words.get(1), words.get(2), words.get(3), base_args), false),
         "build" => (cmd_build(words.get(1), words.get(2), base_args), false),
         "run" => (cmd_run(words.get(1), base_args), false),
         "dump" => (cmd_dump(words.get(1), words.get(2), base_args), false),
@@ -384,6 +385,36 @@ fn cmd_complete(
         .map(|c| format!("{}\t{}\t{}", c.name, c.kind, oneline(&c.detail)))
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+/// `describe <file> <line> <col>` -> context-help **markdown** for the symbol at
+/// the cursor (multi-line; the IDE renders it with `MarkView`). `line` is
+/// 1-based, `col` is 0-based — same convention as `complete`. Replies `ok` when
+/// nothing resolves at the cursor. The heavy logic lives in
+/// `crate::describe_core` (sema's resolved module graph + optional DB enrichment).
+fn cmd_describe(
+    file: Option<&String>,
+    line: Option<&String>,
+    col: Option<&String>,
+    base_args: &[String],
+) -> String {
+    let Some(file) = file else {
+        return err("describe: missing file");
+    };
+    let Some(line) = line.and_then(|s| s.parse::<usize>().ok()) else {
+        return err("describe: bad line");
+    };
+    let Some(col) = col.and_then(|s| s.parse::<usize>().ok()) else {
+        return err("describe: bad col");
+    };
+    let opts = match options(base_args) {
+        Ok(o) => o,
+        Err(e) => return err(e),
+    };
+    match crate::describe_core(file, line, col, &opts) {
+        Some(md) if !md.trim().is_empty() => md,
+        _ => "ok".to_string(),
+    }
 }
 
 /// The outcome of an AOT build, shared by `build` and `run`.

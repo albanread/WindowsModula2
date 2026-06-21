@@ -10,6 +10,7 @@
 pub mod analyze;
 pub mod class;
 pub mod completion;
+pub mod describe;
 pub mod heapcheck;
 pub mod constant;
 pub mod iface;
@@ -23,6 +24,7 @@ pub use analyze::{
     check_module_graph_cached_strict, check_module_graph_strict,
 };
 pub use completion::{Completion, complete_at, line_col_to_offset};
+pub use describe::describe_at;
 pub use heapcheck::analyze_new_dispose;
 pub use iface::{ModuleInterface, export_interface};
 pub use print::format_module_interface;
