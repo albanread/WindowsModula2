@@ -95,6 +95,39 @@ critical-section lock) **alongside** Direct3D rendering, so a single Modula-2 pr
 complete little game engine: hardware-accelerated graphics, synthesized sound, and music,
 at 60fps.
 
+## A GUI framework and a self-hosted IDE
+
+On top of the graphics hosts sits **PaneShell** (`library/uidef` + `library/uimod`) — a
+small **reactive GUI framework** whose unit of currency is a *Pane*:
+
+- Panes compose through **layouts** — weighted, draggable **splits**, **tabs**, and an
+  **MDI / dock** container (float / tile / cascade). They are all the *same* Pane tree,
+  just different `Layout` strategies; the live HWND tree is a projection of the Pane tree,
+  and events arrive as semantic `Event`s keyed to a pane.
+- A **surface abstraction** (`Surface.Backend`) lets any leaf be a GPU TextGrid, a
+  Direct2D canvas, a raster/shader view, or a native Win32 control — one polymorphic
+  vtable over the `@ordinal`-checked COM stack above.
+- A **warm compiler daemon** (`newm2-driver daemon`, a named-pipe service) gives
+  sub-second **check / analyze / autocomplete / build / run**; an embedded **ptcl** (a
+  small Tcl dialect) scripts the editor and is remote-drivable over a pipe.
+- A **heap analyzer** — a static NEW/DISPOSE pass plus a runtime `--protect-heap` guard
+  (a counting Bloom filter that catches double-frees and reports leaks).
+
+**FastPanesM2** (`projects/FastPanesM2`) is a complete Modula-2 IDE built on PaneShell,
+itself written in Modula-2 — GPU-accelerated text panes throughout:
+
+- **File / project sidebar** — folder-as-project (no manifest; the compiler's
+  import-following *is* the project system), browsing both your project and the library.
+- **Editor tabs** — open / close (per-tab `x`) / scrollable, multi-file editing.
+- **Autocomplete** — type `.` (or Ctrl+Space / F6) to complete **module exports, record
+  fields, and class / COM-interface methods**, with signatures, from the live daemon.
+- **Project-aware build / run** — F9/F5 save every tab then build the target; the compiler
+  follows imports across the project. Plus jump-to-error, find, undo/redo, clipboard, a
+  compiler inspector (tokens / AST / sema / IR / LLVM), and the heap analyzer (F7/F8).
+
+It is **relocatable** into a self-contained release folder (the IDE finds its compiler and
+library next to its own exe).
+
 ## Status
 
 A **working compiler** with a substantial ISO 10514-1 standard library, a growing
@@ -133,7 +166,11 @@ Multi-module programs compile and run identically through the JIT and the AOT `.
 - **Windows / graphics** (`library/winrtdef` + `library/winrtmod`) — `WinShell`,
   `Terminal`, `TermRender`, `DWrite`, `ShaderView`, `Canvas2D`, `RasterView`, `Chart`,
   `GameView` / `GameViewGpu` (retro game mode), `Dialogs`, `Clipboard`, `RunProg`,
-  `Threads`, `FileFunc`, `ElapsedTime`, `MemUtils`, `SecureRandom`, …
+  `Threads`, `FileFunc`, `DirIter`, `PathStr`, `PipeClient` / `PipeServer`, `Harness`,
+  `ElapsedTime`, `MemUtils`, `SecureRandom`, …
+- **GUI framework** (`library/uidef` + `library/uimod`) — `PaneShell` (panes + event
+  router), `PaneLayout` (splits / tabs), `MDIContainer` (dock / float), `Surface`
+  (the leaf-backend abstraction), `Ptcl` (the embedded Tcl-dialect scripting engine)
 - **Audio / music** (`library/winrtdef` + `library/winrtmod`) — `Audio` (synthesis),
   `WavFile` (`.wav` r/w), `WaveOut` (live `waveOut` mixer), `Abc` (ABC notation parser),
   `MidiOut` (`midiOut` scheduler), `SmfFile` (`.mid` export)
@@ -148,9 +185,11 @@ third-party distribution required.
 ### Not yet
 
 The full Win32 binding surface, COM *server*-side (`CLASS IMPLEMENTS` +
-synthesized `QueryInterface`), anti-aliased font rendering for `Chart`, and
-editor / LSP integration (the standalone `FastM2` IDE aside). Cross-platform is
-explicitly **out of scope** — this compiler is Windows-only by design.
+synthesized `QueryInterface`), and anti-aliased font rendering for `Chart`.
+(Editor tooling — live diagnostics + autocomplete — now lives in the
+**FastPanesM2** IDE via the compiler daemon, though a standalone LSP server is
+still future work.) Cross-platform is explicitly **out of scope** — this compiler
+is Windows-only by design.
 
 ## Building
 
@@ -164,6 +203,9 @@ cargo test  --workspace
 target\debug\newm2-driver run   demos\term-demo.mod         # JIT
 target\debug\newm2-driver build demos\chart_demo.mod        # AOT -> .exe
 target\debug\newm2-driver run   --opt 2 my.mod              # optimized JIT
+
+target\debug\newm2-driver build projects\FastPanesM2\FastPanesM2.mod --library library   # the IDE
+bash projects/FastPanesM2/make-release.sh                   # -> a self-contained release\ folder
 ```
 
 ## Layout
@@ -173,10 +215,12 @@ target\debug\newm2-driver run   --opt 2 my.mod              # optimized JIT
 | `src/` | Rust workspace — `newm2-lexer`, `newm2-parser`, `newm2-sema`, `newm2-ir`, `newm2-llvm`, `newm2-runtime`, `newm2-driver`, `newm2-winapi-gen` |
 | `library/isodef`, `library/isomod` | ISO 10514-1 standard library (clean-room) |
 | `library/winrtdef`, `library/winrtmod` | Windows framework + graphics hosts |
+| `library/uidef`, `library/uimod` | **PaneShell** GUI framework — panes, layouts, MDI/dock, surfaces, the `ptcl` engine |
 | `library/NewM2` | generated Win32 / COM `DEFINITION MODULE`s |
 | `library/utildef`, `library/utilmod` | general-purpose utility modules |
 | `demos/` | runnable demo programs (GPU, retro game mode, TUI, games, graphics, audio, music) |
 | `projects/FastM2` | **FastM2** — a Turbo-Pascal-style Modula-2 IDE, itself written in Modula-2 |
+| `projects/FastPanesM2` | **FastPanesM2** — a GPU-pane IDE on PaneShell: project sidebar, tabs, autocomplete, project build |
 | `Mod/tests/` | Modula-2 conformance / regression test programs |
 | `tests/` | Rust integration + conformance harness |
 | `docs/` | design notes, the COM-vtables paper, the DocCrate language guide |

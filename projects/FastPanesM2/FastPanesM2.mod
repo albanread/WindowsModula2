@@ -36,6 +36,8 @@ IMPORT Clipboard;
 FROM PipeClient IMPORT Ask;
 IMPORT Ptcl;
 IMPORT PipeServer;
+IMPORT DirIter;
+FROM PathStr IMPORT BaseName, Join;
 
 CONST
   (* Compiler / LibPath / WorkFile / ExeFile / OutFile / Sample / DemoFile are
@@ -49,11 +51,18 @@ CONST
   MaxLines = 4000; MaxCol = 400;
   UndoMax  = 32; UndoCap = 32767;       (* undo/redo: 32 snapshots, <=32KB each (compiler segfaults on bigger array elements) *)
   Gutter   = 5;                          (* line-number gutter width *)
-  EdTop    = 1;                          (* editor text starts at row 1 (row 0 = menu bar) *)
+  EdTop    = 2;                          (* editor text starts at row 2 (row 0 = menu bar, row 1 = tab strip) *)
+  TabRow   = 1;                          (* the tab strip lives on editor-grid row 1 *)
   SelBg    = 0335A8AH;                    (* selection background (steel blue) *)
   BufMax   = 262143;
   MaxComp  = 128;                        (* autocomplete candidates held per query *)
   CompPopH = 10;                         (* max visible rows in the completion popup *)
+  MaxDocs  = 16;                         (* open documents (tabs) *)
+  TabW     = 18;                         (* fixed tab-chip width (cols) *)
+  TabClose = 16;                         (* within-chip col of the close 'x' *)
+  MaxTree  = 4000;                       (* visible rows in the file tree *)
+  SideCols = 30; SideRows = 60;          (* sidebar grid model *)
+  SideFrac = 0.18;                       (* sidebar fraction of the window width *)
 
 VAR
   ws: Workspace; win: PaneWindow; root, edPane, outPane: Pane; edB, outB: Backend;
@@ -96,9 +105,82 @@ VAR
   gEditTime: CARDINAL;                    (* GetTickCount at the last edit (debounce for check-on-idle) *)
   gPipeUp: BOOLEAN;                       (* the Exec pipe server is listening *)
 
+TYPE
+  (* an open document: its serialized text + cursor/scroll/dirty. The LIVE editor
+     globals (line[], nLines, curRow, ...) are the ACTIVE doc's working set; an
+     inactive doc lives here as a newline-joined blob (DocSave/DocLoad swap). *)
+  (* heap-allocated to dodge the large-fixed-array-element compiler segfault: the
+     record holds only a pointer, so gDocs has small elements. *)
+  PText = POINTER TO ARRAY [0..BufMax] OF CHAR;
+  DocRec = RECORD
+    path:  ARRAY [0..511] OF CHAR;
+    text:  PText;                         (* serialized content of an INACTIVE doc *)
+    nLines, curRow, curCol, top, gLeft: CARDINAL;
+    dirty: BOOLEAN;
+    used:  BOOLEAN;
+  END;
+  (* one visible row of the file/project tree (a splice list — see ToggleNode) *)
+  TreeRec = RECORD
+    path:     ARRAY [0..511] OF CHAR;
+    name:     ARRAY [0..127] OF CHAR;
+    depth:    CARDINAL;
+    isDir:    BOOLEAN;
+    expanded: BOOLEAN;
+  END;
+
+VAR
+  sidB: Backend; sidT: Terminal.Instance; sidPane, edOut: Pane;   (* left file-tree sidebar *)
+  gDocs: ARRAY [0..MaxDocs-1] OF DocRec; gNDoc, gActiveDoc: CARDINAL;   (* open tabs *)
+  gTabTop: CARDINAL;                      (* first visible tab (horizontal scroll) *)
+  gTabPerPage: CARDINAL;                  (* tabs that fit (set by DrawTabs, read by hit-test) *)
+  gTabRight: BOOLEAN;                     (* TRUE if tabs overflow to the right (show '>') *)
+  gTree: ARRAY [0..MaxTree-1] OF TreeRec; gTreeN, gTreeSel, gTreeTop: CARDINAL;
+  gProjRoot: ARRAY [0..511] OF CHAR;      (* the user's project folder (first tree root) *)
+  gBuildTarget: ARRAY [0..511] OF CHAR;   (* pinned build/run entry module ("" = build the active file) *)
+  di: CARDINAL;                           (* module-body scratch (BEGIN has no locals) *)
+
 PROCEDURE SLen (VAR s: ARRAY OF CHAR): CARDINAL;
   VAR n: CARDINAL;
 BEGIN n := 0; WHILE (n <= HIGH(s)) AND (s[n] # 0C) DO INC(n) END; RETURN n END SLen;
+
+(* bounded string copy (any src/dst sizes; avoids fixed-array length-mismatch on :=) *)
+PROCEDURE SCopy (VAR dst: ARRAY OF CHAR; src: ARRAY OF CHAR);
+  VAR i: CARDINAL;
+BEGIN
+  i := 0;
+  WHILE (i <= HIGH(src)) AND (i < HIGH(dst)) AND (src[i] # 0C) DO dst[i] := src[i]; INC(i) END;
+  dst[i] := 0C
+END SCopy;
+
+PROCEDURE FileExists (path: ARRAY OF CHAR): BOOLEAN;
+  VAR h: CARDINAL64; nm: ARRAY [0..511] OF CHAR;
+BEGIN
+  SCopy(nm, path); h := NM2File.Open(ADR(nm), NM2File.ReadFlag);
+  IF h = 0 THEN RETURN FALSE END; NM2File.Close(h); RETURN TRUE
+END FileExists;
+
+PROCEDURE DirExists (path: ARRAY OF CHAR): BOOLEAN;
+  VAR it: DirIter.Iter;
+BEGIN
+  IF DirIter.Open(path, it) THEN DirIter.Close(it); RETURN TRUE ELSE RETURN FALSE END
+END DirExists;
+
+PROCEDURE IsUntitled (VAR path: ARRAY OF CHAR): BOOLEAN;
+BEGIN
+  RETURN (path[0] = 0C) OR ((path[0] = 'u') AND (path[1] = 'n') AND (path[2] = 't') AND (path[3] = 'i'))
+END IsUntitled;
+
+PROCEDURE StrEq (VAR a: ARRAY OF CHAR; VAR b: ARRAY OF CHAR): BOOLEAN;
+  VAR i: CARDINAL;
+BEGIN
+  i := 0;
+  LOOP
+    IF (i > HIGH(a)) OR (i > HIGH(b)) THEN RETURN (i > HIGH(a)) = (i > HIGH(b)) END;
+    IF a[i] # b[i] THEN RETURN FALSE END;
+    IF a[i] = 0C THEN RETURN TRUE END;
+    INC(i)
+  END
+END StrEq;
 
 PROCEDURE SetStatus (s: ARRAY OF CHAR);
   VAR i: CARDINAL;
@@ -307,6 +389,48 @@ BEGIN
   END
 END DrawCompletions;
 
+(* the editor tab strip (row TabRow): fixed-width chips " name *x ", the active
+   one highlighted, '*' = unsaved, trailing 'x' = close. Scrolls with '<' / '>'
+   when the tabs overflow. Drawn by RenderEditor; hit-tested by PressAt. The first
+   2 cols are the left-arrow zone, the last 2 the right-arrow zone. *)
+PROCEDURE DrawTabs (vc: CARDINAL);
+  VAR i, k, nl, perPage, nameW: CARDINAL; nm: ARRAY [0..127] OF CHAR; seg: ARRAY [0..TabW] OF CHAR;
+      fg, bg: Colour; one: ARRAY [0..1] OF CHAR; dirty: BOOLEAN;
+BEGIN
+  Terminal.Use(edT);
+  one[0] := ' '; one[1] := 0C;
+  nameW := TabW - 4;                                      (* " " + name + marker + "x" + " " *)
+  IF vc > 4 + TabW THEN perPage := (vc - 4) DIV TabW ELSE perPage := 1 END;
+  IF perPage = 0 THEN perPage := 1 END;
+  IF (gNDoc > 0) AND (gTabTop >= gNDoc) THEN gTabTop := gNDoc - 1 END;
+  gTabPerPage := perPage;
+  gTabRight := (gTabTop + perPage < gNDoc);
+  k := 0; WHILE k < vc DO Terminal.WriteColAt(k, TabRow, Silver, Black, one); INC(k) END;   (* clear row *)
+  i := gTabTop;
+  WHILE (i < gNDoc) AND (i < gTabTop + perPage) DO
+    BaseName(gDocs[i].path, nm); nl := SLen(nm);
+    seg[0] := ' ';
+    k := 0; WHILE k < nameW DO IF k < nl THEN seg[1+k] := nm[k] ELSE seg[1+k] := ' ' END; INC(k) END;
+    IF nl > nameW THEN seg[nameW] := '~' END;             (* name truncated *)
+    dirty := ((i = gActiveDoc) AND gDirty) OR ((i # gActiveDoc) AND gDocs[i].dirty);
+    IF dirty THEN seg[TabW-3] := '*' ELSE seg[TabW-3] := ' ' END;
+    seg[TabClose] := 'x'; seg[TabW-1] := ' '; seg[TabW] := 0C;
+    IF i = gActiveDoc THEN fg := White; bg := Navy ELSE fg := Silver; bg := Black END;
+    Terminal.WriteColAt(2 + (i - gTabTop) * TabW, TabRow, fg, bg, seg);
+    INC(i)
+  END;
+  IF gTabTop > 0 THEN Terminal.WriteColAt(0, TabRow, White, Teal, "< ") END;
+  IF gTabRight AND (vc >= 2) THEN Terminal.WriteColAt(vc-2, TabRow, White, Teal, " >") END
+END DrawTabs;
+
+(* keep the active tab on screen after a switch/open/close (NOT on every render,
+   so manual '<'/'>' scrolling isn't fought) *)
+PROCEDURE EnsureTabVisible;
+BEGIN
+  IF gActiveDoc < gTabTop THEN gTabTop := gActiveDoc END;
+  IF (gTabPerPage > 0) AND (gActiveDoc >= gTabTop + gTabPerPage) THEN gTabTop := gActiveDoc - gTabPerPage + 1 END
+END EnsureTabVisible;
+
 PROCEDURE RenderEditor;
   VAR sr, cols, rows, vc, vr, visRows, visCols, p: CARDINAL; cch: ARRAY [0..1] OF CHAR; st: ARRAY [0..255] OF CHAR;
 BEGIN
@@ -347,12 +471,142 @@ BEGIN
   END;
   WHILE (p < vc) AND (p < 255) DO st[p] := ' '; INC(p) END; st[p] := 0C;   (* pad to width *)
   IF vr > 0 THEN Terminal.WriteColAt(0, vr - 1, White, Teal, st) END;
+  DrawTabs(vc);                                          (* tab strip (row 1, open docs) *)
   Terminal.MenuSetFocus(gMenuMode); Terminal.MenuRender;  (* menu bar (row 0) + any open drop-down, drawn last = on top *)
   IF gAboutMode THEN DrawAbout(vc, vr) END;            (* the About overlay sits on top of everything *)
   IF gCompMode THEN DrawCompletions(vc, vr) END;       (* the autocomplete popup sits above that *)
   edB.Paint;
   gFollow := TRUE                                       (* default: the next render follows the cursor again *)
 END RenderEditor;
+
+(* ============================ file/project tree ============================ *)
+
+CONST SideBg = 0202830H;                                 (* dark slate sidebar background *)
+
+PROCEDURE EndsWithCI (VAR name: ARRAY OF CHAR; ext: ARRAY OF CHAR): BOOLEAN;
+  VAR nl, el, i: CARDINAL; a, b: CHAR;
+BEGIN
+  nl := SLen(name); el := 0; WHILE ext[el] # 0C DO INC(el) END;
+  IF (el = 0) OR (el > nl) THEN RETURN FALSE END;
+  i := 0;
+  WHILE i < el DO
+    a := name[nl-el+i]; b := ext[i];
+    IF (a >= 'A') AND (a <= 'Z') THEN a := CHR(ORD(a)+32) END;
+    IF (b >= 'A') AND (b <= 'Z') THEN b := CHR(ORD(b)+32) END;
+    IF a # b THEN RETURN FALSE END;
+    INC(i)
+  END;
+  RETURN TRUE
+END EndsWithCI;
+
+PROCEDURE StartsWith (VAR name: ARRAY OF CHAR; pre: ARRAY OF CHAR): BOOLEAN;
+  VAR i: CARDINAL;
+BEGIN
+  i := 0;
+  WHILE pre[i] # 0C DO IF (i > HIGH(name)) OR (name[i] # pre[i]) THEN RETURN FALSE END; INC(i) END;
+  RETURN TRUE
+END StartsWith;
+
+(* build output + IDE scratch the tree shouldn't show *)
+PROCEDURE IsHidden (VAR name: ARRAY OF CHAR): BOOLEAN;
+BEGIN
+  RETURN EndsWithCI(name, ".exe") OR EndsWithCI(name, ".obj") OR EndsWithCI(name, ".png")
+      OR EndsWithCI(name, ".pdb") OR EndsWithCI(name, ".lib") OR EndsWithCI(name, ".ilk")
+      OR EndsWithCI(name, ".jsonl")
+      OR StartsWith(name, "fastpanes_") OR StartsWith(name, "__m2complete__")
+END IsHidden;
+
+(* insert one tree row at position `at`, shifting the rest right *)
+PROCEDURE TreeInsertAt (at: CARDINAL; VAR rec: TreeRec);
+  VAR j: CARDINAL;
+BEGIN
+  IF gTreeN >= MaxTree THEN RETURN END;
+  j := gTreeN;
+  WHILE j > at DO gTree[j] := gTree[j-1]; DEC(j) END;
+  gTree[at] := rec; INC(gTreeN)
+END TreeInsertAt;
+
+(* read `node`'s directory children into the tree right after it (dirs first,
+   then files), one indent level deeper; mark it expanded *)
+PROCEDURE ExpandNode (node: CARDINAL);
+  VAR it: DirIter.Iter; nm: ARRAY [0..511] OF CHAR; isDir: BOOLEAN; size: CARDINAL;
+      rec: TreeRec; at, d: CARDINAL; pass: CARDINAL;
+BEGIN
+  d := gTree[node].depth + 1; at := node + 1;
+  FOR pass := 0 TO 1 DO                                   (* pass 0 = dirs, pass 1 = files *)
+    IF DirIter.Open(gTree[node].path, it) THEN
+      WHILE DirIter.Next(it, nm, isDir, size) DO
+        IF (((isDir AND (pass = 0)) OR ((NOT isDir) AND (pass = 1)))) AND (NOT IsHidden(nm)) THEN
+          Join(gTree[node].path, nm, rec.path);
+          SCopy(rec.name, nm); rec.depth := d; rec.isDir := isDir; rec.expanded := FALSE;
+          TreeInsertAt(at, rec); INC(at)
+        END
+      END;
+      DirIter.Close(it)
+    END
+  END;
+  gTree[node].expanded := TRUE
+END ExpandNode;
+
+(* remove `node`'s descendants (deeper rows that follow it); mark it collapsed *)
+PROCEDURE CollapseNode (node: CARDINAL);
+  VAR d, j, n: CARDINAL;
+BEGIN
+  d := gTree[node].depth; n := 0;
+  WHILE (node + 1 + n < gTreeN) AND (gTree[node + 1 + n].depth > d) DO INC(n) END;
+  j := node + 1;
+  WHILE j + n < gTreeN DO gTree[j] := gTree[j + n]; INC(j) END;
+  gTreeN := gTreeN - n;
+  gTree[node].expanded := FALSE
+END CollapseNode;
+
+PROCEDURE ToggleNode (node: CARDINAL);
+BEGIN
+  IF (node < gTreeN) AND gTree[node].isDir THEN
+    IF gTree[node].expanded THEN CollapseNode(node) ELSE ExpandNode(node) END
+  END
+END ToggleNode;
+
+(* build the two roots (PROJECT + LIBRARY) and auto-expand the project *)
+PROCEDURE InitTree;
+  VAR rec: TreeRec;
+BEGIN
+  gTreeN := 0; gTreeSel := 0; gTreeTop := 0;
+  SCopy(rec.path, gProjRoot); SCopy(rec.name, "PROJECT"); rec.depth := 0; rec.isDir := TRUE; rec.expanded := FALSE;
+  TreeInsertAt(0, rec);
+  SCopy(rec.path, LibPath);   SCopy(rec.name, "LIBRARY"); rec.depth := 0; rec.isDir := TRUE; rec.expanded := FALSE;
+  TreeInsertAt(1, rec);
+  ExpandNode(0)
+END InitTree;
+
+PROCEDURE RenderSidebar;
+  VAR vc, vr, cols, rows, sr, i, p, k, nl, d: CARDINAL; row: ARRAY [0..255] OF CHAR; fg, bg: Colour;
+BEGIN
+  Terminal.Use(sidT);
+  VisibleCells(sidB, vc, vr); cols := Terminal.Cols(); rows := Terminal.Rows();
+  IF (vc = 0) OR (vc > cols) THEN vc := cols END;
+  IF (vr = 0) OR (vr > rows) THEN vr := rows END;
+  Terminal.SetColour(Silver, SideBg); Terminal.Clear;
+  IF gTreeSel < gTreeTop THEN gTreeTop := gTreeSel END;
+  IF (vr > 0) AND (gTreeSel >= gTreeTop + vr) THEN gTreeTop := gTreeSel - vr + 1 END;
+  sr := 0;
+  WHILE (sr < vr) AND (gTreeTop + sr < gTreeN) DO
+    i := gTreeTop + sr; p := 0; d := gTree[i].depth;
+    WHILE (p < d * 2) AND (p < 250) DO row[p] := ' '; INC(p) END;
+    IF gTree[i].isDir THEN
+      IF gTree[i].expanded THEN row[p] := '-' ELSE row[p] := '+' END; INC(p); row[p] := ' '; INC(p)
+    ELSE row[p] := ' '; INC(p); row[p] := ' '; INC(p) END;
+    nl := SLen(gTree[i].name); k := 0;
+    WHILE (k < nl) AND (p < vc) AND (p < 250) DO row[p] := gTree[i].name[k]; INC(p); INC(k) END;
+    WHILE (p < vc) AND (p < 250) DO row[p] := ' '; INC(p) END; row[p] := 0C;
+    IF i = gTreeSel THEN fg := White; bg := Navy
+    ELSIF gTree[i].isDir THEN fg := Aqua; bg := SideBg
+    ELSE fg := Silver; bg := SideBg END;
+    Terminal.WriteColAt(0, sr, fg, bg, row);
+    INC(sr)
+  END;
+  sidB.Paint
+END RenderSidebar;
 
 (* ---- output: lay the captured compiler text into the output grid (scrolled by
    outTop, error lines in red) ---- *)
@@ -573,12 +827,12 @@ END DaemonAsk;
 
 (* TRUE if the daemon handled the request (even if it reported errors); FALSE only
    when the daemon is unreachable, so the caller falls back to the spawned CLI. *)
-PROCEDURE TryDaemon (run: BOOLEAN): BOOLEAN;
+PROCEDURE TryDaemon (entry: ARRAY OF CHAR; run: BOOLEAN): BOOLEAN;
   VAR cmd: ARRAY [0..1023] OF CHAR; pos: CARDINAL;
 BEGIN
   pos := 0;
   IF run THEN AppendStr(cmd, pos, "run ") ELSE AppendStr(cmd, pos, "build ") END;
-  AppendStr(cmd, pos, '"'); AppendStr(cmd, pos, WorkFile); AppendStr(cmd, pos, '"');
+  AppendStr(cmd, pos, '"'); AppendStr(cmd, pos, entry); AppendStr(cmd, pos, '"');
   IF NOT run THEN
     AppendStr(cmd, pos, " "); AppendStr(cmd, pos, '"'); AppendStr(cmd, pos, ExeFile); AppendStr(cmd, pos, '"')
   END;
@@ -628,14 +882,19 @@ BEGIN
 END DoAnalyze;
 
 PROCEDURE Compile (verb: ARRAY OF CHAR; run: BOOLEAN);
-  VAR cmd: ARRAY [0..1023] OF CHAR; pos, st: CARDINAL; ok: BOOLEAN;
+  VAR cmd, entry: ARRAY [0..1023] OF CHAR; pos, st: CARDINAL; ok: BOOLEAN;
 BEGIN
   IF run THEN SetStatus("running...") ELSE SetStatus("compiling...") END; RenderEditor;
-  IF NOT WriteWork() THEN SetStatus("save FAILED"); RenderEditor; RETURN END;
-  IF TryDaemon(run) THEN RETURN END;                      (* warm resident compiler handled it *)
+  (* entry = the pinned build target, else the active file, else a scratch copy
+     (untitled). The caller (F9/F5) has already saved all dirty docs to disk so
+     the target + its imported siblings are current; the compiler follows imports. *)
+  IF (gBuildTarget[0] # 0C) AND (NOT IsUntitled(gBuildTarget)) THEN SCopy(entry, gBuildTarget)
+  ELSIF NOT IsUntitled(gFile) THEN SCopy(entry, gFile)
+  ELSE SCopy(entry, WorkFile); IF NOT WriteWork() THEN SetStatus("save FAILED"); RenderEditor; RETURN END END;
+  IF TryDaemon(entry, run) THEN RETURN END;               (* warm resident compiler handled it *)
   pos := 0;
   AppendStr(cmd, pos, Compiler); AppendStr(cmd, pos, " "); AppendStr(cmd, pos, verb); AppendStr(cmd, pos, " ");
-  AppendStr(cmd, pos, WorkFile); AppendStr(cmd, pos, " --library ");
+  AppendStr(cmd, pos, entry);    AppendStr(cmd, pos, " --library ");
   AppendStr(cmd, pos, LibPath);  AppendStr(cmd, pos, " > ");
   AppendStr(cmd, pos, OutFile);  AppendStr(cmd, pos, " 2>&1");
   ok := PerformCommand(cmd, SyncExec, st);
@@ -916,23 +1175,181 @@ BEGIN
 END SaveTo;
 
 PROCEDURE Save;
-BEGIN IF SaveTo(gFile) THEN SetStatus("saved") ELSE SetStatus("save FAILED") END; RenderEditor END Save;
-
-PROCEDURE OpenDialog;
-  VAR pathBuf: ARRAY [0..511] OF CHAR; i: CARDINAL;
 BEGIN
-  i := 0; WHILE (i <= HIGH(gFile)) AND (gFile[i] # 0C) DO pathBuf[i] := gFile[i]; INC(i) END; pathBuf[i] := 0C;
-  IF OpenFile(FrameOf(win), pathBuf, "Modula-2|*.mod;*.def|All files|*.*", "Open") THEN
-    IF LoadFile(pathBuf) THEN SetStatus("opened") ELSE SetStatus("open FAILED") END
-  END;
+  IF SaveTo(gFile) THEN
+    gDirty := FALSE; IF gActiveDoc < gNDoc THEN gDocs[gActiveDoc].dirty := FALSE END;   (* clear the tab '*' *)
+    SetStatus("saved")
+  ELSE SetStatus("save FAILED") END;
   RenderEditor
-END OpenDialog;
+END Save;
+
 
 PROCEDURE NewFile;
 BEGIN
   nLines := 1; line[0][0] := 0C; curRow := 0; curCol := 0; top := 0; gLeft := 0;
   gSelActive := FALSE; gFile := "untitled"; gNErr := 0; MarkDirty; SetStatus("new file"); RenderEditor
 END NewFile;
+
+(* ============================ documents / tabs ============================ *)
+
+(* serialize the LIVE buffer (line[]) into dst as newline-joined text *)
+PROCEDURE DocSerialize (VAR dst: ARRAY OF CHAR);
+  VAR r, k, p: CARDINAL;
+BEGIN
+  p := 0; r := 0;
+  WHILE r < nLines DO
+    k := 0; WHILE (line[r][k] # 0C) AND (p < HIGH(dst)) DO dst[p] := line[r][k]; INC(p); INC(k) END;
+    IF p < HIGH(dst) THEN dst[p] := CHR(10); INC(p) END;
+    INC(r)
+  END;
+  dst[p] := 0C
+END DocSerialize;
+
+(* parse newline-joined text in src into the LIVE buffer (line[], nLines) *)
+PROCEDURE DocDeserialize (VAR src: ARRAY OF CHAR);
+  VAR i, c: CARDINAL;
+BEGIN
+  nLines := 0; c := 0; i := 0;
+  WHILE (i <= HIGH(src)) AND (src[i] # 0C) AND (nLines < MaxLines - 1) DO
+    IF src[i] = CHR(10) THEN line[nLines][c] := 0C; INC(nLines); c := 0
+    ELSIF src[i] # CHR(13) THEN IF c < MaxCol THEN line[nLines][c] := src[i]; INC(c) END END;
+    INC(i)
+  END;
+  line[nLines][c] := 0C; INC(nLines)
+END DocDeserialize;
+
+(* snapshot the live editor state into the active doc's slot *)
+PROCEDURE DocSaveActive;
+BEGIN
+  IF gActiveDoc < gNDoc THEN
+    IF gDocs[gActiveDoc].text = NIL THEN NEW(gDocs[gActiveDoc].text) END;
+    DocSerialize(gDocs[gActiveDoc].text^);
+    gDocs[gActiveDoc].nLines := nLines; gDocs[gActiveDoc].curRow := curRow;
+    gDocs[gActiveDoc].curCol := curCol; gDocs[gActiveDoc].top := top;
+    gDocs[gActiveDoc].gLeft := gLeft; gDocs[gActiveDoc].dirty := gDirty;
+    SCopy(gDocs[gActiveDoc].path, gFile)
+  END
+END DocSaveActive;
+
+(* load the active doc's slot into the live editor state (resets undo + selection) *)
+PROCEDURE DocLoadActive;
+BEGIN
+  IF gDocs[gActiveDoc].text # NIL THEN DocDeserialize(gDocs[gActiveDoc].text^)
+  ELSE nLines := 1; line[0][0] := 0C END;
+  curRow := gDocs[gActiveDoc].curRow; curCol := gDocs[gActiveDoc].curCol;
+  top := gDocs[gActiveDoc].top; gLeft := gDocs[gActiveDoc].gLeft;
+  gDirty := gDocs[gActiveDoc].dirty; SCopy(gFile, gDocs[gActiveDoc].path);
+  gSelActive := FALSE; gNErr := 0; gUN := 0; gRN := 0; gLastKind := 0;
+  IF curRow >= nLines THEN curRow := nLines - 1 END
+END DocLoadActive;
+
+PROCEDURE FindOpenDoc (path: ARRAY OF CHAR): CARDINAL;
+  VAR i: CARDINAL;
+BEGIN
+  i := 0; WHILE i < gNDoc DO IF StrEq(gDocs[i].path, path) THEN RETURN i END; INC(i) END;
+  RETURN MaxDocs
+END FindOpenDoc;
+
+PROCEDURE SwitchToDoc (i: CARDINAL);
+BEGIN
+  IF (i >= gNDoc) OR (i = gActiveDoc) THEN RETURN END;
+  DocSaveActive; gActiveDoc := i; DocLoadActive; EnsureTabVisible; RenderEditor
+END SwitchToDoc;
+
+(* open `path` in a tab: switch if already open, else load it into a new tab *)
+PROCEDURE OpenInTab (path: ARRAY OF CHAR);
+  VAR idx: CARDINAL;
+BEGIN
+  idx := FindOpenDoc(path);
+  IF idx < gNDoc THEN SwitchToDoc(idx); RETURN END;
+  IF gNDoc >= MaxDocs THEN SetStatus("too many tabs (close one)"); RenderEditor; RETURN END;
+  DocSaveActive;
+  IF NOT LoadFile(path) THEN SetStatus("open failed"); RenderEditor; RETURN END;
+  gActiveDoc := gNDoc; INC(gNDoc);
+  IF gDocs[gActiveDoc].text = NIL THEN NEW(gDocs[gActiveDoc].text) END;
+  gDocs[gActiveDoc].used := TRUE; SCopy(gDocs[gActiveDoc].path, gFile);
+  gDocs[gActiveDoc].dirty := FALSE; gDirty := FALSE;
+  EnsureTabVisible; RenderEditor
+END OpenInTab;
+
+PROCEDURE CloseDoc (i: CARDINAL);
+  VAR j: CARDINAL; wasActive: BOOLEAN;
+BEGIN
+  IF i >= gNDoc THEN RETURN END;
+  wasActive := (i = gActiveDoc);
+  IF NOT wasActive THEN DocSaveActive END;               (* preserve the active doc before shifting slots *)
+  IF gDocs[i].text # NIL THEN DISPOSE(gDocs[i].text); gDocs[i].text := NIL END;   (* free the closed buffer *)
+  j := i; WHILE j + 1 < gNDoc DO gDocs[j] := gDocs[j+1]; INC(j) END;
+  gDocs[gNDoc-1].text := NIL;                             (* old last slot: its pointer now lives in [gNDoc-2] *)
+  DEC(gNDoc);
+  IF gNDoc = 0 THEN
+    NewFile; gNDoc := 1; gActiveDoc := 0; gDocs[0].used := TRUE;
+    IF gDocs[0].text = NIL THEN NEW(gDocs[0].text) END; SCopy(gDocs[0].path, gFile); RETURN
+  END;
+  IF gActiveDoc > i THEN DEC(gActiveDoc)
+  ELSIF gActiveDoc = i THEN IF gActiveDoc >= gNDoc THEN gActiveDoc := gNDoc - 1 END END;
+  DocLoadActive; EnsureTabVisible; RenderEditor
+END CloseDoc;
+
+(* write a serialized doc blob straight to disk (same byte path as SaveTo) *)
+PROCEDURE WriteBlob (path: ARRAY OF CHAR; VAR blob: ARRAY OF CHAR): BOOLEAN;
+  VAR h, w: CARDINAL64; nm: ARRAY [0..511] OF CHAR; n: CARDINAL;
+BEGIN
+  SCopy(nm, path); h := NM2File.Open(ADR(nm), NM2File.WriteFlag + NM2File.NewFlag);
+  IF h = 0 THEN RETURN FALSE END;
+  n := SLen(blob); w := NM2File.WriteText(h, ADR(blob), VAL(CARDINAL64, n));
+  NM2File.Close(h); RETURN TRUE
+END WriteBlob;
+
+(* save every modified, real (non-untitled) document to disk — so a project build
+   sees the target + all imported siblings as they are in the editor *)
+PROCEDURE SaveAllDirty;
+  VAR i: CARDINAL;
+BEGIN
+  DocSaveActive;
+  i := 0;
+  WHILE i < gNDoc DO
+    IF gDocs[i].dirty AND (gDocs[i].text # NIL) AND (NOT IsUntitled(gDocs[i].path)) THEN
+      IF WriteBlob(gDocs[i].path, gDocs[i].text^) THEN gDocs[i].dirty := FALSE END
+    END;
+    INC(i)
+  END;
+  gDirty := FALSE
+END SaveAllDirty;
+
+(* pin the active file as the build/run entry (F9/F5 then build it from any tab) *)
+PROCEDURE SetBuildTarget;
+  VAR nm: ARRAY [0..127] OF CHAR; msg: ARRAY [0..255] OF CHAR; p: CARDINAL;
+BEGIN
+  IF IsUntitled(gFile) THEN SetStatus("save the file first to pin it as the build target")
+  ELSE
+    SCopy(gBuildTarget, gFile); BaseName(gFile, nm);
+    p := 0; AppendStr(msg, p, "build target = "); AppendStr(msg, p, nm); SetStatus(msg)
+  END;
+  RenderEditor
+END SetBuildTarget;
+
+(* a fresh empty document in a new tab *)
+PROCEDURE NewTab;
+BEGIN
+  IF gNDoc >= MaxDocs THEN SetStatus("too many tabs (close one)"); RenderEditor; RETURN END;
+  DocSaveActive;
+  gActiveDoc := gNDoc; INC(gNDoc);
+  IF gDocs[gActiveDoc].text = NIL THEN NEW(gDocs[gActiveDoc].text) END;
+  gDocs[gActiveDoc].used := TRUE;
+  nLines := 1; line[0][0] := 0C; curRow := 0; curCol := 0; top := 0; gLeft := 0;
+  gSelActive := FALSE; gNErr := 0; gUN := 0; gRN := 0; gLastKind := 0;
+  SCopy(gFile, "untitled"); SCopy(gDocs[gActiveDoc].path, "untitled");
+  gDocs[gActiveDoc].dirty := FALSE; gDirty := FALSE;
+  SetStatus("new file"); RenderEditor
+END NewTab;
+
+PROCEDURE OpenDialog;
+  VAR pathBuf: ARRAY [0..511] OF CHAR;
+BEGIN
+  SCopy(pathBuf, gFile);
+  IF OpenFile(FrameOf(win), pathBuf, "Modula-2|*.mod;*.def|All files|*.*", "Open") THEN OpenInTab(pathBuf) END
+END OpenDialog;
 
 PROCEDURE SaveAs;
   VAR pathBuf: ARRAY [0..511] OF CHAR; i: CARDINAL;
@@ -993,7 +1410,7 @@ PROCEDURE MenuAction (mi, it: CARDINAL);
 BEGIN
   Terminal.Use(edT); Terminal.MenuClose; Terminal.MenuSetFocus(FALSE); gMenuMode := FALSE;
   IF mi = 0 THEN                                    (* File: New Open Save SaveAs Exit *)
-    IF    it = 0 THEN NewFile
+    IF    it = 0 THEN NewTab
     ELSIF it = 1 THEN OpenDialog
     ELSIF it = 2 THEN Save
     ELSIF it = 3 THEN SaveAs
@@ -1012,7 +1429,8 @@ BEGIN
     ELSIF it = 3 THEN Dump("dump-ir",     "IR")
     ELSIF it = 4 THEN Dump("dump-llvm",   "LLVM") END
   ELSIF mi = 4 THEN                                 (* Build: Build / Run / Analyze / Run+Guard *)
-    IF it = 0 THEN Build ELSIF it = 1 THEN DoRun ELSIF it = 2 THEN DoAnalyze ELSIF it = 3 THEN DoGuardRun END
+    IF it = 0 THEN SaveAllDirty; Build ELSIF it = 1 THEN SaveAllDirty; DoRun
+    ELSIF it = 2 THEN DoAnalyze ELSIF it = 3 THEN DoGuardRun ELSIF it = 4 THEN SetBuildTarget END
   ELSIF mi = 5 THEN                                 (* Help: About *)
     IF it = 0 THEN About END
   END;
@@ -1066,7 +1484,7 @@ BEGIN
 END BodyPos;
 
 PROCEDURE PressAt (px, py: INTEGER);             (* a left-button press: menu, drop-down, or start a body selection *)
-  VAR cw, ch, col, row, mi, it, br, bc: CARDINAL;
+  VAR cw, ch, col, row, mi, it, br, bc, ti, tvc, tvr: CARDINAL;
 BEGIN
   CellSize(edB, cw, ch); IF (cw = 0) OR (ch = 0) THEN RETURN END;
   col := VAL(CARDINAL, px) DIV cw; row := VAL(CARDINAL, py) DIV ch;
@@ -1081,6 +1499,16 @@ BEGIN
   ELSIF gMenuMode AND Terminal.MenuIsOpen() THEN    (* an open drop-down *)
     it := Terminal.MenuPopupHit(col, row);
     IF it # MAX(CARDINAL) THEN MenuAction(Terminal.MenuSelected(), it) ELSE LeaveMenu END
+  ELSIF row = TabRow THEN                           (* the tab strip: arrows / close 'x' / switch *)
+    VisibleCells(edB, tvc, tvr); IF tvc = 0 THEN tvc := Terminal.Cols() END;
+    IF (gTabTop > 0) AND (col < 2) THEN DEC(gTabTop); RenderEditor              (* '<' scroll left *)
+    ELSIF gTabRight AND (col >= tvc - 2) THEN INC(gTabTop); RenderEditor        (* '>' scroll right *)
+    ELSIF col >= 2 THEN
+      ti := gTabTop + (col - 2) DIV TabW;
+      IF ti < gNDoc THEN
+        IF (col - 2) MOD TabW = TabClose THEN CloseDoc(ti) ELSE SwitchToDoc(ti) END
+      END
+    END
   ELSE                                              (* the body *)
     IF gMenuMode THEN LeaveMenu END;
     BodyPos(col, row, br, bc);
@@ -1099,7 +1527,7 @@ PROCEDURE DragTo (px, py: INTEGER);              (* extend the selection to the 
 BEGIN
   CellSize(edB, cw, ch); IF (cw = 0) OR (ch = 0) THEN RETURN END;
   col := VAL(CARDINAL, px) DIV cw; row := VAL(CARDINAL, py) DIV ch;
-  IF row = 0 THEN RETURN END;                       (* don't drag-select up into the menu row *)
+  IF row < EdTop THEN RETURN END;                   (* don't drag-select up into the menu / tab rows *)
   BodyPos(col, row, br, bc);
   curRow := br; curCol := bc; RenderEditor
 END DragTo;
@@ -1127,6 +1555,20 @@ BEGIN
     fh := SetFocus(CAST(HWND, HostOf(edPane))); RenderEditor
   END
 END OutClick;
+
+(* click a row in the SIDEBAR: toggle a folder, or open a file in a tab *)
+PROCEDURE SidebarClick (py: INTEGER);
+  VAR cw, ch, row, i: CARDINAL;
+BEGIN
+  CellSize(sidB, cw, ch); IF ch = 0 THEN RETURN END;
+  gCompMode := FALSE;                               (* a tree click dismisses any open completion popup *)
+  row := VAL(CARDINAL, py) DIV ch;
+  i := gTreeTop + row;
+  IF i >= gTreeN THEN RETURN END;
+  gTreeSel := i;
+  IF gTree[i].isDir THEN ToggleNode(i) ELSE OpenInTab(gTree[i].path) END;
+  RenderSidebar
+END SidebarClick;
 
 (* ---- ptcl host verbs: editor commands exposed to the scripting language ---- *)
 PROCEDURE VGoto (): BOOLEAN;                  (* goto N -> move the cursor to line N *)
@@ -1318,7 +1760,7 @@ BEGIN
   IF e.kind = EvCloseRequest THEN Quit(ws)
   ELSIF e.kind = EvResize THEN
     fh := SetFocus(CAST(HWND, HostOf(edPane)));     (* the editor grid (a child host) must hold focus to get keys *)
-    RenderEditor; ShowOutput(gOut)
+    RenderSidebar; RenderEditor; ShowOutput(gOut)
   ELSIF e.kind = EvTimer THEN                        (* idle tick: re-check after a typing pause + serve the Exec pipe *)
     IF gDirty AND (VAL(CARDINAL, GetTickCount()) - gEditTime >= 300) THEN gDirty := FALSE; DoCheck END;
     ServePipe
@@ -1327,6 +1769,7 @@ BEGIN
     IF (btn MOD 2 = 1) AND (gPrevBtn MOD 2 = 0) THEN            (* press edge *)
       IF gAboutMode THEN gAboutMode := FALSE; SetStatus("ready"); RenderEditor   (* click anywhere closes About *)
       ELSIF e.pane = edPane THEN PressAt(e.x, e.y)
+      ELSIF e.pane = sidPane THEN SidebarClick(e.y)            (* click a tree row -> toggle / open *)
       ELSIF e.pane = outPane THEN OutClick(e.y) END             (* click a problem -> jump *)
     ELSIF (btn MOD 2 = 1) AND (gPrevBtn MOD 2 = 1) AND gMouseSel AND (e.pane = edPane) THEN  (* dragging *)
       DragTo(e.x, e.y)
@@ -1338,6 +1781,10 @@ BEGIN
     IF e.pane = outPane THEN                          (* scroll the output pane *)
       IF e.y > 0 THEN IF outTop >= 3 THEN outTop := outTop - 3 ELSE outTop := 0 END ELSE INC(outTop, 3) END;
       ShowOutput(gOut)
+    ELSIF e.pane = sidPane THEN                       (* scroll the file tree *)
+      IF e.y > 0 THEN IF gTreeTop >= 3 THEN gTreeTop := gTreeTop - 3 ELSE gTreeTop := 0 END
+      ELSE INC(gTreeTop, 3); IF (gTreeN > 0) AND (gTreeTop >= gTreeN) THEN gTreeTop := gTreeN - 1 END END;
+      RenderSidebar
     ELSE                                             (* scroll the editor (free scroll, cursor may leave view) *)
       IF e.y > 0 THEN IF top >= 3 THEN top := top - 3 ELSE top := 0 END
       ELSE INC(top, 3); IF top >= nLines THEN top := nLines - 1 END END;
@@ -1371,8 +1818,9 @@ BEGIN
       IF e.ch = CHR(13) THEN MenuEnter ELSIF e.ch = CHR(27) THEN LeaveMenu END
     ELSIF e.ch = CHR(16) THEN StartCmd              (* Ctrl+P = ptcl command line *)
     ELSIF e.ch = CHR(6)  THEN StartFind             (* Ctrl+F *)
-    ELSIF e.ch = CHR(14) THEN NewFile               (* Ctrl+N *)
+    ELSIF e.ch = CHR(14) THEN NewTab                (* Ctrl+N *)
     ELSIF e.ch = CHR(15) THEN OpenDialog            (* Ctrl+O *)
+    ELSIF e.ch = CHR(23) THEN CloseDoc(gActiveDoc)  (* Ctrl+W = close tab *)
     ELSIF e.ch = CHR(19) THEN Save                  (* Ctrl+S *)
     ELSIF e.ch = CHR(26) THEN DoUndo                (* Ctrl+Z *)
     ELSIF e.ch = CHR(25) THEN DoRedo                (* Ctrl+Y *)
@@ -1398,10 +1846,10 @@ BEGIN
     ELSIF e.key = 117 THEN TriggerCompletion                      (* F6 = autocomplete (chord-free alternative) *)
     ELSIF gMenuMode THEN MenuKey(e.key)
     ELSIF e.key = 121 THEN EnterMenu                              (* F10 = menu *)
-    ELSIF e.key = 120 THEN Build                                  (* F9 *)
+    ELSIF e.key = 120 THEN SaveAllDirty; Build                   (* F9 = save all + build the target *)
     ELSIF e.key = 118 THEN DoAnalyze                              (* F7 = analyze NEW/DISPOSE *)
     ELSIF e.key = 119 THEN DoGuardRun                             (* F8 = run under the heap guard *)
-    ELSIF e.key = 116 THEN DoRun                                  (* F5 *)
+    ELSIF e.key = 116 THEN SaveAllDirty; DoRun                    (* F5 = save all + run the target *)
     ELSIF e.key = 114 THEN FindNext                               (* F3 = find next *)
     ELSIF (e.key = 37) OR (e.key = 39) OR (e.key = 38) OR (e.key = 40)
        OR (e.key = 36) OR (e.key = 35) OR (e.key = 33) OR (e.key = 34) THEN  (* navigation keys only *)
@@ -1449,6 +1897,9 @@ PROCEDURE SelfTest;
   PROCEDURE Str_ (s: ARRAY OF CHAR);
     VAR i: CARDINAL;
   BEGIN i := 0; WHILE (i <= HIGH(s)) AND (s[i] # 0C) DO SendChar(h, s[i]); RunBounded(ws, 3); INC(i) END END Str_;
+  PROCEDURE OpenProj (name: ARRAY OF CHAR);       (* open a project-folder file in a tab *)
+    VAR p: ARRAY [0..511] OF CHAR;
+  BEGIN Join(gProjRoot, name, p); OpenInTab(p); RunBounded(ws, 4) END OpenProj;
 BEGIN
   RunBounded(ws, 8);                              (* show window + auto-retile + pump *)
   RenderEditor;
@@ -1496,8 +1947,9 @@ BEGIN
   b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap10_guard.png");
 
   (* AUTOCOMPLETE: an interface variable's method call (b. -> Backend methods),
-     then narrow by typing, then accept with Enter. The "object method call" case. *)
-  b := LoadFile(DemoFile); RenderEditor; RunBounded(ws, 6);
+     then narrow by typing, then accept with Enter. The "object method call" case.
+     OpenInTab also exercises the document model: cmpl_demo opens as a 2nd tab. *)
+  OpenInTab(DemoFile); RunBounded(ws, 6);
   Key(40); Key(40); Key(40); Key(40); Key(40);            (* Down x5 -> line 6 (blank body) *)
   Key(35);                                                 (* End -> after the indent *)
   Str_("b"); Chr_('.');                                   (* 'b.' -> autocomplete popup (Backend methods) *)
@@ -1521,22 +1973,47 @@ BEGIN
   b := LoadFile(Sample); RenderEditor; RunBounded(ws, 6);
   mb := MoveWindow(CAST(HWND, FrameOf(win)), 60, 30, 1500, 1000, 1);
   RunBounded(ws, 14);                                   (* pump the WM_SIZE + the EvResize re-render *)
-  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap14_resize.png")
+  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap14_resize.png");
+
+  (* SIDEBAR -> TAB: click a file row in the project tree; it opens in a new tab.
+     Row ~3 is a real source file (a big one -> exercises the heap doc buffer). *)
+  SendClick(CAST(HWND, HostOf(sidPane)), 40, 70); RunBounded(ws, 10);
+  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap16_sidebar_open.png");
+
+  (* TABS: open enough files to overflow the strip -> close 'x' on each + the '>' arrow *)
+  OpenProj("README.md"); OpenProj("RELEASE.md"); OpenProj("make-release.sh");
+  OpenProj("snap.sh"); OpenProj("ide_exec.ps1"); OpenProj("pipe_client.ps1");
+  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap17_tabs_overflow.png");
+  SendClick(CAST(HWND, HostOf(edPane)), 163, 28); RunBounded(ws, 8);   (* click the 1st tab's 'x' -> close *)
+  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap18_tab_closed.png");
+
+  (* PROJECT BUILD (P3): save all + build the active file; the compiler follows its
+     imports (sample.mod -> STextIO/SWholeIO) = a multi-module build. *)
+  OpenInTab(Sample); RunBounded(ws, 6);
+  SaveAllDirty; Build; RunBounded(ws, 25);
+  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap19_build.png")
 END SelfTest;
 
 BEGIN
   GetExeDir(BaseDir);                                   (* relocatable: everything lives beside this exe *)
   JoinPath(Compiler, BaseDir, "newm2-driver.exe");
+  IF NOT FileExists(Compiler) THEN JoinPath(Compiler, BaseDir, "..\..\target\debug\newm2-driver.exe") END;  (* dev fallback *)
   JoinPath(LibPath,  BaseDir, "library");
+  IF NOT DirExists(LibPath)   THEN JoinPath(LibPath,  BaseDir, "..\..\library") END;                        (* dev fallback *)
   JoinPath(WorkFile, BaseDir, "fastpanes_work.mod");
   JoinPath(ExeFile,  BaseDir, "fastpanes_work.exe");
   JoinPath(OutFile,  BaseDir, "fastpanes_out.txt");
   JoinPath(Sample,   BaseDir, "sample.mod");
   JoinPath(DemoFile, BaseDir, "cmpl_demo.mod");
   ws := Init();
-  edB  := NewTextGrid(EdCols,  EdRows,  "Consolas", 15.0);
-  outB := NewTextGrid(OutCols, OutRows, "Consolas", 15.0);
-  edT  := TermOf(edB);  outT := TermOf(outB);
+  edB  := NewTextGrid(EdCols,   EdRows,   "Consolas", 15.0);
+  outB := NewTextGrid(OutCols,  OutRows,  "Consolas", 15.0);
+  sidB := NewTextGrid(SideCols, SideRows, "Consolas", 15.0);
+  edT  := TermOf(edB);  outT := TermOf(outB);  sidT := TermOf(sidB);
+  gNDoc := 0; gActiveDoc := 0; gTabTop := 0; gTabPerPage := 6; gTabRight := FALSE; gTreeN := 0;   (* docs / tabs / tree *)
+  di := 0; WHILE di < MaxDocs DO gDocs[di].text := NIL; gDocs[di].used := FALSE; INC(di) END;
+  SCopy(gProjRoot, BaseDir);                                (* default project root = this exe's folder *)
+  gBuildTarget[0] := 0C;                                    (* no pinned target -> build the active file *)
   outTop := 0; gOut[0] := 0C; gLeft := 0; gFile := "untitled";
   gFollow := TRUE; gFindMode := FALSE; gFindTerm[0] := 0C; gSelActive := FALSE; gAboutMode := FALSE; gMouseSel := FALSE; gNErr := 0;
   gUN := 0; gRN := 0; gLastKind := 0; gDirty := FALSE; gEditTime := 0;
@@ -1557,22 +2034,26 @@ BEGIN
   Terminal.MenuAddItem(3, "IR"); Terminal.MenuAddItem(3, "LLVM");
   Terminal.MenuAddItem(4, "Build      F9"); Terminal.MenuAddItem(4, "Run        F5");
   Terminal.MenuAddItem(4, "Analyze    F7"); Terminal.MenuAddItem(4, "Run+Guard  F8");
+  Terminal.MenuAddItem(4, "Set Target");
   Terminal.MenuAddItem(5, "About");
 
-  IF NOT LoadFile(Sample) THEN
-    nLines := 1; line[0][0] := 0C; gFile := "untitled"; curRow := 0; curCol := 0; top := 0; gLeft := 0
-  END;
-  SetStatus("ready");
+  NEW(gDocs[0].text);                                (* first document = the sample *)
+  IF NOT LoadFile(Sample) THEN NewFile END;
+  gNDoc := 1; gActiveDoc := 0; gDocs[0].used := TRUE; SCopy(gDocs[0].path, gFile); gDocs[0].dirty := FALSE;
+  gDirty := FALSE; SetStatus("ready");
+  InitTree;                                          (* PROJECT + LIBRARY roots in the sidebar *)
 
+  sidPane := LeafPane("sidebar", sidB);
   edPane  := LeafPane("editor", edB);
   outPane := LeafPane("output", outB);
-  root := Split(Vertical, 0.74, 120, 60, edPane, outPane);
-  SetRect(root, 0, 0, 1000, 720);
-  win := OpenWindow(ws, "FastPanesM2 - Modula-2 IDE on PaneShell", 1000, 720, root, OnEvent);
+  edOut := Split(Vertical, 0.74, 40, 8, edPane, outPane);          (* editor over output *)
+  root  := Split(Horizontal, SideFrac, 16, 60, sidPane, edOut);    (* sidebar | (editor/output) *)
+  SetRect(root, 0, 0, 1280, 800);
+  win := OpenWindow(ws, "FastPanesM2 - Modula-2 IDE on PaneShell", 1280, 800, root, OnEvent);
   Retile(win);
   StartIdleTimer;                                    (* check-on-idle: re-check after a typing pause *)
   IF NOT Ask(PipeName, "ping", gReply) THEN SpawnDaemon END;   (* always have a warm compiler *)
   gPipeUp := PipeServer.Start(IdePipe);              (* the IDE is remote-drivable: ptcl over \\.\pipe\fastpanes *)
-  ShowOutput(gOut); RenderEditor;
+  ShowOutput(gOut); RenderSidebar; RenderEditor;
   IF MarkerExists() THEN SelfTest ELSE Run(ws) END   (* marker -> headless self-drive + PNG snaps; else interactive *)
 END FastPanesM2.
