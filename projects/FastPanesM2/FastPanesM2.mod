@@ -18,7 +18,7 @@ FROM SYSTEM IMPORT ADR, CAST, ADDRESS, ADRCARD;
 FROM Surface IMPORT Backend, NewTextGrid, TermOf, VisibleCells, CellSize;
 FROM PaneShell IMPORT Pane, PaneWindow, Workspace, Event, EvCloseRequest, EvResize,
   EvChar, EvKey, EvMouse, EvWheel, EvTimer, LeafPane, SetRect, Init, OpenWindow, Retile, Run, RunBounded, Quit,
-  HostOf, FrameOf, RectOf, MouseAt, KeyDown;
+  HostOf, FrameOf, RectOf, MouseAt, KeyDown, SetHidden;
 FROM PaneLayout IMPORT Orientation, Split;
 FROM UI_Input_KeyboardAndMouse IMPORT SetFocus;
 FROM UI_WindowsAndMessaging IMPORT SetTimer, MoveWindow;
@@ -63,6 +63,9 @@ CONST
   MaxTree  = 4000;                       (* visible rows in the file tree *)
   SideCols = 30; SideRows = 60;          (* sidebar grid model *)
   SideFrac = 0.18;                       (* sidebar fraction of the window width *)
+  HelpCols = 50; HelpRows = 60;          (* help pane grid model *)
+  HelpFrac = 0.74;                       (* editor-area fraction (1-HelpFrac = help column) *)
+  MaxHelpLink = 256;                     (* clickable links recorded per help render *)
 
 VAR
   ws: Workspace; win: PaneWindow; root, edPane, outPane: Pane; edB, outB: Backend;
@@ -137,6 +140,16 @@ VAR
   gTree: ARRAY [0..MaxTree-1] OF TreeRec; gTreeN, gTreeSel, gTreeTop: CARDINAL;
   gProjRoot: ARRAY [0..511] OF CHAR;      (* the user's project folder (first tree root) *)
   gBuildTarget: ARRAY [0..511] OF CHAR;   (* pinned build/run entry module ("" = build the active file) *)
+  helpB: Backend; helpT: Terminal.Instance; helpPane: Pane; edArea: Pane;   (* right help pane *)
+  gHelpShown: BOOLEAN;                    (* the help pane is visible *)
+  gHelp: ARRAY [0..BufMax] OF CHAR;       (* current help markdown *)
+  gHelpTop: CARDINAL;                     (* help scroll (rendered-row offset) *)
+  gHelpDir: ARRAY [0..511] OF CHAR;       (* help docs folder (relocatable) *)
+  gHelpTopic: ARRAY [0..127] OF CHAR;     (* current static topic ("" = dynamic/describe) *)
+  gHelpBack: ARRAY [0..31] OF ARRAY [0..127] OF CHAR; gHelpBackN: CARDINAL;   (* topic back-stack *)
+  gHLinkRow, gHLinkC0, gHLinkC1: ARRAY [0..MaxHelpLink-1] OF CARDINAL;        (* link span hit-test *)
+  gHLinkTgt: ARRAY [0..MaxHelpLink-1] OF ARRAY [0..255] OF CHAR; gHLinkN: CARDINAL;
+  gGotoPending: BOOLEAN; gGotoFile: ARRAY [0..511] OF CHAR; gGotoLine: CARDINAL;   (* deferred go-to-def from a sym: link *)
   di: CARDINAL;                           (* module-body scratch (BEGIN has no locals) *)
 
 PROCEDURE SLen (VAR s: ARRAY OF CHAR): CARDINAL;
@@ -607,6 +620,139 @@ BEGIN
   END;
   sidB.Paint
 END RenderSidebar;
+
+(* ============================ help pane (markdown) ============================
+   A deliberately small markdown subset rendered into the right-hand help pane:
+   headings, fenced code, bullets, rules, links ([text](target)); ** and ` are
+   stripped for now. Links are recorded for click navigation. *)
+
+CONST HelpBg = 01E1E22H; HCode = 080D080H; HLink = 050C8FFH;
+
+(* render one line's inline content (links + strip **/`) from ln[from..] at
+   screen (startCol, scr); records each link span in the gHLink* tables *)
+PROCEDURE DrawInline (VAR ln: ARRAY OF CHAR; from, startCol, scr, vc: CARDINAL; baseFg: Colour);
+  VAR i, oc, j, ti: CARDINAL; one: ARRAY [0..1] OF CHAR; txt, tgt: ARRAY [0..255] OF CHAR;
+BEGIN
+  one[1] := 0C; i := from; oc := startCol;
+  WHILE (i <= HIGH(ln)) AND (ln[i] # 0C) AND (oc < vc) DO
+    IF ln[i] = '[' THEN
+      j := i + 1; ti := 0;
+      WHILE (ln[j] # 0C) AND (ln[j] # ']') AND (ti < 255) DO txt[ti] := ln[j]; INC(ti); INC(j) END;
+      txt[ti] := 0C;
+      IF (ln[j] = ']') AND (ln[j+1] = '(') THEN
+        j := j + 2; ti := 0;
+        WHILE (ln[j] # 0C) AND (ln[j] # ')') AND (ti < 255) DO tgt[ti] := ln[j]; INC(ti); INC(j) END;
+        tgt[ti] := 0C;
+        IF ln[j] = ')' THEN                          (* a real link: emit txt in HLink, record span *)
+          IF gHLinkN < MaxHelpLink THEN gHLinkRow[gHLinkN] := scr; gHLinkC0[gHLinkN] := oc END;
+          ti := 0; WHILE (txt[ti] # 0C) AND (oc < vc) DO one[0] := txt[ti]; Terminal.WriteColAt(oc, scr, HLink, HelpBg, one); INC(oc); INC(ti) END;
+          IF gHLinkN < MaxHelpLink THEN gHLinkC1[gHLinkN] := oc; SCopy(gHLinkTgt[gHLinkN], tgt); INC(gHLinkN) END;
+          i := j + 1
+        ELSE one[0] := '['; Terminal.WriteColAt(oc, scr, baseFg, HelpBg, one); INC(oc); INC(i) END
+      ELSE one[0] := '['; Terminal.WriteColAt(oc, scr, baseFg, HelpBg, one); INC(oc); INC(i) END
+    ELSIF (ln[i] = '*') AND (ln[i+1] = '*') THEN i := i + 2
+    ELSIF ln[i] = '`' THEN INC(i)
+    ELSE one[0] := ln[i]; Terminal.WriteColAt(oc, scr, baseFg, HelpBg, one); INC(oc); INC(i) END
+  END
+END DrawInline;
+
+PROCEDURE ProcessMdLine (VAR ln: ARRAY OF CHAR; scr, vc: CARDINAL; VAR codeMode: BOOLEAN);
+  VAR i, c: CARDINAL; one: ARRAY [0..1] OF CHAR;
+BEGIN
+  one[1] := 0C;
+  IF (ln[0] = '`') AND (ln[1] = '`') AND (ln[2] = '`') THEN codeMode := NOT codeMode; RETURN END;
+  IF codeMode THEN
+    i := 0; c := 0; WHILE (ln[i] # 0C) AND (c < vc) DO one[0] := ln[i]; Terminal.WriteColAt(c, scr, HCode, HelpBg, one); INC(c); INC(i) END; RETURN
+  END;
+  IF    (ln[0] = '#') AND (ln[1] = '#') AND (ln[2] = '#') THEN DrawInline(ln, 4, 0, scr, vc, Teal)
+  ELSIF (ln[0] = '#') AND (ln[1] = '#') THEN DrawInline(ln, 3, 0, scr, vc, Aqua)
+  ELSIF (ln[0] = '#') THEN DrawInline(ln, 2, 0, scr, vc, Yellow)
+  ELSIF (ln[0] = '-') AND (ln[1] = '-') AND (ln[2] = '-') THEN
+    c := 0; one[0] := '-'; WHILE c < vc DO Terminal.WriteColAt(c, scr, Gray, HelpBg, one); INC(c) END
+  ELSIF ((ln[0] = '-') AND (ln[1] = ' ')) OR ((ln[0] = '*') AND (ln[1] = ' ')) THEN
+    Terminal.WriteColAt(0, scr, Yellow, HelpBg, "  - "); DrawInline(ln, 2, 4, scr, vc, Silver)
+  ELSE DrawInline(ln, 0, 0, scr, vc, Silver) END
+END ProcessMdLine;
+
+PROCEDURE RenderHelp;
+  VAR vc, vr, cols, rows, i, lineIdx, scr, c: CARDINAL; codeMode: BOOLEAN; ln: ARRAY [0..1023] OF CHAR;
+BEGIN
+  Terminal.Use(helpT);
+  VisibleCells(helpB, vc, vr); cols := Terminal.Cols(); rows := Terminal.Rows();
+  IF (vc = 0) OR (vc > cols) THEN vc := cols END;
+  IF (vr = 0) OR (vr > rows) THEN vr := rows END;
+  Terminal.SetColour(Silver, HelpBg); Terminal.Clear;
+  gHLinkN := 0;
+  codeMode := FALSE; i := 0; lineIdx := 0;                (* pre-scan fence state up to gHelpTop *)
+  WHILE (gHelp[i] # 0C) AND (lineIdx < gHelpTop) DO
+    IF (gHelp[i] = '`') AND (gHelp[i+1] = '`') AND (gHelp[i+2] = '`') THEN codeMode := NOT codeMode END;
+    WHILE (gHelp[i] # 0C) AND (gHelp[i] # CHR(10)) DO INC(i) END;
+    IF gHelp[i] = CHR(10) THEN INC(i) END; INC(lineIdx)
+  END;
+  scr := 0;
+  WHILE (gHelp[i] # 0C) AND (scr < vr) DO
+    c := 0; WHILE (gHelp[i] # 0C) AND (gHelp[i] # CHR(10)) AND (c < 1023) DO ln[c] := gHelp[i]; INC(c); INC(i) END; ln[c] := 0C;
+    WHILE (gHelp[i] # 0C) AND (gHelp[i] # CHR(10)) DO INC(i) END;   (* skip an over-long tail *)
+    IF gHelp[i] = CHR(10) THEN INC(i) END;
+    ProcessMdLine(ln, scr, vc, codeMode); INC(scr)
+  END;
+  helpB.Paint
+END RenderHelp;
+
+(* read a static help topic (gHelpDir/<topic>.md) into the pane *)
+PROCEDURE LoadHelp (topic: ARRAY OF CHAR);
+  VAR path: ARRAY [0..511] OF CHAR; fn: ARRAY [0..159] OF CHAR; h, got: CARDINAL64; p: CARDINAL;
+BEGIN
+  p := 0; AppendStr(fn, p, topic); AppendStr(fn, p, ".md");
+  Join(gHelpDir, fn, path); SCopy(gHelpTopic, topic); gHelpTop := 0;
+  h := NM2File.Open(ADR(path), NM2File.ReadFlag);
+  IF h = 0 THEN p := 0; AppendStr(gHelp, p, "# Help not found\n\nCould not open "); AppendStr(gHelp, p, fn)
+  ELSE got := NM2File.ReadText(h, ADR(gHelp), VAL(CARDINAL64, HIGH(gHelp))); gHelp[VAL(CARDINAL, got)] := 0C; NM2File.Close(h) END;
+  RenderHelp
+END LoadHelp;
+
+(* set dynamic markdown (e.g. a daemon `describe` reply) into the pane *)
+PROCEDURE SetHelpText (VAR md: ARRAY OF CHAR);
+BEGIN SCopy(gHelp, md); gHelpTopic[0] := 0C; gHelpTop := 0; RenderHelp END SetHelpText;
+
+PROCEDURE HelpNavigate (VAR tgt: ARRAY OF CHAR);
+  VAR topic: ARRAY [0..255] OF CHAR; n, i, k: CARDINAL;
+BEGIN
+  n := SLen(tgt);
+  IF (tgt[0] = 's') AND (tgt[1] = 'y') AND (tgt[2] = 'm') AND (tgt[3] = ':') THEN
+    i := 4; k := 0;                                       (* sym:<path>#<line> -> defer to DoGoto *)
+    WHILE (tgt[i] # 0C) AND (tgt[i] # '#') AND (k < 511) DO gGotoFile[k] := tgt[i]; INC(k); INC(i) END;
+    gGotoFile[k] := 0C; gGotoLine := 0;
+    IF tgt[i] = '#' THEN INC(i); WHILE (tgt[i] >= '0') AND (tgt[i] <= '9') DO gGotoLine := gGotoLine * 10 + (ORD(tgt[i]) - ORD('0')); INC(i) END END;
+    gGotoPending := TRUE
+  ELSIF (n > 3) AND (tgt[n-3] = '.') AND (tgt[n-2] = 'm') AND (tgt[n-1] = 'd') THEN
+    SCopy(topic, tgt); topic[n-3] := 0C; LoadHelp(topic)
+  ELSIF (tgt[0] = 'h') AND (tgt[1] = 't') AND (tgt[2] = 't') AND (tgt[3] = 'p') THEN
+    SetStatus("(external link - open in a browser)"); RenderEditor
+  ELSE LoadHelp(tgt) END
+END HelpNavigate;
+
+PROCEDURE HelpClick (px, py: INTEGER);
+  VAR cw, ch, col, row, i: CARDINAL; tgt: ARRAY [0..255] OF CHAR;
+BEGIN
+  CellSize(helpB, cw, ch); IF (cw = 0) OR (ch = 0) THEN RETURN END;
+  col := VAL(CARDINAL, px) DIV cw; row := VAL(CARDINAL, py) DIV ch;
+  i := 0;
+  WHILE i < gHLinkN DO
+    IF (gHLinkRow[i] = row) AND (col >= gHLinkC0[i]) AND (col < gHLinkC1[i]) THEN
+      SCopy(tgt, gHLinkTgt[i]); HelpNavigate(tgt); RETURN
+    END;
+    INC(i)
+  END
+END HelpClick;
+
+PROCEDURE ToggleHelp;
+BEGIN
+  gHelpShown := NOT gHelpShown;
+  SetHidden(helpPane, NOT gHelpShown); Retile(win);
+  IF gHelpShown THEN RenderHelp END;
+  SetStatus("ready"); RenderEditor
+END ToggleHelp;
 
 (* ---- output: lay the captured compiler text into the output grid (scrolled by
    outTop, error lines in red) ---- *)
@@ -1272,6 +1418,29 @@ BEGIN
   EnsureTabVisible; RenderEditor
 END OpenInTab;
 
+(* context help: ask the daemon to describe the symbol at the cursor, show it in
+   the help pane. Called on an editor click while the help pane is open. *)
+PROCEDURE DoDescribe;
+  VAR cmd: ARRAY [0..1023] OF CHAR; pos: CARDINAL;
+BEGIN
+  IF NOT WriteWork() THEN RETURN END;
+  pos := 0; AppendStr(cmd, pos, 'describe "'); AppendStr(cmd, pos, WorkFile);
+  AppendStr(cmd, pos, '" '); AppendCard(cmd, pos, curRow + 1);
+  AppendStr(cmd, pos, " "); AppendCard(cmd, pos, curCol);
+  IF NOT DaemonAsk(cmd, gReply) THEN RETURN END;
+  IF (gReply[0] = 'o') AND (gReply[1] = 'k') AND (gReply[2] = 0C) THEN
+    SCopy(gHelp, "_no symbol here — click an identifier_"); gHelpTopic[0] := 0C; gHelpTop := 0; RenderHelp
+  ELSE SetHelpText(gReply) END
+END DoDescribe;
+
+(* follow a help "go to definition" link: open the file + jump to the line *)
+PROCEDURE DoGoto;
+BEGIN
+  OpenInTab(gGotoFile);
+  IF (gGotoLine >= 1) AND (gGotoLine <= nLines) THEN curRow := gGotoLine - 1 END;
+  curCol := 0; ClampCol; gLastKind := 0; gFollow := TRUE; RenderEditor
+END DoGoto;
+
 PROCEDURE CloseDoc (i: CARDINAL);
   VAR j: CARDINAL; wasActive: BOOLEAN;
 BEGIN
@@ -1431,8 +1600,8 @@ BEGIN
   ELSIF mi = 4 THEN                                 (* Build: Build / Run / Analyze / Run+Guard *)
     IF it = 0 THEN SaveAllDirty; Build ELSIF it = 1 THEN SaveAllDirty; DoRun
     ELSIF it = 2 THEN DoAnalyze ELSIF it = 3 THEN DoGuardRun ELSIF it = 4 THEN SetBuildTarget END
-  ELSIF mi = 5 THEN                                 (* Help: About *)
-    IF it = 0 THEN About END
+  ELSIF mi = 5 THEN                                 (* Help: Help Pane / About *)
+    IF it = 0 THEN ToggleHelp ELSIF it = 1 THEN About END
   END;
   RenderEditor
 END MenuAction;
@@ -1518,7 +1687,8 @@ BEGIN
       gAnchRow := br; gAnchCol := bc; gSelActive := TRUE
     END;
     curRow := br; curCol := bc; gMouseSel := TRUE; gLastKind := 0;
-    RenderEditor
+    RenderEditor;
+    IF gHelpShown THEN DoDescribe END                    (* click a symbol with help open -> context help *)
   END
 END PressAt;
 
@@ -1760,7 +1930,7 @@ BEGIN
   IF e.kind = EvCloseRequest THEN Quit(ws)
   ELSIF e.kind = EvResize THEN
     fh := SetFocus(CAST(HWND, HostOf(edPane)));     (* the editor grid (a child host) must hold focus to get keys *)
-    RenderSidebar; RenderEditor; ShowOutput(gOut)
+    RenderSidebar; RenderEditor; ShowOutput(gOut); IF gHelpShown THEN RenderHelp END
   ELSIF e.kind = EvTimer THEN                        (* idle tick: re-check after a typing pause + serve the Exec pipe *)
     IF gDirty AND (VAL(CARDINAL, GetTickCount()) - gEditTime >= 300) THEN gDirty := FALSE; DoCheck END;
     ServePipe
@@ -1770,12 +1940,14 @@ BEGIN
       IF gAboutMode THEN gAboutMode := FALSE; SetStatus("ready"); RenderEditor   (* click anywhere closes About *)
       ELSIF e.pane = edPane THEN PressAt(e.x, e.y)
       ELSIF e.pane = sidPane THEN SidebarClick(e.y)            (* click a tree row -> toggle / open *)
+      ELSIF e.pane = helpPane THEN HelpClick(e.x, e.y)         (* click a help link -> navigate *)
       ELSIF e.pane = outPane THEN OutClick(e.y) END             (* click a problem -> jump *)
     ELSIF (btn MOD 2 = 1) AND (gPrevBtn MOD 2 = 1) AND gMouseSel AND (e.pane = edPane) THEN  (* dragging *)
       DragTo(e.x, e.y)
     ELSIF (btn MOD 2 = 0) AND (gPrevBtn MOD 2 = 1) THEN         (* release *)
       gMouseSel := FALSE
     END;
+    IF gGotoPending THEN gGotoPending := FALSE; DoGoto END;     (* a help "go to definition" link was clicked *)
     gPrevBtn := btn
   ELSIF e.kind = EvWheel THEN
     IF e.pane = outPane THEN                          (* scroll the output pane *)
@@ -1785,6 +1957,9 @@ BEGIN
       IF e.y > 0 THEN IF gTreeTop >= 3 THEN gTreeTop := gTreeTop - 3 ELSE gTreeTop := 0 END
       ELSE INC(gTreeTop, 3); IF (gTreeN > 0) AND (gTreeTop >= gTreeN) THEN gTreeTop := gTreeN - 1 END END;
       RenderSidebar
+    ELSIF e.pane = helpPane THEN                      (* scroll the help pane *)
+      IF e.y > 0 THEN IF gHelpTop >= 3 THEN gHelpTop := gHelpTop - 3 ELSE gHelpTop := 0 END ELSE INC(gHelpTop, 3) END;
+      RenderHelp
     ELSE                                             (* scroll the editor (free scroll, cursor may leave view) *)
       IF e.y > 0 THEN IF top >= 3 THEN top := top - 3 ELSE top := 0 END
       ELSE INC(top, 3); IF top >= nLines THEN top := nLines - 1 END END;
@@ -1844,6 +2019,7 @@ BEGIN
       RETURN TRUE
     ELSIF (e.key = 32) AND KeyDown(17) THEN TriggerCompletion     (* Ctrl+Space = autocomplete *)
     ELSIF e.key = 117 THEN TriggerCompletion                      (* F6 = autocomplete (chord-free alternative) *)
+    ELSIF e.key = 112 THEN ToggleHelp                             (* F1 = toggle the help pane *)
     ELSIF gMenuMode THEN MenuKey(e.key)
     ELSIF e.key = 121 THEN EnterMenu                              (* F10 = menu *)
     ELSIF e.key = 120 THEN SaveAllDirty; Build                   (* F9 = save all + build the target *)
@@ -1991,7 +2167,17 @@ BEGIN
      imports (sample.mod -> STextIO/SWholeIO) = a multi-module build. *)
   OpenInTab(Sample); RunBounded(ws, 6);
   SaveAllDirty; Build; RunBounded(ws, 25);
-  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap19_build.png")
+  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap19_build.png");
+
+  (* HELP PANE (P1): F1 toggles the right pane; the guide index renders as markdown *)
+  Key(112); RunBounded(ws, 8);
+  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap20_help.png");
+
+  (* CONTEXT HELP (P2): with help open, click a symbol (WriteString, line 7) ->
+     the daemon `describe` renders cross-graph help (signature, module, siblings). *)
+  OpenInTab(Sample); RunBounded(ws, 6);
+  SendClick(CAST(HWND, HostOf(edPane)), 114, 168); RunBounded(ws, 12);
+  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap21_describe.png")
 END SelfTest;
 
 BEGIN
@@ -2000,6 +2186,8 @@ BEGIN
   IF NOT FileExists(Compiler) THEN JoinPath(Compiler, BaseDir, "..\..\target\debug\newm2-driver.exe") END;  (* dev fallback *)
   JoinPath(LibPath,  BaseDir, "library");
   IF NOT DirExists(LibPath)   THEN JoinPath(LibPath,  BaseDir, "..\..\library") END;                        (* dev fallback *)
+  JoinPath(gHelpDir, BaseDir, "help");                                                                      (* help docs (markdown) *)
+  IF NOT DirExists(gHelpDir)  THEN JoinPath(gHelpDir, BaseDir, "..\..\docs\m2-guide") END;                  (* dev fallback *)
   JoinPath(WorkFile, BaseDir, "fastpanes_work.mod");
   JoinPath(ExeFile,  BaseDir, "fastpanes_work.exe");
   JoinPath(OutFile,  BaseDir, "fastpanes_out.txt");
@@ -2009,7 +2197,10 @@ BEGIN
   edB  := NewTextGrid(EdCols,   EdRows,   "Consolas", 15.0);
   outB := NewTextGrid(OutCols,  OutRows,  "Consolas", 15.0);
   sidB := NewTextGrid(SideCols, SideRows, "Consolas", 15.0);
-  edT  := TermOf(edB);  outT := TermOf(outB);  sidT := TermOf(sidB);
+  helpB := NewTextGrid(HelpCols, HelpRows, "Consolas", 15.0);
+  edT  := TermOf(edB);  outT := TermOf(outB);  sidT := TermOf(sidB);  helpT := TermOf(helpB);
+  gHelpShown := FALSE; gHelp[0] := 0C; gHelpTop := 0; gHelpTopic[0] := 0C; gHelpBackN := 0; gHLinkN := 0;
+  gGotoPending := FALSE; gGotoLine := 0;
   gNDoc := 0; gActiveDoc := 0; gTabTop := 0; gTabPerPage := 6; gTabRight := FALSE; gTreeN := 0;   (* docs / tabs / tree *)
   di := 0; WHILE di < MaxDocs DO gDocs[di].text := NIL; gDocs[di].used := FALSE; INC(di) END;
   SCopy(gProjRoot, BaseDir);                                (* default project root = this exe's folder *)
@@ -2035,7 +2226,7 @@ BEGIN
   Terminal.MenuAddItem(4, "Build      F9"); Terminal.MenuAddItem(4, "Run        F5");
   Terminal.MenuAddItem(4, "Analyze    F7"); Terminal.MenuAddItem(4, "Run+Guard  F8");
   Terminal.MenuAddItem(4, "Set Target");
-  Terminal.MenuAddItem(5, "About");
+  Terminal.MenuAddItem(5, "Help Pane  F1"); Terminal.MenuAddItem(5, "About");
 
   NEW(gDocs[0].text);                                (* first document = the sample *)
   IF NOT LoadFile(Sample) THEN NewFile END;
@@ -2043,13 +2234,17 @@ BEGIN
   gDirty := FALSE; SetStatus("ready");
   InitTree;                                          (* PROJECT + LIBRARY roots in the sidebar *)
 
-  sidPane := LeafPane("sidebar", sidB);
-  edPane  := LeafPane("editor", edB);
-  outPane := LeafPane("output", outB);
-  edOut := Split(Vertical, 0.74, 40, 8, edPane, outPane);          (* editor over output *)
-  root  := Split(Horizontal, SideFrac, 16, 60, sidPane, edOut);    (* sidebar | (editor/output) *)
+  sidPane  := LeafPane("sidebar", sidB);
+  edPane   := LeafPane("editor", edB);
+  outPane  := LeafPane("output", outB);
+  helpPane := LeafPane("help", helpB);
+  edOut := Split(Vertical, 0.74, 40, 8, edPane, outPane);            (* editor over output *)
+  edArea := Split(Horizontal, HelpFrac, 40, 20, edOut, helpPane);   (* (editor/output) | help *)
+  root  := Split(Horizontal, SideFrac, 16, 60, sidPane, edArea);    (* sidebar | editor-area | help *)
   SetRect(root, 0, 0, 1280, 800);
   win := OpenWindow(ws, "FastPanesM2 - Modula-2 IDE on PaneShell", 1280, 800, root, OnEvent);
+  SetHidden(helpPane, TRUE);                                        (* help hidden until F1 / View>Help *)
+  LoadHelp("index");                                                (* preload the guide TOC *)
   Retile(win);
   StartIdleTimer;                                    (* check-on-idle: re-check after a typing pause *)
   IF NOT Ask(PipeName, "ping", gReply) THEN SpawnDaemon END;   (* always have a warm compiler *)

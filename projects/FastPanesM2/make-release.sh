@@ -9,6 +9,7 @@ rm -rf "$REL"; mkdir -p "$REL"
 cp projects/FastPanesM2/FastPanesM2.exe "$REL/"
 cp target/debug/newm2-driver.exe        "$REL/"
 cp -r library                           "$REL/library"
+cp -r docs/m2-guide                     "$REL/help"        # the help pane's static docs
 cp projects/FastPanesM2/sample.mod      "$REL/"
 cp projects/FastPanesM2/cmpl_demo.mod   "$REL/"
 cp projects/FastPanesM2/RELEASE.md      "$REL/README.txt"
