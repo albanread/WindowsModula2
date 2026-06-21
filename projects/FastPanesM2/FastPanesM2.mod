@@ -26,6 +26,7 @@ FROM System_SystemInformation IMPORT GetTickCount;
 FROM System_Threading IMPORT Sleep;
 FROM WIN32 IMPORT HWND, BOOL, PWSTR;
 FROM System_LibraryLoader IMPORT GetModuleFileNameW;
+FROM UI_HiDpi IMPORT GetDpiForSystem;
 FROM Harness IMPORT SnapClient, SendKey, SendKeyDown, SendKeyUp, SendChar, SendWheel, SendDrag, SendClick;
 FROM Dialogs IMPORT OpenFile, SaveFile;
 IMPORT Terminal;
@@ -66,6 +67,7 @@ CONST
   HelpCols = 50; HelpRows = 60;          (* help pane grid model *)
   HelpFrac = 0.74;                       (* editor-area fraction (1-HelpFrac = help column) *)
   MaxHelpLink = 256;                     (* clickable links recorded per help render *)
+  SelEd = 0; SelSide = 1; SelHelp = 2; SelOut = 3;   (* the selected pane (wheel target) *)
 
 VAR
   ws: Workspace; win: PaneWindow; root, edPane, outPane: Pane; edB, outB: Backend;
@@ -150,6 +152,8 @@ VAR
   gHLinkRow, gHLinkC0, gHLinkC1: ARRAY [0..MaxHelpLink-1] OF CARDINAL;        (* link span hit-test *)
   gHLinkTgt: ARRAY [0..MaxHelpLink-1] OF ARRAY [0..255] OF CHAR; gHLinkN: CARDINAL;
   gGotoPending: BOOLEAN; gGotoFile: ARRAY [0..511] OF CHAR; gGotoLine: CARDINAL;   (* deferred go-to-def from a sym: link *)
+  gSelPane: CARDINAL;                     (* the selected pane (the wheel scrolls it); set on click *)
+  gWinW, gWinH: CARDINAL;                 (* initial window size, scaled by the system DPI *)
   di: CARDINAL;                           (* module-body scratch (BEGIN has no locals) *)
 
 PROCEDURE SLen (VAR s: ARRAY OF CHAR): CARDINAL;
@@ -480,7 +484,12 @@ BEGIN
     AppendStr(st, p, gMsg); AppendStr(st, p, "   ");
     AppendStr(st, p, gFile); AppendStr(st, p, "   Ln "); AppendCard(st, p, curRow + 1);
     AppendStr(st, p, " Col "); AppendCard(st, p, curCol + 1);
-    AppendStr(st, p, "    F9 build  F5 run  F10 menu  Ctrl+F find  Ctrl+P cmd")
+    AppendStr(st, p, "   [scroll: ");                       (* which pane the wheel scrolls *)
+    IF gSelPane = SelSide THEN AppendStr(st, p, "Files")
+    ELSIF gSelPane = SelHelp THEN AppendStr(st, p, "Help")
+    ELSIF gSelPane = SelOut THEN AppendStr(st, p, "Output")
+    ELSE AppendStr(st, p, "Editor") END;
+    AppendStr(st, p, "]   F9 build  F5 run  F10 menu  Ctrl+F find  Ctrl+P cmd")
   END;
   WHILE (p < vc) AND (p < 255) DO st[p] := ' '; INC(p) END; st[p] := 0C;   (* pad to width *)
   IF vr > 0 THEN Terminal.WriteColAt(0, vr - 1, White, Teal, st) END;
@@ -736,6 +745,7 @@ PROCEDURE HelpClick (px, py: INTEGER);
   VAR cw, ch, col, row, i: CARDINAL; tgt: ARRAY [0..255] OF CHAR;
 BEGIN
   CellSize(helpB, cw, ch); IF (cw = 0) OR (ch = 0) THEN RETURN END;
+  gSelPane := SelHelp;                              (* selecting this pane -> the wheel scrolls it *)
   col := VAL(CARDINAL, px) DIV cw; row := VAL(CARDINAL, py) DIV ch;
   i := 0;
   WHILE i < gHLinkN DO
@@ -743,7 +753,8 @@ BEGIN
       SCopy(tgt, gHLinkTgt[i]); HelpNavigate(tgt); RETURN
     END;
     INC(i)
-  END
+  END;
+  RenderEditor                                       (* refresh the [scroll: …] tag *)
 END HelpClick;
 
 PROCEDURE ToggleHelp;
@@ -1656,6 +1667,7 @@ PROCEDURE PressAt (px, py: INTEGER);             (* a left-button press: menu, d
   VAR cw, ch, col, row, mi, it, br, bc, ti, tvc, tvr: CARDINAL;
 BEGIN
   CellSize(edB, cw, ch); IF (cw = 0) OR (ch = 0) THEN RETURN END;
+  gSelPane := SelEd;                               (* selecting the editor -> the wheel scrolls it *)
   col := VAL(CARDINAL, px) DIV cw; row := VAL(CARDINAL, py) DIV ch;
   Terminal.Use(edT);
   IF row = 0 THEN                                   (* menu bar *)
@@ -1707,6 +1719,7 @@ PROCEDURE OutClick (py: INTEGER);
   VAR cw, ch, row, i, ln, n, m: CARDINAL; fh: HWND;
 BEGIN
   CellSize(outB, cw, ch); IF ch = 0 THEN RETURN END;
+  gSelPane := SelOut;                              (* selecting the output pane -> the wheel scrolls it *)
   row := VAL(CARDINAL, py) DIV ch;
   ln := 0; i := 0;                                  (* find the start of logical line (outTop + row) *)
   WHILE (ln < outTop + row) AND (i <= HIGH(gOut)) AND (gOut[i] # 0C) DO
@@ -1722,8 +1735,9 @@ BEGIN
     curRow := n - 1; IF m > 0 THEN curCol := m - 1 END;
     IF curCol > SLen(line[curRow]) THEN curCol := SLen(line[curRow]) END;
     gSelActive := FALSE; top := 0; gLeft := 0;
-    fh := SetFocus(CAST(HWND, HostOf(edPane))); RenderEditor
-  END
+    fh := SetFocus(CAST(HWND, HostOf(edPane)))
+  END;
+  RenderEditor                                       (* jump + refresh the [scroll: …] tag *)
 END OutClick;
 
 (* click a row in the SIDEBAR: toggle a folder, or open a file in a tab *)
@@ -1731,13 +1745,14 @@ PROCEDURE SidebarClick (py: INTEGER);
   VAR cw, ch, row, i: CARDINAL;
 BEGIN
   CellSize(sidB, cw, ch); IF ch = 0 THEN RETURN END;
+  gSelPane := SelSide;                              (* selecting this pane -> the wheel scrolls it *)
   gCompMode := FALSE;                               (* a tree click dismisses any open completion popup *)
   row := VAL(CARDINAL, py) DIV ch;
   i := gTreeTop + row;
   IF i >= gTreeN THEN RETURN END;
   gTreeSel := i;
   IF gTree[i].isDir THEN ToggleNode(i) ELSE OpenInTab(gTree[i].path) END;
-  RenderSidebar
+  RenderSidebar; RenderEditor                       (* RenderEditor refreshes the [scroll: …] tag *)
 END SidebarClick;
 
 (* ---- ptcl host verbs: editor commands exposed to the scripting language ---- *)
@@ -1950,14 +1965,16 @@ BEGIN
     IF gGotoPending THEN gGotoPending := FALSE; DoGoto END;     (* a help "go to definition" link was clicked *)
     gPrevBtn := btn
   ELSIF e.kind = EvWheel THEN
-    IF e.pane = outPane THEN                          (* scroll the output pane *)
+    (* the wheel scrolls the SELECTED pane (PaneShell delivers WM_MOUSEWHEEL to the
+       focused pane, so e.pane is unreliable — gSelPane is set on click instead) *)
+    IF gSelPane = SelOut THEN                         (* scroll the output pane *)
       IF e.y > 0 THEN IF outTop >= 3 THEN outTop := outTop - 3 ELSE outTop := 0 END ELSE INC(outTop, 3) END;
       ShowOutput(gOut)
-    ELSIF e.pane = sidPane THEN                       (* scroll the file tree *)
+    ELSIF gSelPane = SelSide THEN                     (* scroll the file tree *)
       IF e.y > 0 THEN IF gTreeTop >= 3 THEN gTreeTop := gTreeTop - 3 ELSE gTreeTop := 0 END
       ELSE INC(gTreeTop, 3); IF (gTreeN > 0) AND (gTreeTop >= gTreeN) THEN gTreeTop := gTreeN - 1 END END;
       RenderSidebar
-    ELSIF e.pane = helpPane THEN                      (* scroll the help pane *)
+    ELSIF gSelPane = SelHelp THEN                     (* scroll the help pane *)
       IF e.y > 0 THEN IF gHelpTop >= 3 THEN gHelpTop := gHelpTop - 3 ELSE gHelpTop := 0 END ELSE INC(gHelpTop, 3) END;
       RenderHelp
     ELSE                                             (* scroll the editor (free scroll, cursor may leave view) *)
@@ -2177,7 +2194,12 @@ BEGIN
      the daemon `describe` renders cross-graph help (signature, module, siblings). *)
   OpenInTab(Sample); RunBounded(ws, 6);
   SendClick(CAST(HWND, HostOf(edPane)), 114, 168); RunBounded(ws, 12);
-  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap21_describe.png")
+  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap21_describe.png");
+
+  (* SELECTED-PANE SCROLL: click the help pane -> the status tag reads [scroll: Help]
+     and the wheel now targets the help pane, not the focused editor. *)
+  SendClick(CAST(HWND, HostOf(helpPane)), 20, 40); RunBounded(ws, 8);
+  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap22_selpane.png")
 END SelfTest;
 
 BEGIN
@@ -2200,7 +2222,7 @@ BEGIN
   helpB := NewTextGrid(HelpCols, HelpRows, "Consolas", 15.0);
   edT  := TermOf(edB);  outT := TermOf(outB);  sidT := TermOf(sidB);  helpT := TermOf(helpB);
   gHelpShown := FALSE; gHelp[0] := 0C; gHelpTop := 0; gHelpTopic[0] := 0C; gHelpBackN := 0; gHLinkN := 0;
-  gGotoPending := FALSE; gGotoLine := 0;
+  gGotoPending := FALSE; gGotoLine := 0; gSelPane := SelEd;
   gNDoc := 0; gActiveDoc := 0; gTabTop := 0; gTabPerPage := 6; gTabRight := FALSE; gTreeN := 0;   (* docs / tabs / tree *)
   di := 0; WHILE di < MaxDocs DO gDocs[di].text := NIL; gDocs[di].used := FALSE; INC(di) END;
   SCopy(gProjRoot, BaseDir);                                (* default project root = this exe's folder *)
@@ -2241,8 +2263,11 @@ BEGIN
   edOut := Split(Vertical, 0.74, 40, 8, edPane, outPane);            (* editor over output *)
   edArea := Split(Horizontal, HelpFrac, 40, 20, edOut, helpPane);   (* (editor/output) | help *)
   root  := Split(Horizontal, SideFrac, 16, 60, sidPane, edArea);    (* sidebar | editor-area | help *)
-  SetRect(root, 0, 0, 1280, 800);
-  win := OpenWindow(ws, "FastPanesM2 - Modula-2 IDE on PaneShell", 1280, 800, root, OnEvent);
+  gWinW := VAL(CARDINAL, GetDpiForSystem()); IF gWinW = 0 THEN gWinW := 96 END;
+  gWinH := (800 * gWinW) DIV 96;            (* scale the window to the system DPI so it *)
+  gWinW := (1280 * gWinW) DIV 96;           (* occupies the intended logical size (not tiny on hi-DPI) *)
+  SetRect(root, 0, 0, gWinW, gWinH);
+  win := OpenWindow(ws, "FastPanesM2 - Modula-2 IDE on PaneShell", gWinW, gWinH, root, OnEvent);
   SetHidden(helpPane, TRUE);                                        (* help hidden until F1 / View>Help *)
   LoadHelp("index");                                                (* preload the guide TOC *)
   Retile(win);

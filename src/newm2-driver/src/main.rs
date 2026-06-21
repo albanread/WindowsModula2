@@ -67,6 +67,8 @@ const GLOBAL_FLAGS: &[&str] = &[
     "--sanitize",
     "--no-cache",
     "--cache",
+    "--manifest",
+    "--no-manifest",
     "--ref-allow-impl",
     "--types-out",
     "--define",
@@ -93,6 +95,57 @@ impl WinSource {
             WinSource::Generated => ("def_out_gen", "windows_api_gen.pack"),
         }
     }
+}
+
+/// The built-in default application manifest embedded into GUI `.exe`s when no
+/// `--manifest`/`--no-manifest` is given. Deliberately CONSERVATIVE so it is safe
+/// for *every* GUI program: it enables modern themed controls (Common Controls v6,
+/// which also gives dialogs Segoe UI) and declares Windows 7–11 support, but it does
+/// NOT declare DPI awareness — an app that is not DPI-ready would render with a
+/// broken layout if forced aware. Apps that ARE DPI-ready (e.g. FastPanesM2) supply
+/// their own manifest via `--manifest`.
+const DEFAULT_GUI_MANIFEST: &str = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <dependency>
+    <dependentAssembly>
+      <assemblyIdentity type="win32" name="Microsoft.Windows.Common-Controls"
+                        version="6.0.0.0" processorArchitecture="amd64"
+                        publicKeyToken="6595b64144ccf1df" language="*"/>
+    </dependentAssembly>
+  </dependency>
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
+    </windowsSettings>
+  </application>
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
+      <supportedOS Id="{1f676c76-80e1-4239-95bb-83d0f6d0da78}"/>
+      <supportedOS Id="{4a2f28e3-53b9-4441-ba9c-d69d4a4a6e38}"/>
+      <supportedOS Id="{35138b9a-5d96-4fbd-8e2d-a2440225f93a}"/>
+    </application>
+  </compatibility>
+</assembly>
+"#;
+
+/// What application manifest to embed into an AOT `.exe`.
+#[derive(Debug, Clone)]
+enum ManifestMode {
+    /// No `--manifest`/`--no-manifest`: embed `DEFAULT_GUI_MANIFEST` for GUI builds,
+    /// nothing for console builds.
+    Default,
+    /// `--manifest PATH`: embed this manifest file (any subsystem).
+    Custom(PathBuf),
+    /// `--no-manifest`: embed nothing.
+    None,
 }
 
 #[derive(Debug, Clone)]
@@ -128,6 +181,10 @@ struct DriverOptions {
     /// (a `.lib` + sidecar `.manifest` from `build-stdlib`) instead of lowering
     /// the ISO library from source.
     stdlib: Option<PathBuf>,
+    /// `--manifest PATH` / `--no-manifest`: the Windows application manifest to embed
+    /// into the AOT `.exe` (modern themed controls + DPI awareness, etc.). Default:
+    /// embed a conservative modern-controls manifest for GUI builds. See [`ManifestMode`].
+    manifest: ManifestMode,
 }
 
 impl DriverOptions {
@@ -144,6 +201,7 @@ impl DriverOptions {
         let mut protect_heap = false;
         let mut cache = false;
         let mut stdlib: Option<PathBuf> = None;
+        let mut manifest = ManifestMode::Default;
         let mut index = 0usize;
         while index < raw_args.len() {
             if raw_args[index] == "--adw-win64-unicode" {
@@ -182,6 +240,18 @@ impl DriverOptions {
                 };
                 stdlib = Some(PathBuf::from(path));
                 index += 2;
+            } else if raw_args[index] == "--manifest" {
+                let Some(path) = raw_args.get(index + 1) else {
+                    return Err("--manifest expects a .manifest file path".into());
+                };
+                manifest = ManifestMode::Custom(PathBuf::from(path));
+                index += 2;
+            } else if let Some(value) = raw_args[index].strip_prefix("--manifest=") {
+                manifest = ManifestMode::Custom(PathBuf::from(value));
+                index += 1;
+            } else if raw_args[index] == "--no-manifest" {
+                manifest = ManifestMode::None;
+                index += 1;
             } else if let Some(value) = raw_args[index].strip_prefix("--win-source=") {
                 win_source = parse_win_source(value)?;
                 windows = true;
@@ -225,6 +295,7 @@ impl DriverOptions {
             protect_heap,
             cache,
             stdlib,
+            manifest,
         })
     }
 }
@@ -311,7 +382,7 @@ fn main() -> ExitCode {
             continue;
         }
         if arg == "--define" || arg == "--out" || arg == "--library" || arg == "--win-source"
-            || arg == "--stdlib" || arg == "--opt"
+            || arg == "--stdlib" || arg == "--opt" || arg == "--manifest"
         {
             skip_next = true;
             continue;
@@ -1510,7 +1581,14 @@ fn run_build(paths: &[PathBuf], raw_args: &[String], options: &DriverOptions) ->
 
     let import_libs = collect_import_libs(&lowered);
     let gui = options.gui || entry_has_gui_pragma(&graph);
-    match link_executable(&obj_path, &exe_path, &[], &import_libs, gui) {
+    let manifest = match resolve_manifest(&options.manifest, gui) {
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("newm2: {e}");
+            return ExitCode::from(1);
+        }
+    };
+    match link_executable(&obj_path, &exe_path, &[], &import_libs, gui, manifest.path()) {
         Ok(()) => {
             println!("newm2: wrote {}", exe_path.display());
             ExitCode::SUCCESS
@@ -1602,7 +1680,14 @@ fn build_against_stdlib(
     import_libs.dedup();
 
     let gui = options.gui || entry_has_gui_pragma(graph);
-    match link_executable(&obj_path, &exe_path, &[stdlib_lib.as_path()], &import_libs, gui) {
+    let app_manifest = match resolve_manifest(&options.manifest, gui) {
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("newm2: {e}");
+            return ExitCode::from(1);
+        }
+    };
+    match link_executable(&obj_path, &exe_path, &[stdlib_lib.as_path()], &import_libs, gui, app_manifest.path()) {
         Ok(()) => {
             println!(
                 "newm2: wrote {} ({} program modules, {} from stdlib)",
@@ -1695,12 +1780,112 @@ fn entry_has_gui_pragma(graph: &newm2_loader::ModuleGraph) -> bool {
 /// the MSVC linker (located via the same registry/vswhere lookup rustc uses).
 /// `import_libs` are the DLL import libraries the program's direct Win32 calls
 /// require (derived from its `EXTERNAL FROM "x.dll"` declarations).
+/// The manifest file to hand to `link.exe /MANIFESTINPUT`, with its temp lifetime.
+/// For [`ManifestMode::Default`] (GUI) the built-in XML is written to a temp file
+/// that is deleted when this guard drops (after the link completes).
+struct EmbedManifest {
+    path: Option<PathBuf>,
+    temp: bool,
+}
+
+impl EmbedManifest {
+    fn path(&self) -> Option<&Path> {
+        self.path.as_deref()
+    }
+}
+
+impl Drop for EmbedManifest {
+    fn drop(&mut self) {
+        if self.temp {
+            if let Some(p) = &self.path {
+                let _ = std::fs::remove_file(p);
+            }
+        }
+    }
+}
+
+/// Resolve which manifest (if any) to embed into the `.exe` for this build.
+/// `Custom` always embeds the given file; `Default` embeds the built-in
+/// modern-controls manifest only for GUI builds; `None` embeds nothing.
+fn resolve_manifest(mode: &ManifestMode, gui: bool) -> Result<EmbedManifest, String> {
+    match mode {
+        ManifestMode::None => Ok(EmbedManifest { path: None, temp: false }),
+        ManifestMode::Custom(p) => {
+            if !p.is_file() {
+                return Err(format!("--manifest: file not found: {}", p.display()));
+            }
+            Ok(EmbedManifest { path: Some(p.clone()), temp: false })
+        }
+        ManifestMode::Default => {
+            if !gui {
+                // Console programs get no default manifest (modern controls are a
+                // GUI concern; forcing UTF-8/longPath behaviour changes is opt-in).
+                return Ok(EmbedManifest { path: None, temp: false });
+            }
+            let tmp = std::env::temp_dir()
+                .join(format!("newm2-default-{}.manifest", std::process::id()));
+            std::fs::write(&tmp, DEFAULT_GUI_MANIFEST)
+                .map_err(|e| format!("could not write default manifest {}: {e}", tmp.display()))?;
+            Ok(EmbedManifest { path: Some(tmp), temp: true })
+        }
+    }
+}
+
+/// Where `mt.exe` (needed by `link.exe /MANIFEST:EMBED`) can be found:
+/// - `Some(Some(dir))` — in a Windows SDK bin dir; prepend `dir` to the linker PATH.
+/// - `Some(None)` — already on PATH; no PATH change needed.
+/// - `None` — not found; the caller must not pass /MANIFEST:EMBED.
+fn locate_mt() -> Option<Option<PathBuf>> {
+    if let Some(dir) = locate_sdk_tool_dir() {
+        return Some(Some(dir));
+    }
+    let on_path = std::env::var_os("PATH")
+        .map(|p| std::env::split_paths(&p).any(|d| d.join("mt.exe").is_file()))
+        .unwrap_or(false);
+    if on_path {
+        Some(None)
+    } else {
+        None
+    }
+}
+
+/// Locate the Windows SDK `bin\<ver>\x64` directory that holds `mt.exe`/`rc.exe`.
+/// `link.exe /MANIFEST:EMBED` shells out to `mt.exe`, which `cc::windows_registry`
+/// does not put on PATH, so we find it and prepend its directory to the linker's
+/// PATH. Returns the newest SDK version's x64 bin dir, or None if no SDK is found.
+fn locate_sdk_tool_dir() -> Option<PathBuf> {
+    for root in [
+        std::env::var_os("ProgramFiles(x86)").map(PathBuf::from),
+        std::env::var_os("ProgramFiles").map(PathBuf::from),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        let bin = root.join("Windows Kits").join("10").join("bin");
+        let Ok(entries) = std::fs::read_dir(&bin) else {
+            continue;
+        };
+        // Version subdirs (e.g. 10.0.26100.0); pick the newest with x64\mt.exe.
+        let mut vers: Vec<PathBuf> = entries
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.join("x64").join("mt.exe").is_file())
+            .collect();
+        vers.sort();
+        if let Some(v) = vers.pop() {
+            return Some(v.join("x64"));
+        }
+    }
+    None
+}
+
 fn link_executable(
     obj: &Path,
     exe: &Path,
     extra_libs: &[&Path],
     import_libs: &[String],
     gui: bool,
+    manifest: Option<&Path>,
 ) -> Result<(), String> {
     let runtime_lib = locate_runtime_lib()?;
 
@@ -1712,6 +1897,36 @@ fn link_executable(
         })?;
 
     cmd.arg("/NOLOGO");
+    // Embed the application manifest (modern themed controls / DPI awareness) as
+    // RT_MANIFEST resource #1. link.exe implements /MANIFEST:EMBED by shelling out
+    // to mt.exe (Windows SDK), which cc::windows_registry does not put on PATH, so
+    // we locate it. If mt.exe cannot be found anywhere we fall back to a side-by-side
+    // <exe>.manifest after linking, so a GUI build never FAILS merely for lack of the
+    // SDK tool. link merges in a default `asInvoker` trustInfo fragment automatically.
+    let mt = match manifest {
+        Some(_) => locate_mt(),
+        None => None,
+    };
+    let mut embed_manifest = false;
+    if let Some(m) = manifest {
+        if let Some(mt_loc) = &mt {
+            cmd.arg("/MANIFEST:EMBED");
+            cmd.arg(format!("/MANIFESTINPUT:{}", m.display()));
+            // Embed the input manifest VERBATIM: /MANIFESTUAC:NO stops link from also
+            // injecting its own <trustInfo>, which would collide (mt error c1010001)
+            // with a custom manifest that already declares a requestedExecutionLevel.
+            // Our manifests (default + FastPanesM2) carry their own asInvoker block.
+            cmd.arg("/MANIFESTUAC:NO");
+            if let Some(dir) = mt_loc {
+                let existing = std::env::var_os("PATH").unwrap_or_default();
+                let mut prefixed = dir.clone().into_os_string();
+                prefixed.push(";");
+                prefixed.push(existing);
+                cmd.env("PATH", prefixed);
+            }
+            embed_manifest = true;
+        }
+    }
     if gui {
         // GUI subsystem: Windows does not allocate a console for the process.
         // Keep the ordinary `main` entry (the C runtime's mainCRTStartup) so the
@@ -1764,6 +1979,36 @@ fn link_executable(
             "linker exited with {}\n{stdout}{stderr}",
             output.status
         ));
+    }
+    // Could not embed (no mt.exe): write the manifest beside the exe instead, so the
+    // app still gets modern controls — Windows honours a side-by-side <exe>.manifest.
+    if let Some(m) = manifest {
+        if !embed_manifest {
+            let mut sxs = exe.as_os_str().to_owned();
+            sxs.push(".manifest");
+            let sxs = PathBuf::from(sxs);
+            // If the supplied manifest IS already the side-by-side file (same path),
+            // there is nothing to copy — it is in place and Windows will honour it.
+            let same = sxs.exists()
+                && std::fs::canonicalize(m).ok() == std::fs::canonicalize(&sxs).ok();
+            if same {
+                eprintln!(
+                    "newm2: note: mt.exe (Windows SDK) not found — using the manifest already beside the exe ({})",
+                    sxs.display()
+                );
+            } else {
+            match std::fs::copy(m, &sxs) {
+                Ok(_) => eprintln!(
+                    "newm2: note: mt.exe (Windows SDK) not found — wrote side-by-side {} instead of embedding the manifest",
+                    sxs.display()
+                ),
+                Err(e) => eprintln!(
+                    "newm2: warning: could not embed manifest (no mt.exe) nor write {}: {e}",
+                    sxs.display()
+                ),
+            }
+            }
+        }
     }
     Ok(())
 }

@@ -17,6 +17,7 @@ FROM UI_WindowsAndMessaging IMPORT
   CreateWindowExW, SendMessageW, DestroyWindow, SetWindowTextW, GetWindowTextW, MoveWindow,
   WS_CHILD, WS_VISIBLE, WS_BORDER;
 FROM System_LibraryLoader IMPORT GetModuleHandleW;
+FROM UI_HiDpi IMPORT GetDpiForSystem;
 
 CONST                              (* native-control window styles + messages (S6) *)
   WS_VSCROLL       = 2097152;      (* 0x00200000 *)
@@ -188,13 +189,19 @@ END CopyStr;
 
 (* ---- custom-surface constructors (wrap an instance of a P1 renderer) ---- *)
 PROCEDURE NewTextGrid (cols, rows: CARDINAL; font: ARRAY OF CHAR; pt: REAL): Backend;
-  VAR b: TextGridBackend;
+  VAR b: TextGridBackend; dpi: CARDINAL; ptPhys: REAL;
 BEGIN
   NEW(b);
+  (* Scale the font + cell size to PHYSICAL pixels for the system DPI, and render the
+     D2D target at 96 DPI (DIP = px) — so cells are whole-pixel sized (no fractional
+     13.5px cells -> no antialiased seams, and the cell model matches the render exactly,
+     so mouse hit-testing never drifts). At 96 DPI this is a no-op. *)
+  dpi := VAL(CARDINAL, GetDpiForSystem()); IF dpi = 0 THEN dpi := 96 END;
+  ptPhys := pt * VAL(REAL, dpi) / 96.0;
   b.term := Terminal.Create(cols, rows);
-  b.rend := TermRender.Create(font, VAL(SHORTREAL, pt));
-  b.cellW := VAL(CARDINAL, TRUNC(pt * 0.62)); IF b.cellW < 1 THEN b.cellW := 1 END;
-  b.cellH := VAL(CARDINAL, TRUNC(pt * 1.35)); IF b.cellH < 1 THEN b.cellH := 1 END;
+  b.rend := TermRender.Create(font, VAL(SHORTREAL, ptPhys));
+  b.cellW := VAL(CARDINAL, TRUNC(ptPhys * 0.62)); IF b.cellW < 1 THEN b.cellW := 1 END;
+  b.cellH := VAL(CARDINAL, TRUNC(ptPhys * 1.35)); IF b.cellH < 1 THEN b.cellH := 1 END;
   b.lastW := 0; b.lastH := 0;                          (* 0 until Attach/Resize -> VisibleCells reports 0,0 *)
   RETURN b
 END NewTextGrid;
@@ -216,6 +223,8 @@ BEGIN
   cols := 0; rows := 0;
   IF (b # NIL) AND (b.KindOf() = TextGrid) THEN
     tg := CAST(TextGridBackend, b);
+    (* cellW/cellH are PHYSICAL px (DPI-scaled in NewTextGrid) and so is lastW/lastH,
+       so this is a direct, drift-free division. *)
     IF (tg.cellW > 0) AND (tg.cellH > 0) THEN cols := tg.lastW DIV tg.cellW; rows := tg.lastH DIV tg.cellH END
   END
 END VisibleCells;
@@ -225,7 +234,9 @@ PROCEDURE CellSize (b: Backend; VAR w, h: CARDINAL);
   VAR tg: TextGridBackend;
 BEGIN
   w := 0; h := 0;
-  IF (b # NIL) AND (b.KindOf() = TextGrid) THEN tg := CAST(TextGridBackend, b); w := tg.cellW; h := tg.cellH END
+  IF (b # NIL) AND (b.KindOf() = TextGrid) THEN
+    tg := CAST(TextGridBackend, b); w := tg.cellW; h := tg.cellH   (* already physical px (mouse coords are physical) *)
+  END
 END CellSize;
 
 PROCEDURE NewRaster (w, h: CARDINAL): Backend;

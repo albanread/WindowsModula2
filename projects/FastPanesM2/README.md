@@ -35,9 +35,14 @@ From the repo root (`e:\NewModula2`):
 
 ```
 target\debug\newm2-driver.exe build projects/FastPanesM2/FastPanesM2.mod ^
-  --library library --out projects/FastPanesM2/FastPanesM2.exe
+  --library library --out projects/FastPanesM2/FastPanesM2.exe ^
+  --manifest projects/FastPanesM2/FastPanesM2.exe.manifest
 projects\FastPanesM2\FastPanesM2.exe
 ```
+
+`--manifest` embeds the app manifest (modern themed controls + DPI awareness) into the
+exe as an RT_MANIFEST resource. Omit it and a GUI build still gets a conservative
+default manifest (themed controls); `--no-manifest` opts out entirely.
 
 ## How "Build" works
 

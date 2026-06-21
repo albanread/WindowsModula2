@@ -132,6 +132,8 @@ BEGIN
   IF gFactory = NIL THEN RETURN FALSE END;
   gActive^.cellW := cellW; gActive^.cellH := cellH;
   ZeroMem(ADR(rtp), SIZE(rtp));                 (* all-default RT properties *)
+  rtp.dpiX := VAL(SHORTREAL, 96.0);             (* DIP = physical px; the font + cell size are already *)
+  rtp.dpiY := rtp.dpiX;                          (* DPI-scaled by Surface, so cells are whole-pixel sized *)
   hwp.hwnd := hwnd;
   hwp.pixelSize.w := VAL(DWORD, pxW);
   hwp.pixelSize.h := VAL(DWORD, pxH);
@@ -168,6 +170,11 @@ BEGIN
   rt := gActive^.rt; br := gActive^.brush;
   cw := gActive^.cellW; chh := gActive^.cellH;
   rt.BeginDraw();                                  (* Begin/Clear/Fill/DrawText/SetColor *)
+  rt.SetAntialiasMode(VAL(INTEGER32, 1));          (* ALIASED: cell-bg rects tile on whole pixels with *)
+                                                   (* no antialiased seams — without this, adjacent fills *)
+                                                   (* blend at the shared edge and the clear shows through *)
+                                                   (* as thin dark bands (visible once DPI-aware/crisp).  *)
+                                                   (* Text keeps its own (text) antialiasing mode.        *)
   ToColorF(Terminal.Black, cf); rt.Clear(ADR(cf)); (* return void in D2D — called as statements *)
   cols := Terminal.Cols(); rows := Terminal.Rows();
   row := 0;

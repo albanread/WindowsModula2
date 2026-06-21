@@ -455,7 +455,11 @@ fn do_build(file: &str, out: Option<&str>, opts: &crate::DriverOptions) -> Built
     }
     let import_libs = crate::collect_import_libs(&lowered);
     let gui = opts.gui || crate::entry_has_gui_pragma(&graph);
-    match crate::link_executable(&obj_path, &exe_path, &[], &import_libs, gui) {
+    let manifest = match crate::resolve_manifest(&opts.manifest, gui) {
+        Ok(m) => m,
+        Err(e) => return Built::Failed(e),
+    };
+    match crate::link_executable(&obj_path, &exe_path, &[], &import_libs, gui, manifest.path()) {
         Ok(()) => Built::Exe(exe_path),
         Err(e) => Built::Failed(format!("link: {e}")),
     }
