@@ -90,6 +90,12 @@ BEGIN
   ok := PostMessageW(h, VAL(DWORD, WM_LBUTTONUP),   VAL(WPARAM, 0), lp)
 END SendClick;
 
+PROCEDURE SendMove (hwnd: ADDRESS; x, y: CARDINAL);   (* WM_MOUSEMOVE only — hover, no button *)
+  VAR ok: BOOL;
+BEGIN
+  ok := PostMessageW(CAST(HWND, hwnd), VAL(DWORD, WM_MOUSEMOVE), VAL(WPARAM, 0), VAL(LPARAM, (y * 65536) + x))
+END SendMove;
+
 PROCEDURE SendWheel (hwnd: ADDRESS; delta: INTEGER);
   VAR ok: BOOL; hw, wp: CARDINAL;
 BEGIN

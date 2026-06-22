@@ -27,7 +27,7 @@ FROM System_Threading IMPORT Sleep;
 FROM WIN32 IMPORT HWND, BOOL, PWSTR;
 FROM System_LibraryLoader IMPORT GetModuleFileNameW;
 FROM UI_HiDpi IMPORT GetDpiForSystem;
-FROM Harness IMPORT SnapClient, SendKey, SendKeyDown, SendKeyUp, SendChar, SendWheel, SendDrag, SendClick;
+FROM Harness IMPORT SnapClient, SendKey, SendKeyDown, SendKeyUp, SendChar, SendWheel, SendDrag, SendClick, SendMove;
 FROM Dialogs IMPORT OpenFile, SaveFile;
 IMPORT Terminal;
 FROM Terminal IMPORT Colour, Navy, Silver, White, Gray, Yellow, Aqua, Teal, Red, Black;
@@ -2083,6 +2083,15 @@ BEGIN
     ServePipe
   ELSIF e.kind = EvMouse THEN
     MouseAt(mx, my, btn);                            (* Event has no button field -> poll: press / drag / release *)
+    (* SCROLL-FOLLOWS-POINTER: while hovering (no button held), the pane the mouse
+       is over becomes the wheel target — so you can scroll without clicking first.
+       Keyboard focus is untouched (this is NOT focus-follows-mouse). *)
+    IF btn MOD 2 = 0 THEN
+      IF    (e.pane = edPane)   AND (gSelPane # SelEd)   THEN gSelPane := SelEd;   RenderEditor
+      ELSIF (e.pane = sidPane)  AND (gSelPane # SelSide) THEN gSelPane := SelSide; RenderEditor
+      ELSIF (e.pane = helpPane) AND (gSelPane # SelHelp) THEN gSelPane := SelHelp; RenderEditor
+      ELSIF (e.pane = outPane)  AND (gSelPane # SelOut)  THEN gSelPane := SelOut;  RenderEditor END
+    END;
     IF (btn MOD 2 = 1) AND (gPrevBtn MOD 2 = 0) THEN            (* press edge *)
       IF gAboutMode THEN gAboutMode := FALSE; SetStatus("ready"); RenderEditor   (* click anywhere closes About *)
       ELSIF e.pane = edPane THEN PressAt(e.x, e.y)
@@ -2097,8 +2106,9 @@ BEGIN
     IF gGotoPending THEN gGotoPending := FALSE; DoGoto END;     (* a help "go to definition" link was clicked *)
     gPrevBtn := btn
   ELSIF e.kind = EvWheel THEN
-    (* the wheel scrolls the SELECTED pane (PaneShell delivers WM_MOUSEWHEEL to the
-       focused pane, so e.pane is unreliable — gSelPane is set on click instead) *)
+    (* the wheel scrolls the pane under the POINTER. PaneShell delivers WM_MOUSEWHEEL
+       to the focused pane (so e.pane is unreliable), but gSelPane tracks the hovered
+       pane from EvMouse above — scroll-follows-pointer, no click needed. *)
     IF gSelPane = SelOut THEN                         (* scroll the output pane *)
       IF e.y > 0 THEN IF outTop >= 3 THEN outTop := outTop - 3 ELSE outTop := 0 END ELSE INC(outTop, 3) END;
       ShowOutput(gOut)
@@ -2330,6 +2340,13 @@ BEGIN
   b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap20c_help_topic.png");
   SendClick(CAST(HWND, HostOf(helpPane)), 30, 14); RunBounded(ws, 8);   (* Home -> back to index *)
   b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap20d_help_home.png");
+
+  (* SCROLL-FOLLOWS-POINTER: just HOVER the help pane (no click) then wheel -> it scrolls;
+     the status reads [scroll: Help] and the editor caret/focus is untouched. *)
+  SendMove(CAST(HWND, HostOf(helpPane)), 100, 200); RunBounded(ws, 4);
+  SendWheel(CAST(HWND, HostOf(helpPane)), -120); RunBounded(ws, 4);
+  SendWheel(CAST(HWND, HostOf(helpPane)), -120); RunBounded(ws, 6);
+  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap20e_scroll_hover.png");
 
   (* CONTEXT HELP (P2): with help open, click a symbol (WriteString, line 7) ->
      the daemon `describe` renders cross-graph help (signature, module, siblings). *)

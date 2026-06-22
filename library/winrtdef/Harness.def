@@ -27,6 +27,9 @@ PROCEDURE SendText (hwnd: ADDRESS; s: ARRAY OF CHAR);
 (* post a left click (move + down + up) at client (x,y) of hwnd *)
 PROCEDURE SendClick (hwnd: ADDRESS; x, y: CARDINAL);
 
+(* post a bare WM_MOUSEMOVE (hover, no button) at client (x,y) of hwnd *)
+PROCEDURE SendMove (hwnd: ADDRESS; x, y: CARDINAL);
+
 (* post a vertical wheel notch to hwnd; delta > 0 = wheel up/away (multiples of 120) *)
 PROCEDURE SendWheel (hwnd: ADDRESS; delta: INTEGER);
 
