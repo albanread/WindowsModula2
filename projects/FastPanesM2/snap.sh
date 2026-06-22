@@ -13,7 +13,7 @@ DIR=$PROJ/snaps/$TS
 mkdir -p "$DIR"
 echo drive > "$PROJ/fastpanes_drive.txt"
 rm -f "$PROJ"/snap1_initial.png "$PROJ"/snap2_ast.png "$PROJ"/snap3_errors.png "$PROJ"/snap4_undo.png "$PROJ"/snap5_redo.png
-timeout 40 "$EXE"; echo "(run exit $?)"
+if command -v timeout >/dev/null 2>&1; then timeout 40 "$EXE"; else "$EXE"; fi; echo "(run exit $?)"
 rm -f "$PROJ/fastpanes_drive.txt"
 cp "$PROJ/snap1_initial.png" "$DIR/01_initial.png" 2>/dev/null
 cp "$PROJ/snap2_ast.png"     "$DIR/02_ast.png"     2>/dev/null
@@ -21,3 +21,16 @@ cp "$PROJ/snap3_errors.png"  "$DIR/03_errors.png"  2>/dev/null
 cp "$PROJ/snap4_undo.png"    "$DIR/04_undo.png"    2>/dev/null
 cp "$PROJ/snap5_redo.png"    "$DIR/05_redo.png"    2>/dev/null
 echo "snaps -> $DIR"; ls "$DIR" 2>/dev/null
+# Blank-capture guard: a real rendered frame is ~70KB+; a near-uniform (blank)
+# PNG is ~10-16KB. PrintWindow CANNOT capture the GPU/Direct2D panes when the
+# Windows desktop session is LOCKED or disconnected (the window isn't composited)
+# — that yields blank panes regardless of the code. So if the snap is tiny, it's
+# an ENVIRONMENT issue (unlock/activate the desktop and re-run), NOT a render bug.
+if [ -f "$PROJ/snap1_initial.png" ]; then
+  sz=$(stat -c%s "$PROJ/snap1_initial.png" 2>/dev/null || echo 0)
+  if [ "$sz" -lt 30000 ]; then
+    echo "WARNING: snap1_initial.png is only ${sz} bytes — likely a BLANK capture."
+    echo "         PrintWindow can't capture the GPU panes when the desktop is locked/inactive."
+    echo "         Unlock + activate the desktop and re-run. This is NOT a code bug."
+  fi
+fi
