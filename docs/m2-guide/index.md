@@ -65,6 +65,7 @@ Every phase has a `dump-*` command so you can inspect the pipeline — see
 | [Expressions & operators](expressions-and-operators.md) | Arithmetic, `DIV`/`MOD`/`REM`, sets, precedence |
 | [Statements & control flow](statements-and-control-flow.md) | `IF`, `CASE`, `WHILE`, `REPEAT`, `FOR`, `LOOP`, `WITH` |
 | [Procedures](procedures.md) | Value/`VAR` parameters, function procedures, nesting, procedure types |
+| [Objects & classes](objects-and-classes.md) | Classes, inheritance, abstract classes, interfaces/COM, `GUARD`/`ISMEMBER` |
 | [The standard environment](standard-environment.md) | Pervasive procedures, the `SYSTEM` module, key libraries |
 | [Memory & exceptions](memory-and-exceptions.md) | Pointers, `NEW`/`DISPOSE`, manual memory, `EXCEPT`/`FINALLY` |
 | [Reference](reference.md) | Reserved words and pervasive identifiers |

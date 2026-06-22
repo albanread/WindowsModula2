@@ -652,7 +652,7 @@ CONST HelpBg = 01E1E22H; HCode = 080D080H; HLink = 050C8FFH;
       HBtnFg = 0E0F0FFH; HBtnDim = 0607078H;         (* toolbar button: enabled / disabled text *)
       HMenuBg = 0203848H; HMenuSel = 0107050H;       (* topics dropdown: bg / hover row *)
       TBHome = 1; TBBack = 2; TBFwd = 3; TBTopics = 4;   (* toolbar action codes *)
-      TopicCount = 10;                               (* predefined help topics (see TopicInfo) *)
+      TopicCount = 11;                               (* predefined help topics (see TopicInfo) *)
 
 (* the i-th predefined help topic: a friendly label + its .md file stem *)
 PROCEDURE TopicInfo (i: CARDINAL; VAR label, file: ARRAY OF CHAR): BOOLEAN;
@@ -664,10 +664,11 @@ BEGIN
     3: SCopy(label, "Expressions");         SCopy(file, "expressions-and-operators") |
     4: SCopy(label, "Statements");          SCopy(file, "statements-and-control-flow") |
     5: SCopy(label, "Procedures");          SCopy(file, "procedures") |
-    6: SCopy(label, "Modules");             SCopy(file, "modules-and-compilation") |
-    7: SCopy(label, "Memory & Exceptions"); SCopy(file, "memory-and-exceptions") |
-    8: SCopy(label, "Standard Environment"); SCopy(file, "standard-environment") |
-    9: SCopy(label, "Reference");           SCopy(file, "reference")
+    6: SCopy(label, "Objects & Classes");   SCopy(file, "objects-and-classes") |
+    7: SCopy(label, "Modules");             SCopy(file, "modules-and-compilation") |
+    8: SCopy(label, "Memory & Exceptions"); SCopy(file, "memory-and-exceptions") |
+    9: SCopy(label, "Standard Environment"); SCopy(file, "standard-environment") |
+    10: SCopy(label, "Reference");          SCopy(file, "reference")
   ELSE RETURN FALSE END;
   RETURN TRUE
 END TopicInfo;
