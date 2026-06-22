@@ -1,11 +1,16 @@
 # Objects & Classes
 
 Modula-2's record-and-pointer core is enough for most data structures, but NewM2 also
-implements the **object-oriented layer** (ISO 10514-3 / ADW lineage): single-inheritance
-**classes** with virtual methods, **abstract** classes, **interfaces** for COM, and — new —
-**runtime type discrimination** via `ISMEMBER` and the `GUARD` statement. The whole layer is
-*reference-based* and rides directly on the COM vtable ABI, so an M2 class can both model
-your own hierarchy and consume a real OS COM object through the same machinery.
+implements an **object-oriented layer built for COM** — the object model of the modern
+Windows API. It keeps the familiar Modula-2 OO *shape* (single-inheritance **classes** with
+virtual methods, **abstract** classes) but **deliberately departs from ISO 10514-3** where
+that standard's closed, GC-oriented model would get in the way: NewM2's design goal is to
+*fully support COM*, which is far more useful on Windows. The payoff is that an object's
+layout simply **is** the COM vtable ABI — `INTERFACE` types carry IIDs, and one M2 class can
+model your own hierarchy *and* consume a real OS COM object through the very same machinery.
+On top sits **runtime type discrimination** — `ISMEMBER` and the `GUARD` statement (new),
+constructs borrowed from the OO-Modula-2 tradition but lowered to serve this COM-unified
+model. The whole layer is *reference-based*.
 
 This page is grounded in `src/newm2-sema/src/class.rs` (the class model), `analyze.rs`
 (checking), and `src/newm2-ir/src/lower.rs` + `src/newm2-runtime/src/rtti.rs` (layout +
@@ -231,9 +236,10 @@ flowchart LR
   `EMPTY`, virtual dispatch, `INTERFACE` consumption of foreign COM, and **native-class
   `ISMEMBER` + `GUARD`** (the design is `docs/design/guard-ismember.md`).
 - **Pending:** `GUARD`/`ISMEMBER` on an **interface** (it needs a `QueryInterface` probe, not
-  yet built) is rejected at compile time rather than silently misbehaving. Operator
-  overloading and a universal root object are not provided (by design). `TRACED`
-  (garbage-collected) classes are not implemented.
+  yet built) is rejected at compile time rather than silently misbehaving.
+- **Deliberate departures from ISO 10514-3** (the COM model wins): no `TRACED`
+  (garbage-collected) classes — lifetime is manual / COM-refcounted; no operator
+  overloading; no universal root object.
 
 ---
 *See also [Declarations & types](declarations-and-types.md),
