@@ -15,6 +15,12 @@ CONST
   MaxTabs   = 16;
   TabStripH = 24;       (* tab-strip height reserved above the active tab's child *)
 
+VAR gDivW: CARDINAL;        (* visible divider gap in px between split children; 0 = flush (default,
+                               so the headless geometry gates are unchanged). Apps opt in. *)
+
+PROCEDURE SetDividerWidth (n: CARDINAL);
+BEGIN gDivW := n END SetDividerWidth;
+
 PROCEDURE IAbs (a: INTEGER): INTEGER; BEGIN IF a < 0 THEN RETURN -a ELSE RETURN a END END IAbs;
 
 (* weighted first-pane size along the split axis, with min-size clamps *)
@@ -49,12 +55,22 @@ CLASS SplitLayout;
     END;
     IF dir = Horizontal THEN
       s0 := SplitSize(w, weight, minFirst, minSecond);
-      PaneShell.SetRect(c0, x, y, s0, h);
-      PaneShell.SetRect(c1, x + s0, y, w - s0, h)
+      IF (gDivW > 0) AND (s0 + gDivW <= w) THEN              (* leave a visible divider gap *)
+        PaneShell.SetRect(c0, x, y, s0, h);
+        PaneShell.SetRect(c1, x + s0 + gDivW, y, w - s0 - gDivW, h)
+      ELSE
+        PaneShell.SetRect(c0, x, y, s0, h);
+        PaneShell.SetRect(c1, x + s0, y, w - s0, h)
+      END
     ELSE
       s0 := SplitSize(h, weight, minFirst, minSecond);
-      PaneShell.SetRect(c0, x, y, w, s0);
-      PaneShell.SetRect(c1, x, y + s0, w, h - s0)
+      IF (gDivW > 0) AND (s0 + gDivW <= h) THEN
+        PaneShell.SetRect(c0, x, y, w, s0);
+        PaneShell.SetRect(c1, x, y + s0 + gDivW, w, h - s0 - gDivW)
+      ELSE
+        PaneShell.SetRect(c0, x, y, w, s0);
+        PaneShell.SetRect(c1, x, y + s0, w, h - s0)
+      END
     END
   END Arrange;
   OVERRIDE PROCEDURE HitTest (host: PaneShell.Pane; px, py: INTEGER): CARDINAL;
@@ -64,14 +80,14 @@ CLASS SplitLayout;
     IF dir = Horizontal THEN
       s0 := SplitSize(w, weight, minFirst, minSecond);
       bnd := VAL(INTEGER, x) + VAL(INTEGER, s0);
-      IF (px >= bnd - GripUp) AND (px <= bnd + GutterTol)
+      IF (px >= bnd - GripUp) AND (px <= bnd + GutterTol + VAL(INTEGER, gDivW))
          AND (py >= VAL(INTEGER, y)) AND (py < VAL(INTEGER, y) + VAL(INTEGER, h)) THEN
         RETURN 0
       END
     ELSE
       s0 := SplitSize(h, weight, minFirst, minSecond);
       bnd := VAL(INTEGER, y) + VAL(INTEGER, s0);
-      IF (py >= bnd - GripUp) AND (py <= bnd + GutterTol)
+      IF (py >= bnd - GripUp) AND (py <= bnd + GutterTol + VAL(INTEGER, gDivW))
          AND (px >= VAL(INTEGER, x)) AND (px < VAL(INTEGER, x) + VAL(INTEGER, w)) THEN
         RETURN 0
       END

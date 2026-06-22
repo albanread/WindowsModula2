@@ -10,17 +10,19 @@
    below. *)
 IMPLEMENTATION MODULE PaneShell;
 
-FROM SYSTEM IMPORT ADDRESS, CAST, SIZE;
+FROM SYSTEM IMPORT ADDRESS, ADR, CAST, SIZE;
 FROM Storage IMPORT ALLOCATE, DEALLOCATE;
 IMPORT Surface;
-FROM WIN32 IMPORT HWND, HINSTANCE, DWORD, WPARAM, LPARAM, LRESULT, BOOL, WORD, PWSTR;
+FROM WIN32 IMPORT HWND, HINSTANCE, DWORD, WPARAM, LPARAM, LRESULT, BOOL, WORD, PWSTR, HDC, HBRUSH;
 FROM UI_WindowsAndMessaging IMPORT
   WNDCLASSEXW, MSG, RegisterClassExW, CreateWindowExW, DefWindowProcW, DestroyWindow,
   LoadCursorW, GetParent, SetWindowLongPtrW, GetWindowLongPtrW, MoveWindow, ShowWindow,
-  GetMessageW, PeekMessageW, TranslateMessage, DispatchMessageW, PostQuitMessage,
+  GetMessageW, PeekMessageW, TranslateMessage, DispatchMessageW, PostQuitMessage, GetClientRect,
   WS_OVERLAPPEDWINDOW, WS_CHILD, CW_USEDEFAULT, GWLP_USERDATA, SW_SHOW, PM_REMOVE, WM_QUIT;
 FROM UI_Input_KeyboardAndMouse IMPORT SetCapture, ReleaseCapture;
-FROM Graphics_Gdi IMPORT ValidateRect, GetSysColorBrush;
+FROM Graphics_Gdi IMPORT ValidateRect, GetSysColorBrush, InvalidateRect,
+  GetDC, ReleaseDC, FillRect, CreateSolidBrush;
+FROM Foundation IMPORT RECT, COLORREF;
 FROM System_LibraryLoader IMPORT GetModuleHandleW;
 FROM MemUtils IMPORT ZeroMem;
 IMPORT Threads;
@@ -74,6 +76,7 @@ TYPE
     chLock: Threads.Lock;                      (* CRITICAL_SECTION — lock-based, not lock-free (amendment C) *)
     threaded: BOOLEAN;                         (* SetThreaded dark seam (D2); inline-drained until P8 *)
     hidden:   BOOLEAN;                         (* SetHidden — the parent Layout skips it (D1) *)
+    divHover: BOOLEAN;                          (* mouse is over this split's divider -> draw it glowing *)
   END;
 
   PWinRec = RECORD                              (* a top-level pane window *)
@@ -106,6 +109,9 @@ VAR
   gKeyState:  ARRAY [0..255] OF BOOLEAN;
   gMouseX, gMouseY: INTEGER;
   gMouseBtn:  CARDINAL;
+  gHoverPane: PanePtr;                          (* the split whose divider the mouse is over (NIL = none) *)
+  gDivBrush:  HBRUSH;                           (* cached divider brushes (created lazily) *)
+  gGlowBrush: HBRUSH;
 
 (* ---- node allocation ---- *)
 PROCEDURE NewNode (id: ARRAY OF CHAR; k: PaneKind): PanePtr;
@@ -119,6 +125,7 @@ BEGIN
   p^.x := 0; p^.y := 0; p^.w := 0; p^.h := 0;
   p^.parent := NIL; p^.nChild := 0; p^.win := NIL;
   p^.layout := NIL; p^.chHead := 0; p^.chCount := 0; p^.threaded := FALSE; p^.hidden := FALSE;
+  p^.divHover := FALSE;
   Threads.InitLock(p^.chLock);
   RETURN p
 END NewNode;
@@ -401,9 +408,10 @@ BEGIN
   cy := VAL(INTEGER, (lp DIV 65536) BAND 0FFFFH);
   px := cx + VAL(INTEGER, childPane^.x);             (* child-client -> pane-frame absolute *)
   py := cy + VAL(INTEGER, childPane^.y);
-  (* climb ancestors: the same absolute (px,py) hit-tests any depth, so the first
-     ancestor Layout whose divider is under the press wins — nested splits work *)
-  anc := childPane^.parent;
+  (* climb from the pane itself (the visible gap belongs to the split parent) then its
+     ancestors: the same absolute (px,py) hit-tests any depth, so the first Layout whose
+     divider is under the press wins — nested splits and gap-presses both work *)
+  anc := childPane;
   WHILE anc # NIL DO
     IF anc^.layout # NIL THEN
       lay := anc^.layout;
@@ -447,6 +455,67 @@ BEGIN
   pw^.dragActive := FALSE; pw^.dragHost := NIL; pw^.dragLayout := NIL
 END CancelSplitDrag;
 
+(* ---- divider hover glow (direct-draw). The split parent owns a Direct2D target;
+   its children occlude all but the divider gap, so a full Clear shows only there.
+   On mouse-move we parent-walk the same way the drag does to find the divider under
+   the cursor, then light that split and invalidate it (-> PaintDivider re-Clears it
+   bright). Leaving it (or landing on another) un-lights the previous one. ---- *)
+PROCEDURE DividerUnder (pane: PanePtr; lp: CARDINAL): PanePtr;
+  VAR anc: PanePtr; px, py: INTEGER;
+BEGIN
+  px := VAL(INTEGER, lp BAND 0FFFFH) + VAL(INTEGER, pane^.x);
+  py := VAL(INTEGER, (lp DIV 65536) BAND 0FFFFH) + VAL(INTEGER, pane^.y);
+  anc := pane;
+  WHILE anc # NIL DO
+    IF anc^.layout # NIL THEN
+      IF anc^.layout.HitTest(CAST(Pane, anc), px, py) # MAX(CARDINAL) THEN RETURN anc END
+    END;
+    anc := anc^.parent
+  END;
+  RETURN NIL
+END DividerUnder;
+
+PROCEDURE UpdateHover (pane: PanePtr; lp: CARDINAL);
+  VAR found: PanePtr; ig: BOOL;
+BEGIN
+  found := DividerUnder(pane, lp);
+  IF found # gHoverPane THEN
+    IF (gHoverPane # NIL) AND (gHoverPane^.host # NIL) THEN
+      gHoverPane^.divHover := FALSE;
+      ig := InvalidateRect(CAST(HWND, gHoverPane^.host), NIL, VAL(BOOL, 0))
+    END;
+    gHoverPane := found;
+    IF (gHoverPane # NIL) AND (gHoverPane^.host # NIL) THEN
+      gHoverPane^.divHover := TRUE;
+      ig := InvalidateRect(CAST(HWND, gHoverPane^.host), NIL, VAL(BOOL, 0))
+    END
+  END
+END UpdateHover;
+
+(* WM_PAINT for a split host: fill the divider gap (glowing if hovered). GDI, not D2D
+   — a D2D HwndRenderTarget on a parent that HAS child HWNDs does not respect
+   WS_CLIPCHILDREN and blanks the panes; a GDI DC clips children out, so this only
+   ever touches the thin divider gap between them. Uses GetDC + ValidateRect rather
+   than BeginPaint: the generated PAINTSTRUCT is wrongly sized (rgbReserved is an
+   ADDRESS, not BYTE[32]), so BeginPaint would overrun the stack. *)
+PROCEDURE PaintDivider (pane: PanePtr);
+  CONST DivCol = 0504A3AH; GlowCol = 0FFD060H;       (* COLORREF 0x00BBGGRR: dim slate / bright cyan *)
+  VAR rc: RECT; hdc: HDC; hw: HWND; cr: COLORREF; ok, vok: BOOL; n: INTEGER32;
+BEGIN
+  hw := CAST(HWND, pane^.host);
+  ok := GetClientRect(hw, ADR(rc));
+  hdc := GetDC(hw);
+  IF pane^.divHover THEN
+    IF gGlowBrush = NIL THEN cr.Value := GlowCol; gGlowBrush := CreateSolidBrush(cr) END;
+    n := FillRect(hdc, ADR(rc), gGlowBrush)
+  ELSE
+    IF gDivBrush = NIL THEN cr.Value := DivCol; gDivBrush := CreateSolidBrush(cr) END;
+    n := FillRect(hdc, ADR(rc), gDivBrush)
+  END;
+  n := ReleaseDC(hw, hdc);
+  vok := ValidateRect(hw, NIL)
+END PaintDivider;
+
 (* The one event router (§7 control plane): every host HWND shares this WNDPROC.
    The Pane under the message is recovered from the host's GWLP_USERDATA, the raw
    WM_* is packaged into a semantic Event keyed to that Pane, the polled-input
@@ -474,6 +543,9 @@ BEGIN
          renders here on WM_PAINT; native controls have a no-op Paint (the OS draws). *)
       IF (m = WM_PAINT) AND (pane^.kind = PkLeaf) AND (pane^.back # NIL) THEN
         pane^.back.Paint(); vok := ValidateRect(CAST(HWND, pane^.host), NIL); swallow := TRUE
+      ELSIF (m = WM_PAINT) AND (pane^.kind = PkArrange) AND (pane^.layout # NIL)
+            AND (CAST(ADDRESS, hWnd) = pane^.host) THEN
+        PaintDivider(pane); swallow := TRUE        (* split host: draw its (glowing) divider line *)
       END;
 
       (* polled-input lane *)
@@ -519,6 +591,8 @@ BEGIN
         ELSIF m = WM_LBUTTONUP THEN EndSplitDrag(pw)
         ELSIF m = WM_CAPTURECHANGED THEN CancelSplitDrag(pw)   (* capture stolen -> abort, no stuck drag *)
         END;
+        (* hover glow: light the divider under the cursor when not mid-drag *)
+        IF (m = WM_MOUSEMOVE) AND (NOT pw^.dragActive) THEN UpdateHover(pane, lp) END;
         (* the splitter owns the mouse for the press that started a drag, the moves
            during it, and the release that ended it -> don't ALSO fan those to the
            app (else a divider-grab would reposition the editor caret) *)

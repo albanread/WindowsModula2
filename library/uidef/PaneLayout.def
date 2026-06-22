@@ -11,6 +11,7 @@ TYPE Orientation = (Horizontal, Vertical);
 
 PROCEDURE Split (dir: Orientation; weight: REAL; minFirst, minSecond: CARDINAL;
                  first, second: PaneShell.Pane): PaneShell.Pane;   (* draggable divider *)
+PROCEDURE SetDividerWidth (n: CARDINAL);   (* visible divider gap px for NEW splits' Arrange; 0 = flush (default) *)
 PROCEDURE NewTabs  (): PaneShell.Pane;                             (* fixed, author tabs *)
 PROCEDURE AddTab   (tabs: PaneShell.Pane; title: ARRAY OF CHAR; child: PaneShell.Pane);
 PROCEDURE SelectTab (tabs: PaneShell.Pane; index: CARDINAL);       (* switch active tab; raises EvTabChanged *)

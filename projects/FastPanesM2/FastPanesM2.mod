@@ -19,7 +19,7 @@ FROM Surface IMPORT Backend, NewTextGrid, TermOf, VisibleCells, CellSize;
 FROM PaneShell IMPORT Pane, PaneWindow, Workspace, Event, EvCloseRequest, EvResize,
   EvChar, EvKey, EvMouse, EvWheel, EvTimer, LeafPane, SetRect, Init, OpenWindow, Retile, Run, RunBounded, Quit,
   HostOf, FrameOf, RectOf, MouseAt, KeyDown, SetHidden;
-FROM PaneLayout IMPORT Orientation, Split;
+FROM PaneLayout IMPORT Orientation, Split, SetDividerWidth;
 FROM UI_Input_KeyboardAndMouse IMPORT SetFocus;
 FROM UI_WindowsAndMessaging IMPORT SetTimer, MoveWindow;
 FROM System_SystemInformation IMPORT GetTickCount;
@@ -68,6 +68,9 @@ CONST
   HelpFrac = 0.74;                       (* editor-area fraction (1-HelpFrac = help column) *)
   MaxHelpLink = 256;                     (* clickable links recorded per help render *)
   SelEd = 0; SelSide = 1; SelHelp = 2; SelOut = 3;   (* the selected pane (wheel target) *)
+  OutBg  = 0FBF3C7H;                     (* output pane: pastel-yellow background *)
+  OutFg  = 0102A5CH;                     (* output pane: dark-blue text *)
+  OutErr = 0A01818H;                     (* output pane: dark red for error lines *)
 
 VAR
   ws: Workspace; win: PaneWindow; root, edPane, outPane: Pane; edB, outB: Backend;
@@ -788,20 +791,20 @@ BEGIN
   total := 0; i := 0;                                     (* count logical lines, clamp the scroll *)
   WHILE (i <= HIGH(buf)) AND (buf[i] # 0C) DO IF buf[i] = CHR(10) THEN INC(total) END; INC(i) END;
   IF (total > 0) AND (outTop > total - 1) THEN outTop := total - 1 ELSIF total = 0 THEN outTop := 0 END;
-  Terminal.SetColour(Silver, Black); Terminal.Clear;
+  Terminal.SetColour(OutFg, OutBg); Terminal.Clear;
   i := 0; logLine := 0;                                   (* skip outTop logical lines *)
   WHILE (logLine < outTop) AND (i <= HIGH(buf)) AND (buf[i] # 0C) DO
     IF buf[i] = CHR(10) THEN INC(logLine) END; INC(i)
   END;
   col := 0; srow := 0;
-  IF (i <= HIGH(buf)) AND (buf[i] # 0C) THEN IF LineIsError(i) THEN lineFg := Red ELSE lineFg := Silver END
-  ELSE lineFg := Silver END;
+  IF (i <= HIGH(buf)) AND (buf[i] # 0C) THEN IF LineIsError(i) THEN lineFg := OutErr ELSE lineFg := OutFg END
+  ELSE lineFg := OutFg END;
   WHILE (i <= HIGH(buf)) AND (buf[i] # 0C) AND (srow < vr) DO
     IF buf[i] = CHR(10) THEN
       INC(srow); col := 0;
-      IF (srow < vr) AND (i + 1 <= HIGH(buf)) THEN IF LineIsError(i+1) THEN lineFg := Red ELSE lineFg := Silver END END
+      IF (srow < vr) AND (i + 1 <= HIGH(buf)) THEN IF LineIsError(i+1) THEN lineFg := OutErr ELSE lineFg := OutFg END END
     ELSIF buf[i] # CHR(13) THEN
-      IF col < vc THEN one[0] := buf[i]; one[1] := 0C; Terminal.WriteColAt(col, srow, lineFg, Black, one) END;
+      IF col < vc THEN one[0] := buf[i]; one[1] := 0C; Terminal.WriteColAt(col, srow, lineFg, OutBg, one) END;
       INC(col)
     END;
     INC(i)
@@ -2094,8 +2097,8 @@ PROCEDURE SelfTest;
     VAR p: ARRAY [0..511] OF CHAR;
   BEGIN Join(gProjRoot, name, p); OpenInTab(p); RunBounded(ws, 4) END OpenProj;
 BEGIN
-  RunBounded(ws, 8);                              (* show window + auto-retile + pump *)
-  RenderEditor;
+  RunBounded(ws, 12);                             (* show window + auto-retile + settle *)
+  RenderSidebar; ShowOutput(gOut); RenderEditor;  (* render every pane at the FINAL (post-resize) size *)
   h := HostOf(edPane);                            (* drive the editor host with REAL input (PostMessage) *)
   b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap1_initial.png");
 
@@ -2256,6 +2259,7 @@ BEGIN
   gDirty := FALSE; SetStatus("ready");
   InitTree;                                          (* PROJECT + LIBRARY roots in the sidebar *)
 
+  SetDividerWidth(6);                                (* visible, glowing draggable dividers between panes *)
   sidPane  := LeafPane("sidebar", sidB);
   edPane   := LeafPane("editor", edB);
   outPane  := LeafPane("output", outB);
