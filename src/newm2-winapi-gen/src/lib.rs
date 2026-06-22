@@ -37,14 +37,14 @@ mod tests {
         // Hermetic: a minimal in-memory DB shaped like schema v6.
         let conn = rusqlite::Connection::open_in_memory().unwrap();
         conn.execute_batch(
-            "CREATE TABLE types (type_id INTEGER PRIMARY KEY, namespace_name TEXT, type_name TEXT, qualified_name TEXT, kind TEXT, abi_kind TEXT);
+            "CREATE TABLE types (type_id INTEGER PRIMARY KEY, namespace_name TEXT, type_name TEXT, qualified_name TEXT, kind TEXT, abi_kind TEXT, size_bits INTEGER);
              CREATE TABLE constants (constant_name TEXT, namespace_name TEXT, value_kind TEXT, value_i64 INTEGER, value_u64 INTEGER, value_f64 REAL, value_text TEXT);
              CREATE TABLE enum_members (enum_type_id INTEGER, member_name TEXT, ordinal INTEGER, value_i64 INTEGER, value_u64 INTEGER, underlying_type TEXT, signedness TEXT, is_flags INTEGER);
-             CREATE TABLE struct_fields (struct_type_id INTEGER, ordinal INTEGER, field_name TEXT, type_name TEXT);
+             CREATE TABLE struct_fields (struct_type_id INTEGER, ordinal INTEGER, field_name TEXT, type_name TEXT, byte_offset INTEGER);
              CREATE TABLE functions (function_id INTEGER PRIMARY KEY, namespace_name TEXT, function_name TEXT, import_name TEXT, dll_name TEXT, return_type_id INTEGER);
              CREATE TABLE function_params (function_id INTEGER, ordinal INTEGER, param_name TEXT, type_id INTEGER);
-             INSERT INTO types VALUES (1,'Test.NS','COORD','Test.NS.COORD','struct','sequential'),(2,'Test.NS','MODE','Test.NS.MODE','enum',NULL),(3,'Test.NS','u32','u32','primitive',NULL),(4,'Test.NS','i32','i32','primitive',NULL);
-             INSERT INTO struct_fields VALUES (1,0,'X','i16'),(1,1,'Y','i16'),(1,2,'h','Windows.Win32.Foundation.HANDLE');
+             INSERT INTO types VALUES (1,'Test.NS','COORD','Test.NS.COORD','struct','sequential',128),(2,'Test.NS','MODE','Test.NS.MODE','enum',NULL,NULL),(3,'Test.NS','u32','u32','primitive',NULL,NULL),(4,'Test.NS','i32','i32','primitive',NULL,NULL);
+             INSERT INTO struct_fields VALUES (1,0,'X','i16',0),(1,1,'Y','i16',2),(1,2,'h','Windows.Win32.Foundation.HANDLE',8);
              INSERT INTO enum_members VALUES (2,'MODE_A',0,0,0,'u32','unsigned',1),(2,'MODE_B',1,2,2,'u32','unsigned',1);
              INSERT INTO constants VALUES ('MAX_X','Test.NS','uint',NULL,255,NULL,NULL),('NEG','Test.NS','int',-1,NULL,NULL,NULL),('NAME','Test.NS','string',NULL,NULL,NULL,'hi');
              INSERT INTO functions VALUES (10,'Test.NS','DoThing','DoThing','KERNEL32.dll',4);

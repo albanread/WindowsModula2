@@ -157,7 +157,7 @@ TYPE
     JOBOBJECT_BASIC_PROCESS_ID_LIST = RECORD
         NumberOfAssignedProcesses : DWORD;
         NumberOfProcessIdsInList : DWORD;
-        ProcessIdList : ADDRESS;
+        ProcessIdList : ARRAY [0..0] OF ADRCARD;
     END;
     JOBOBJECT_BASIC_UI_RESTRICTIONS = RECORD
         UIRestrictionsClass : DWORD;
@@ -319,8 +319,8 @@ TYPE
     END;
 
 PROCEDURE AssignProcessToJobObject["AssignProcessToJobObject" EXTERNAL FROM "KERNEL32.dll"](hJob : HANDLE; hProcess : HANDLE) : BOOL;
-PROCEDURE CreateJobObjectA["CreateJobObjectA" EXTERNAL FROM "KERNEL32.dll"](lpJobAttributes : ADDRESS; lpName : PSTR) : HANDLE;
-PROCEDURE CreateJobObjectW["CreateJobObjectW" EXTERNAL FROM "KERNEL32.dll"](lpJobAttributes : ADDRESS; lpName : PWSTR) : HANDLE;
+PROCEDURE CreateJobObjectA["CreateJobObjectA" EXTERNAL FROM "KERNEL32.dll"](lpJobAttributes : POINTER TO Security.SECURITY_ATTRIBUTES; lpName : PSTR) : HANDLE;
+PROCEDURE CreateJobObjectW["CreateJobObjectW" EXTERNAL FROM "KERNEL32.dll"](lpJobAttributes : POINTER TO Security.SECURITY_ATTRIBUTES; lpName : PWSTR) : HANDLE;
 PROCEDURE CreateJobSet["CreateJobSet" EXTERNAL FROM "KERNEL32.dll"](NumJob : DWORD; UserJobSet : POINTER TO JOB_SET_ARRAY; Flags : DWORD) : BOOL;
 PROCEDURE FreeMemoryJobObject["FreeMemoryJobObject" EXTERNAL FROM "KERNEL32.dll"](arg0 : ADDRESS);
 PROCEDURE IsProcessInJob["IsProcessInJob" EXTERNAL FROM "KERNEL32.dll"](ProcessHandle : HANDLE; JobHandle : HANDLE; Result : POINTER TO BOOL) : BOOL;

@@ -82,9 +82,9 @@ TYPE
         iDisk : INTEGER32;
         fFailOnIncompressible : INTEGER32;
         setID : WORD;
-        szDisk : ADDRESS;
-        szCab : ADDRESS;
-        szCabPath : ADDRESS;
+        szDisk : ARRAY [0..255] OF BYTE;
+        szCab : ARRAY [0..255] OF BYTE;
+        szCabPath : ARRAY [0..257] OF BYTE;
     END;
     ERF = RECORD
         erfOper : INTEGER32;
@@ -122,7 +122,7 @@ TYPE
         fdie : INTEGER32;
     END;
     FDISPILLFILE = RECORD
-        ach : ADDRESS;
+        ach : ARRAY [0..3] OF BYTE;
         cbFile : INTEGER32;
     END;
 

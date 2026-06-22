@@ -254,8 +254,8 @@ TYPE
     WINBIO_BSP_SCHEMA = RECORD
         BiometricFactor : DWORD;
         BspId : GUID;
-        Description : ADDRESS;
-        Vendor : ADDRESS;
+        Description : ARRAY [0..255] OF WORD;
+        Vendor : ARRAY [0..255] OF WORD;
         Version : WINBIO_VERSION;
     END;
     WINBIO_CALIBRATION_INFO = RECORD
@@ -283,7 +283,7 @@ TYPE
     END;
     WINBIO_DATA = RECORD
         Size : DWORD;
-        Data : ADDRESS;
+        Data : ARRAY [0..3] OF BYTE;
     END;
     WINBIO_DIAGNOSTICS = RECORD
         PayloadSize : DWORD;
@@ -490,7 +490,7 @@ TYPE
         DatabaseId : GUID;
         UserState : QWORD;
         PolicySize : ADRCARD;
-        Policy : ADDRESS;
+        Policy : ARRAY [0..127] OF BYTE;
     END;
     WINBIO_REGISTERED_FORMAT = RECORD
         Owner : WORD;
@@ -522,12 +522,12 @@ TYPE
         SensorType : DWORD;
         SensorSubType : DWORD;
         Capabilities : DWORD;
-        ManufacturerName : ADDRESS;
-        ModelName : ADDRESS;
-        SerialNumber : ADDRESS;
+        ManufacturerName : ARRAY [0..255] OF WORD;
+        ModelName : ARRAY [0..255] OF WORD;
+        SerialNumber : ARRAY [0..255] OF WORD;
         FirmwareVersion : WINBIO_VERSION;
         SupportedFormatEntries : DWORD;
-        SupportedFormat : ADDRESS;
+        SupportedFormat : ARRAY [0..3] OF BYTE;
     END;
     WINBIO_SENSOR_INTERFACE = RECORD
         Version : WINBIO_ADAPTER_INTERFACE_VERSION;
@@ -621,8 +621,8 @@ TYPE
         DatabaseId : GUID;
         DataFormat : GUID;
         Attributes : DWORD;
-        FilePath : ADDRESS;
-        ConnectionString : ADDRESS;
+        FilePath : ARRAY [0..255] OF WORD;
+        ConnectionString : ARRAY [0..257] OF WORD;
     END;
     WINBIO_SUPPORTED_ALGORITHMS = RECORD
         PayloadSize : DWORD;
@@ -636,11 +636,11 @@ TYPE
         BiometricFactor : DWORD;
         SensorSubType : DWORD;
         Capabilities : DWORD;
-        DeviceInstanceId : ADDRESS;
-        Description : ADDRESS;
-        Manufacturer : ADDRESS;
-        Model : ADDRESS;
-        SerialNumber : ADDRESS;
+        DeviceInstanceId : ARRAY [0..255] OF WORD;
+        Description : ARRAY [0..255] OF WORD;
+        Manufacturer : ARRAY [0..255] OF WORD;
+        Model : ARRAY [0..255] OF WORD;
+        SerialNumber : ARRAY [0..255] OF WORD;
         FirmwareVersion : WINBIO_VERSION;
     END;
     WINBIO_UPDATE_FIRMWARE = RECORD

@@ -44,8 +44,8 @@ TYPE
         modBaseAddr : POINTER TO BYTE;
         modBaseSize : DWORD;
         hModule : HMODULE;
-        szModule : ADDRESS;
-        szExePath : ADDRESS;
+        szModule : ARRAY [0..255] OF BYTE;
+        szExePath : ARRAY [0..263] OF BYTE;
     END;
     MODULEENTRY32W = RECORD
         dwSize : DWORD;
@@ -56,8 +56,8 @@ TYPE
         modBaseAddr : POINTER TO BYTE;
         modBaseSize : DWORD;
         hModule : HMODULE;
-        szModule : ADDRESS;
-        szExePath : ADDRESS;
+        szModule : ARRAY [0..255] OF CHAR;
+        szExePath : ARRAY [0..259] OF CHAR;
     END;
     PROCESSENTRY32 = RECORD
         dwSize : DWORD;
@@ -69,7 +69,7 @@ TYPE
         th32ParentProcessID : DWORD;
         pcPriClassBase : INTEGER32;
         dwFlags : DWORD;
-        szExeFile : ADDRESS;
+        szExeFile : ARRAY [0..259] OF BYTE;
     END;
     PROCESSENTRY32W = RECORD
         dwSize : DWORD;
@@ -81,7 +81,7 @@ TYPE
         th32ParentProcessID : DWORD;
         pcPriClassBase : INTEGER32;
         dwFlags : DWORD;
-        szExeFile : ADDRESS;
+        szExeFile : ARRAY [0..261] OF CHAR;
     END;
     THREADENTRY32 = RECORD
         dwSize : DWORD;

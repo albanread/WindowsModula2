@@ -234,7 +234,7 @@ TYPE
     END;
     ADRLIST = RECORD
         cEntries : DWORD;
-        aEntries : ADDRESS;
+        aEntries : ARRAY [0..15] OF BYTE;
     END;
     ADRPARM = RECORD
         cbABContEntryID : DWORD;
@@ -335,8 +335,8 @@ TYPE
         lpctl : POINTER TO DTCTL;
     END;
     ENTRYID = RECORD
-        abFlags : ADDRESS;
-        ab : ADDRESS;
+        abFlags : ARRAY [0..3] OF BYTE;
+        ab : ARRAY [0..0] OF BYTE;
     END;
     ERROR_NOTIFICATION = RECORD
         cbEntryID : DWORD;
@@ -352,21 +352,21 @@ TYPE
     END;
     FLATENTRY = RECORD
         cb : DWORD;
-        abEntry : ADDRESS;
+        abEntry : ARRAY [0..3] OF BYTE;
     END;
     FLATENTRYLIST = RECORD
         cEntries : DWORD;
         cbEntries : DWORD;
-        abEntries : ADDRESS;
+        abEntries : ARRAY [0..3] OF BYTE;
     END;
     FLATMTSIDLIST = RECORD
         cMTSIDs : DWORD;
         cbMTSIDs : DWORD;
-        abMTSIDs : ADDRESS;
+        abMTSIDs : ARRAY [0..3] OF BYTE;
     END;
     FlagList = RECORD
         cFlags : DWORD;
-        ulFlag : ADDRESS;
+        ulFlag : ARRAY [0..0] OF DWORD;
     END;
     LPWABACTIONITEM = RECORD
         Value : ADRINT;
@@ -384,11 +384,11 @@ TYPE
         Kind : ADDRESS;
     END;
     MAPIUID = RECORD
-        ab : ADDRESS;
+        ab : ARRAY [0..15] OF BYTE;
     END;
     MTSID = RECORD
         cb : DWORD;
-        ab : ADDRESS;
+        ab : ARRAY [0..3] OF BYTE;
     END;
     NEWMAIL_NOTIFICATION = RECORD
         cbEntryID : DWORD;
@@ -406,7 +406,7 @@ TYPE
     END;
     NOTIFKEY = RECORD
         cb : DWORD;
-        ab : ADDRESS;
+        ab : ARRAY [0..3] OF BYTE;
     END;
     OBJECT_NOTIFICATION = RECORD
         cbEntryID : DWORD;
@@ -504,11 +504,11 @@ TYPE
     END;
     SPropProblemArray = RECORD
         cProblem : DWORD;
-        aProblem : ADDRESS;
+        aProblem : ARRAY [0..11] OF BYTE;
     END;
     SPropTagArray = RECORD
         cValues : DWORD;
-        aulPropTag : ADDRESS;
+        aulPropTag : ARRAY [0..0] OF DWORD;
     END;
     SPropValue = RECORD
         ulPropTag : DWORD;
@@ -535,7 +535,7 @@ TYPE
     END;
     SRowSet = RECORD
         cRows : DWORD;
-        aRow : ADDRESS;
+        aRow : ARRAY [0..15] OF BYTE;
     END;
     SShortArray = RECORD
         cValues : DWORD;
@@ -554,7 +554,7 @@ TYPE
         cSorts : DWORD;
         cCategories : DWORD;
         cExpanded : DWORD;
-        aSort : ADDRESS;
+        aSort : ARRAY [0..7] OF BYTE;
     END;
     SSubRestriction = RECORD
         ulSubObject : DWORD;
@@ -604,6 +604,11 @@ TYPE
         guidPSExt : GUID;
     END;
     __UPV;
+
+INTERFACE IWABExtInit* ["ea22ebf0-87a4-11d1-9acf-00a0c91f9c8b"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE Initialize(lpWABExtDisplay : ADDRESS) : HRESULT <*@3*>;
+END IWABExtInit;
 
 PROCEDURE BuildDisplayTable["BuildDisplayTable" EXTERNAL FROM "MAPI32.dll"](lpAllocateBuffer : ADDRESS; lpAllocateMore : ADDRESS; lpFreeBuffer : ADDRESS; lpMalloc : ADDRESS; hInstance : HINSTANCE; cPages : DWORD; lpPage : POINTER TO DTPAGE; ulFlags : DWORD; lppTable : ADDRESS; lppTblData : ADDRESS) : HRESULT;
 PROCEDURE ChangeIdleRoutine["ChangeIdleRoutine" EXTERNAL FROM "MAPI32.dll"](lpfnIdle : ADDRESS; lpvIdleParam : ADDRESS; priIdle : ADDRESS; csecIdle : INTEGER16; iroIdle : DWORD; ircIdle : WORD; arg6 : WORD);
@@ -663,5 +668,5 @@ PROCEDURE UlRelease["UlRelease" EXTERNAL FROM "MAPI32.dll"](lpunk : ADDRESS) : D
 PROCEDURE WrapCompressedRTFStream["WrapCompressedRTFStream" EXTERNAL FROM "MAPI32.dll"](lpCompressedRTFStream : ADDRESS; ulFlags : DWORD; lpUncompressedRTFStream : ADDRESS) : HRESULT;
 PROCEDURE WrapStoreEntryID["WrapStoreEntryID" EXTERNAL FROM "MAPI32.dll"](ulFlags : DWORD; lpszDLLName : POINTER TO INTEGER8; cbOrigEntry : DWORD; lpOrigEntry : POINTER TO ENTRYID; lpcbWrappedEntry : POINTER TO DWORD; lppWrappedEntry : POINTER TO POINTER TO ENTRYID) : HRESULT;
 
-(* types-out summary: 72 types emitted; 221 consts emitted; 57 procedures emitted *)
+(* types-out summary: 73 types emitted; 221 consts emitted; 57 procedures emitted *)
 END System_AddressBook.

@@ -123,6 +123,10 @@ pub enum CastKind {
     PtrToInt,
     /// Integer → pointer (`SYSTEM.CAST(ADDRESS, n)` and friends).
     IntToPtr,
+    /// A `SYSTEM.CAST` where one operand is an aggregate (RECORD / closed ARRAY):
+    /// a bit-level memory reinterpret (alloca a slot, store the source bits, load
+    /// the target type) — not a scalar conversion or a pointer cast.
+    MemReinterpret,
 }
 
 /// SIMD lane-vector intrinsic operations (lowered to `llvm.*`).
@@ -149,6 +153,10 @@ pub enum Inst {
     Load { dst: ValueId, ptr: ValueId },
     /// `*ptr = val`
     Store { ptr: ValueId, val: ValueId },
+    /// `memmove(*dst <- *src)` of `ty` bytes — a whole-aggregate (RECORD / ARRAY)
+    /// copy by address, avoiding a by-value aggregate load/store (which LLVM's
+    /// SelectionDAG cannot legalise for >64K-element aggregates → segfault).
+    MemCopy { dst: ValueId, src: ValueId, ty: TypeId },
     /// `dst = &(base->field_index)` — address of a record field.
     FieldPtr { dst: ValueId, base: ValueId, field: u32 },
     /// `dst = &(base[index])` — address of an array element. `elem_ty` is the

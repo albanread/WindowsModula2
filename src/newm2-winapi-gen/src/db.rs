@@ -7,6 +7,9 @@ pub struct TypeRow {
     pub type_name: String,
     pub kind: String,
     pub abi_kind: Option<String>,
+    /// Total layout size in bits (from winmd), used to recover a trailing
+    /// fixed-array field's length (span = struct_size - field_offset).
+    pub size_bits: Option<i64>,
 }
 
 pub struct ConstRow {
@@ -33,6 +36,9 @@ pub struct StructFieldRow {
     pub ordinal: i64,
     pub field_name: String,
     pub type_name: String,
+    /// Byte offset of this field within the struct (from winmd), used to recover
+    /// a fixed-array field's length (span = next_field_offset - this_offset).
+    pub byte_offset: Option<i64>,
 }
 
 pub struct FunctionRow {
@@ -98,7 +104,7 @@ pub fn list_win32_namespaces(conn: &Connection) -> rusqlite::Result<Vec<String>>
 
 pub fn load_types(conn: &Connection, ns: &str) -> rusqlite::Result<Vec<TypeRow>> {
     let mut stmt = conn.prepare(
-        "SELECT type_id, type_name, kind, abi_kind
+        "SELECT type_id, type_name, kind, abi_kind, size_bits
          FROM types WHERE namespace_name = ?1 ORDER BY type_name",
     )?;
     let rows = stmt
@@ -108,6 +114,7 @@ pub fn load_types(conn: &Connection, ns: &str) -> rusqlite::Result<Vec<TypeRow>>
                 type_name: r.get(1)?,
                 kind: r.get(2)?,
                 abi_kind: r.get(3)?,
+                size_bits: r.get(4)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -286,7 +293,7 @@ pub fn load_interface_index(conn: &Connection) -> rusqlite::Result<Vec<IfaceInde
 
 pub fn load_struct_fields(conn: &Connection, ns: &str) -> rusqlite::Result<Vec<StructFieldRow>> {
     let mut stmt = conn.prepare(
-        "SELECT t.type_name, sf.ordinal, sf.field_name, sf.type_name
+        "SELECT t.type_name, sf.ordinal, sf.field_name, sf.type_name, sf.byte_offset
          FROM struct_fields sf JOIN types t ON t.type_id = sf.struct_type_id
          WHERE t.namespace_name = ?1 ORDER BY t.type_name, sf.ordinal",
     )?;
@@ -297,6 +304,7 @@ pub fn load_struct_fields(conn: &Connection, ns: &str) -> rusqlite::Result<Vec<S
                 ordinal: r.get(1)?,
                 field_name: r.get(2)?,
                 type_name: r.get(3)?,
+                byte_offset: r.get(4)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;

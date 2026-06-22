@@ -194,7 +194,7 @@ TYPE
     DDEDATA = RECORD
         _bitfield : WORD;
         cfFormat : INTEGER16;
-        Value : ADDRESS;
+        Value : ARRAY [0..1] OF BYTE;
     END;
     DDELN = RECORD
         _bitfield : WORD;
@@ -204,17 +204,17 @@ TYPE
         uiLo : ADRCARD;
         uiHi : ADRCARD;
         cbData : DWORD;
-        Data : ADDRESS;
+        Data : ARRAY [0..8] OF DWORD;
     END;
     DDEPOKE = RECORD
         _bitfield : WORD;
         cfFormat : INTEGER16;
-        Value : ADDRESS;
+        Value : ARRAY [0..1] OF BYTE;
     END;
     DDEUP = RECORD
         _bitfield : WORD;
         cfFormat : INTEGER16;
-        rgb : ADDRESS;
+        rgb : ARRAY [0..1] OF BYTE;
     END;
     HCONV = RECORD
         Value : ADDRESS;
@@ -253,7 +253,7 @@ TYPE
         dwData2 : ADRCARD;
         cc : CONVCONTEXT;
         cbData : DWORD;
-        Data : ADDRESS;
+        Data : ARRAY [0..7] OF DWORD;
     END;
     MONCONVSTRUCT = RECORD
         cb : DWORD;
@@ -277,7 +277,7 @@ TYPE
         dwTime : DWORD;
         hsz : HSZ;
         hTask : HANDLE;
-        str : ADDRESS;
+        str : ARRAY [0..7] OF BYTE;
     END;
     MONHSZSTRUCTW = RECORD
         cb : DWORD;
@@ -285,7 +285,7 @@ TYPE
         dwTime : DWORD;
         hsz : HSZ;
         hTask : HANDLE;
-        str : ADDRESS;
+        str : ARRAY [0..3] OF CHAR;
     END;
     MONLINKSTRUCT = RECORD
         cb : DWORD;

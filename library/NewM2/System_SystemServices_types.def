@@ -2431,7 +2431,7 @@ TYPE
     END;
     DISPATCHER_CONTEXT_NONVOLREG_ARM64;
     DRIVER_INFO_ENTRY = RECORD
-        InternalName : ADDRESS;
+        InternalName : ARRAY [0..31] OF BYTE;
         ImageHashAlgorithm : WORD;
         PublisherThumbprintHashAlgorithm : WORD;
         ImageHashOffset : DWORD;
@@ -2446,7 +2446,7 @@ TYPE
         Header : RUNTIME_REPORT_HEADER;
         NumberOfDrivers : WORD;
         Flags : ADDRESS;
-        DriverEntries : ADDRESS;
+        DriverEntries : ARRAY [0..55] OF BYTE;
     END;
     ENLISTMENT_BASIC_INFORMATION = RECORD
         EnlistmentId : GUID;
@@ -2477,7 +2477,7 @@ TYPE
         FileNameLength : WORD;
         FileNameFlags : BYTE;
         Reserved : BYTE;
-        FileName : ADDRESS;
+        FileName : ARRAY [0..1] OF CHAR;
     END;
     FILE_STAT_INFORMATION = RECORD
         FileId : INTEGER64;
@@ -2521,7 +2521,7 @@ TYPE
     END;
     HIBERFILE_BUCKET = RECORD
         MaxPhysicalMemory : QWORD;
-        PhysicalMemoryPercent : ADDRESS;
+        PhysicalMemoryPercent : ARRAY [0..3] OF DWORD;
     END;
     IMAGE_ALPHA64_RUNTIME_FUNCTION_ENTRY = RECORD
         BeginAddress : QWORD;
@@ -2546,13 +2546,13 @@ TYPE
         FirstEntryRVA : DWORD;
     END;
     IMAGE_ARCHIVE_MEMBER_HEADER = RECORD
-        Name : ADDRESS;
-        Date : ADDRESS;
-        UserID : ADDRESS;
-        GroupID : ADDRESS;
-        Mode : ADDRESS;
-        Size : ADDRESS;
-        EndHeader : ADDRESS;
+        Name : ARRAY [0..15] OF BYTE;
+        Date : ARRAY [0..11] OF BYTE;
+        UserID : ARRAY [0..5] OF BYTE;
+        GroupID : ARRAY [0..5] OF BYTE;
+        Mode : ARRAY [0..7] OF BYTE;
+        Size : ARRAY [0..9] OF BYTE;
+        EndHeader : ARRAY [0..1] OF BYTE;
     END;
     IMAGE_ARM64_RUNTIME_FUNCTION_ENTRY_XDATA;
     IMAGE_ARM64_RUNTIME_FUNCTION_ENTRY_XDATA_EPILOG_SCOPE;
@@ -2567,7 +2567,7 @@ TYPE
         bAuxType : BYTE;
         bReserved : BYTE;
         SymbolTableIndex : DWORD;
-        rgbReserved : ADDRESS;
+        rgbReserved : ARRAY [0..11] OF BYTE;
     END;
     IMAGE_BASE_RELOCATION = RECORD
         VirtualAddress : DWORD;
@@ -2600,8 +2600,8 @@ TYPE
         DataType : DWORD;
         Length : DWORD;
         Unicode : BOOLEAN;
-        Reserved : ADDRESS;
-        Data : ADDRESS;
+        Reserved : ARRAY [0..2] OF BYTE;
+        Data : ARRAY [0..3] OF BYTE;
     END;
     IMAGE_DOS_HEADER = RECORD
         e_magic : WORD;
@@ -2618,10 +2618,10 @@ TYPE
         e_cs : WORD;
         e_lfarlc : WORD;
         e_ovno : WORD;
-        e_res : ADDRESS;
+        e_res : ARRAY [0..3] OF WORD;
         e_oemid : WORD;
         e_oeminfo : WORD;
-        e_res2 : ADDRESS;
+        e_res2 : ARRAY [0..9] OF WORD;
         e_lfanew : INTEGER32;
     END;
     IMAGE_DYNAMIC_RELOCATION32 = RECORD
@@ -2689,8 +2689,8 @@ TYPE
         BufferOffset : DWORD;
     END;
     IMAGE_HOT_PATCH_HASHES = RECORD
-        SHA256 : ADDRESS;
-        SHA1 : ADDRESS;
+        SHA256 : ARRAY [0..31] OF BYTE;
+        SHA1 : ARRAY [0..19] OF BYTE;
     END;
     IMAGE_HOT_PATCH_INFO = RECORD
         Version : DWORD;
@@ -2708,7 +2708,7 @@ TYPE
     END;
     IMAGE_IMPORT_BY_NAME = RECORD
         Hint : WORD;
-        Name : ADDRESS;
+        Name : ARRAY [0..1] OF BYTE;
     END;
     IMAGE_IMPORT_CONTROL_TRANSFER_ARM64_RELOCATION = RECORD
         _bitfield : DWORD;
@@ -2732,8 +2732,8 @@ TYPE
     END;
     IMAGE_OS2_HEADER = RECORD
         ne_magic : WORD;
-        ne_ver : ADDRESS;
-        ne_rev : ADDRESS;
+        ne_ver : Foundation.CHAR;
+        ne_rev : Foundation.CHAR;
         ne_enttab : WORD;
         ne_cbenttab : WORD;
         ne_crc : INTEGER32;
@@ -2769,9 +2769,9 @@ TYPE
     END;
     IMAGE_POLICY_METADATA = RECORD
         Version : BYTE;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..6] OF BYTE;
         ApplicationId : QWORD;
-        Policies : ADDRESS;
+        Policies : ARRAY [0..23] OF BYTE;
     END;
     IMAGE_PROLOGUE_DYNAMIC_RELOCATION_HEADER = RECORD
         PrologueByteCount : BYTE;
@@ -2801,11 +2801,11 @@ TYPE
     END;
     IMAGE_RESOURCE_DIRECTORY_STRING = RECORD
         Length : WORD;
-        NameString : ADDRESS;
+        NameString : ARRAY [0..1] OF BYTE;
     END;
     IMAGE_RESOURCE_DIR_STRING_U = RECORD
         Length : WORD;
-        NameString : ADDRESS;
+        NameString : ARRAY [0..0] OF CHAR;
     END;
     IMAGE_SEPARATE_DEBUG_HEADER = RECORD
         Signature : WORD;
@@ -2820,7 +2820,7 @@ TYPE
         ExportedNamesSize : DWORD;
         DebugDirectorySize : DWORD;
         SectionAlignment : DWORD;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..1] OF DWORD;
     END;
     IMAGE_SWITCHTABLE_BRANCH_DYNAMIC_RELOCATION = RECORD
         _bitfield : WORD;
@@ -2904,7 +2904,7 @@ TYPE
         e32_instpreload : DWORD;
         e32_instdemand : DWORD;
         e32_heapsize : DWORD;
-        e32_res3 : ADDRESS;
+        e32_res3 : ARRAY [0..11] OF BYTE;
         e32_winresoff : DWORD;
         e32_winreslen : DWORD;
         e32_devid : WORD;
@@ -2929,12 +2929,12 @@ TYPE
         Rip : QWORD;
         SegCs : WORD;
         Anonymous : ADDRESS;
-        Fill : ADDRESS;
+        Fill : ARRAY [0..3] OF WORD;
     END;
     KTMOBJECT_CURSOR = RECORD
         LastQuery : GUID;
         ObjectIdCount : DWORD;
-        ObjectIds : ADDRESS;
+        ObjectIds : ARRAY [0..7] OF BYTE;
     END;
     MAXVERSIONTESTED_INFO = RECORD
         MaxVersionTested : QWORD;
@@ -2978,7 +2978,7 @@ TYPE
     PACKEDEVENTINFO = RECORD
         ulSize : DWORD;
         ulNumEventsForLogFile : DWORD;
-        ulOffsets : ADDRESS;
+        ulOffsets : ARRAY [0..0] OF DWORD;
     END;
     POWER_LIMIT_ATTRIBUTES = RECORD
         Type_ : INTEGER32;
@@ -3001,13 +3001,13 @@ TYPE
         TimeCheck : DWORD;
         DemotePercent : BYTE;
         PromotePercent : BYTE;
-        Spare : ADDRESS;
+        Spare : ARRAY [0..1] OF BYTE;
     END;
     PROCESSOR_IDLESTATE_POLICY = RECORD
         Revision : WORD;
         Flags : ADDRESS;
         PolicyCount : DWORD;
-        Policy : ADDRESS;
+        Policy : ARRAY [0..23] OF BYTE;
     END;
     PROCESSOR_PERFSTATE_POLICY = RECORD
         Revision : DWORD;
@@ -3118,7 +3118,7 @@ TYPE
     RESOURCEMANAGER_BASIC_INFORMATION = RECORD
         ResourceManagerId : GUID;
         DescriptionLength : DWORD;
-        Description : ADDRESS;
+        Description : ARRAY [0..1] OF CHAR;
     END;
     RESOURCEMANAGER_COMPLETION_INFORMATION = RECORD
         IoCompletionPortHandle : HANDLE;
@@ -3127,7 +3127,7 @@ TYPE
     RUNTIME_REPORT_DIGEST_HEADER = RECORD
         ReportType : WORD;
         Reserved : WORD;
-        ReportDigest : ADDRESS;
+        ReportDigest : ARRAY [0..63] OF BYTE;
     END;
     RUNTIME_REPORT_HEADER = RECORD
         ReportType : WORD;
@@ -3149,31 +3149,31 @@ TYPE
     END;
     RemHBITMAP = RECORD
         cbData : DWORD;
-        data : ADDRESS;
+        data : ARRAY [0..3] OF BYTE;
     END;
     RemHBRUSH = RECORD
         cbData : DWORD;
-        data : ADDRESS;
+        data : ARRAY [0..3] OF BYTE;
     END;
     RemHENHMETAFILE = RECORD
         cbData : DWORD;
-        data : ADDRESS;
+        data : ARRAY [0..3] OF BYTE;
     END;
     RemHGLOBAL = RECORD
         fNullHGlobal : INTEGER32;
         cbData : DWORD;
-        data : ADDRESS;
+        data : ARRAY [0..3] OF BYTE;
     END;
     RemHMETAFILEPICT = RECORD
         mm : INTEGER32;
         xExt : INTEGER32;
         yExt : INTEGER32;
         cbData : DWORD;
-        data : ADDRESS;
+        data : ARRAY [0..3] OF BYTE;
     END;
     RemHPALETTE = RECORD
         cbData : DWORD;
-        data : ADDRESS;
+        data : ARRAY [0..3] OF BYTE;
     END;
     RemotableHandle = RECORD
         fContext : INTEGER32;
@@ -3181,25 +3181,25 @@ TYPE
     END;
     SCOPE_TABLE_AMD64 = RECORD
         Count : DWORD;
-        ScopeRecord : ADDRESS;
+        ScopeRecord : ARRAY [0..31] OF BYTE;
     END;
     SCOPE_TABLE_ARM = RECORD
         Count : DWORD;
-        ScopeRecord : ADDRESS;
+        ScopeRecord : ARRAY [0..31] OF BYTE;
     END;
     SCOPE_TABLE_ARM64 = RECORD
         Count : DWORD;
-        ScopeRecord : ADDRESS;
+        ScopeRecord : ARRAY [0..31] OF BYTE;
     END;
     SCRUB_DATA_INPUT = RECORD
         Size : DWORD;
         Flags : DWORD;
         MaximumIos : DWORD;
-        ObjectId : ADDRESS;
+        ObjectId : ARRAY [0..4] OF DWORD;
         StartingByteOffset : QWORD;
         ByteCount : QWORD;
-        Reserved : ADDRESS;
-        ResumeContext : ADDRESS;
+        Reserved : ARRAY [0..35] OF DWORD;
+        ResumeContext : ARRAY [0..1039] OF BYTE;
     END;
     SCRUB_DATA_OUTPUT = RECORD
         Size : DWORD;
@@ -3214,7 +3214,7 @@ TYPE
         ParityExtentDataOffset : WORD;
         NextStartingByteOffset : QWORD;
         ValidDataLength : QWORD;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..3] OF DWORD;
         NumberOfMetadataBytesProcessed : QWORD;
         NumberOfDataBytesProcessed : QWORD;
         TotalNumberOfMetadataBytesInUse : QWORD;
@@ -3227,7 +3227,7 @@ TYPE
         DataBytesSkippedDueToNoScrubDataFlag : QWORD;
         DataBytesSkippedDueToNoScrubNonIntegrityStreamFlag : QWORD;
         DataBytesScrubbed : QWORD;
-        ResumeContext : ADDRESS;
+        ResumeContext : ARRAY [0..1039] OF BYTE;
     END;
     SCRUB_PARITY_EXTENT = RECORD
         Offset : INTEGER64;
@@ -3238,7 +3238,7 @@ TYPE
         Flags : WORD;
         NumberOfParityExtents : WORD;
         MaximumNumberOfParityExtents : WORD;
-        ParityExtents : ADDRESS;
+        ParityExtents : ARRAY [0..15] OF BYTE;
     END;
     SECURITY_OBJECT_AI_PARAMS = RECORD
         Size : DWORD;
@@ -3257,7 +3257,7 @@ TYPE
     SERVERSILO_DIAGNOSTIC_INFORMATION = RECORD
         ReportId : GUID;
         ExitStatus : DWORD;
-        CriticalProcessName : ADDRESS;
+        CriticalProcessName : ARRAY [0..17] OF CHAR;
     END;
     SE_TOKEN_USER = RECORD
         Anonymous1 : ADDRESS;
@@ -3277,7 +3277,7 @@ TYPE
         SiloParentId : DWORD;
         NumberOfProcesses : DWORD;
         IsInServerSilo : BOOLEAN;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..2] OF BYTE;
     END;
     SUPPORTED_OS_INFO = RECORD
         MajorVersion : WORD;
@@ -3345,17 +3345,17 @@ TYPE
         TokenElevationType : INTEGER32;
         ImpersonationLevel : INTEGER32;
         IntegrityLevel : DWORD;
-        User : ADDRESS;
-        TrustLevelSid : ADDRESS;
+        User : Security.SID_AND_ATTRIBUTES;
+        TrustLevelSid : Security.PSID;
         SessionId : DWORD;
         AppContainerNumber : DWORD;
         AuthenticationId : Foundation.LUID;
         GroupCount : DWORD;
         GroupsLength : DWORD;
-        Groups : ADDRESS;
+        Groups : POINTER TO Security.SID_AND_ATTRIBUTES;
     END;
     TOKEN_SID_INFORMATION = RECORD
-        Sid : ADDRESS;
+        Sid : Security.PSID;
     END;
     TRANSACTIONMANAGER_BASIC_INFORMATION = RECORD
         TmIdentity : GUID;
@@ -3363,7 +3363,7 @@ TYPE
     END;
     TRANSACTIONMANAGER_LOGPATH_INFORMATION = RECORD
         LogPathLength : DWORD;
-        LogPath : ADDRESS;
+        LogPath : ARRAY [0..1] OF CHAR;
     END;
     TRANSACTIONMANAGER_LOG_INFORMATION = RECORD
         LogIdentity : GUID;
@@ -3384,7 +3384,7 @@ TYPE
     END;
     TRANSACTION_ENLISTMENTS_INFORMATION = RECORD
         NumberOfEnlistments : DWORD;
-        EnlistmentPair : ADDRESS;
+        EnlistmentPair : ARRAY [0..15] OF BYTE;
     END;
     TRANSACTION_ENLISTMENT_PAIR = RECORD
         EnlistmentId : GUID;
@@ -3395,7 +3395,7 @@ TYPE
     END;
     TRANSACTION_LIST_INFORMATION = RECORD
         NumberOfTransactions : DWORD;
-        TransactionInformation : ADDRESS;
+        TransactionInformation : ARRAY [0..7] OF BYTE;
     END;
     TRANSACTION_PROPERTIES_INFORMATION = RECORD
         IsolationLevel : DWORD;
@@ -3403,7 +3403,7 @@ TYPE
         Timeout : INTEGER64;
         Outcome : DWORD;
         DescriptionLength : DWORD;
-        Description : ADDRESS;
+        Description : ARRAY [0..3] OF CHAR;
     END;
     TRANSACTION_SUPERIOR_ENLISTMENT_INFORMATION = RECORD
         SuperiorEnlistmentPair : TRANSACTION_ENLISTMENT_PAIR;
@@ -3417,7 +3417,7 @@ TYPE
         VectorLength : DWORD;
         VectorRegisterOffset : DWORD;
         PredicateRegisterOffset : DWORD;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..4] OF DWORD;
     END;
     XSAVE_CET_U_FORMAT = RECORD
         Ia32CetUMsr : QWORD;
@@ -3437,7 +3437,7 @@ TYPE
         bmPlanes : WORD;
         bmBitsPixel : WORD;
         cbSize : DWORD;
-        pBuffer : ADDRESS;
+        pBuffer : ARRAY [0..3] OF BYTE;
     END;
     userCLIPFORMAT = RECORD
         fContext : INTEGER32;

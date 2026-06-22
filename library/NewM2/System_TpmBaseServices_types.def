@@ -57,7 +57,7 @@ TYPE
     END;
     TPM_WNF_PROVISIONING = RECORD
         status : DWORD;
-        message : ADDRESS;
+        message : ARRAY [0..27] OF BYTE;
     END;
 
 PROCEDURE GetDeviceID["GetDeviceID" EXTERNAL FROM "tbs.dll"](pbWindowsAIK : POINTER TO BYTE; cbWindowsAIK : DWORD; pcbResult : POINTER TO DWORD; pfProtectedByTPM : POINTER TO BOOL) : HRESULT;

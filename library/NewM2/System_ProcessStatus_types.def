@@ -86,7 +86,7 @@ TYPE
     END;
     PSAPI_WORKING_SET_INFORMATION = RECORD
         NumberOfEntries : ADRCARD;
-        WorkingSetInfo : ADDRESS;
+        WorkingSetInfo : ARRAY [0..31] OF BYTE;
     END;
     PSAPI_WS_WATCH_INFORMATION = RECORD
         FaultingPc : ADDRESS;

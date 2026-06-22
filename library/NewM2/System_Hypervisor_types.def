@@ -751,7 +751,7 @@ TYPE
         GpaAddress : QWORD;
         Direction : BYTE;
         AccessSize : BYTE;
-        Data : ADDRESS;
+        Data : ARRAY [0..13] OF BYTE;
     END;
     WHV_EMULATOR_STATUS;
     WHV_EXTENDED_VM_EXITS;
@@ -764,8 +764,8 @@ TYPE
         Rsi : QWORD;
         Rdi : QWORD;
         Reserved0 : QWORD;
-        XmmRegisters : ADDRESS;
-        Reserved1 : ADDRESS;
+        XmmRegisters : ARRAY [0..191] OF BYTE;
+        Reserved1 : ARRAY [0..1] OF QWORD;
     END;
     WHV_INTERNAL_ACTIVITY_REGISTER;
     WHV_INTERRUPT_CONTROL = RECORD
@@ -775,8 +775,8 @@ TYPE
     END;
     WHV_MEMORY_ACCESS_CONTEXT = RECORD
         InstructionByteCount : BYTE;
-        Reserved : ADDRESS;
-        InstructionBytes : ADDRESS;
+        Reserved : ARRAY [0..2] OF BYTE;
+        InstructionBytes : ARRAY [0..19] OF BYTE;
         AccessInfo : WHV_MEMORY_ACCESS_INFO;
         Gpa : QWORD;
         Gva : QWORD;
@@ -871,7 +871,7 @@ TYPE
     END;
     WHV_SCHEDULER_FEATURES;
     WHV_SRIOV_RESOURCE_DESCRIPTOR = RECORD
-        PnpInstanceId : ADDRESS;
+        PnpInstanceId : ARRAY [0..199] OF CHAR;
         VirtualFunctionId : Foundation.LUID;
         VirtualFunctionIndex : WORD;
         Reserved : WORD;
@@ -932,7 +932,7 @@ TYPE
         Vector : DWORD;
         Flags : INTEGER32;
         ProcessorCount : DWORD;
-        Processors : ADDRESS;
+        Processors : ARRAY [0..0] OF DWORD;
     END;
     WHV_VPCI_MMIO_MAPPING = RECORD
         Location : INTEGER32;
@@ -942,15 +942,15 @@ TYPE
         VirtualAddress : ADDRESS;
     END;
     WHV_VPCI_PROBED_BARS = RECORD
-        Value : ADDRESS;
+        Value : ARRAY [0..5] OF DWORD;
     END;
     WHV_VP_EXCEPTION_CONTEXT = RECORD
         InstructionByteCount : BYTE;
-        Reserved : ADDRESS;
-        InstructionBytes : ADDRESS;
+        Reserved : ARRAY [0..2] OF BYTE;
+        InstructionBytes : ARRAY [0..19] OF BYTE;
         ExceptionInfo : WHV_VP_EXCEPTION_INFO;
         ExceptionType : BYTE;
-        Reserved2 : ADDRESS;
+        Reserved2 : ARRAY [0..2] OF BYTE;
         ErrorCode : DWORD;
         ExceptionParameter : QWORD;
     END;
@@ -990,7 +990,7 @@ TYPE
     END;
     WHV_X64_CPUID_RESULT = RECORD
         Function : DWORD;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..2] OF DWORD;
         Eax : DWORD;
         Ebx : DWORD;
         Ecx : DWORD;
@@ -1013,11 +1013,11 @@ TYPE
     WHV_X64_INTERRUPT_STATE_REGISTER;
     WHV_X64_IO_PORT_ACCESS_CONTEXT = RECORD
         InstructionByteCount : BYTE;
-        Reserved : ADDRESS;
-        InstructionBytes : ADDRESS;
+        Reserved : ARRAY [0..2] OF BYTE;
+        InstructionBytes : ARRAY [0..19] OF BYTE;
         AccessInfo : WHV_X64_IO_PORT_ACCESS_INFO;
         PortNumber : WORD;
-        Reserved2 : ADDRESS;
+        Reserved2 : ARRAY [0..2] OF WORD;
         Rax : QWORD;
         Rcx : QWORD;
         Rsi : QWORD;
@@ -1053,7 +1053,7 @@ TYPE
         Anonymous : ADDRESS;
     END;
     WHV_X64_TABLE_REGISTER = RECORD
-        Pad : ADDRESS;
+        Pad : ARRAY [0..2] OF WORD;
         Limit : WORD;
         Base : QWORD;
     END;

@@ -57,20 +57,20 @@ CONST
 
 TYPE
     AACS_BINDING_NONCE = RECORD
-        BindingNonce : ADDRESS;
-        MAC : ADDRESS;
+        BindingNonce : ARRAY [0..15] OF BYTE;
+        MAC : ARRAY [0..15] OF BYTE;
     END;
     AACS_CERTIFICATE = RECORD
-        Nonce : ADDRESS;
-        Certificate : ADDRESS;
+        Nonce : ARRAY [0..19] OF BYTE;
+        Certificate : ARRAY [0..91] OF BYTE;
     END;
     AACS_CHALLENGE_KEY = RECORD
-        EllipticCurvePoint : ADDRESS;
-        Signature : ADDRESS;
+        EllipticCurvePoint : ARRAY [0..39] OF BYTE;
+        Signature : ARRAY [0..39] OF BYTE;
     END;
     AACS_MEDIA_ID = RECORD
-        MediaID : ADDRESS;
-        MAC : ADDRESS;
+        MediaID : ARRAY [0..15] OF BYTE;
+        MAC : ARRAY [0..15] OF BYTE;
     END;
     AACS_READ_BINDING_NONCE = RECORD
         SessionId : DWORD;
@@ -87,43 +87,43 @@ TYPE
         ChallengeKey : AACS_CHALLENGE_KEY;
     END;
     AACS_SERIAL_NUMBER = RECORD
-        PrerecordedSerialNumber : ADDRESS;
-        MAC : ADDRESS;
+        PrerecordedSerialNumber : ARRAY [0..15] OF BYTE;
+        MAC : ARRAY [0..15] OF BYTE;
     END;
     AACS_VOLUME_ID = RECORD
-        VolumeID : ADDRESS;
-        MAC : ADDRESS;
+        VolumeID : ARRAY [0..15] OF BYTE;
+        MAC : ARRAY [0..15] OF BYTE;
     END;
     BD_DISC_WRITE_PROTECT_PAC = RECORD
         Header : BD_PAC_HEADER;
         KnownPACEntireDiscFlags : BYTE;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..2] OF BYTE;
         WriteProtectControlByte : BYTE;
-        Reserved2 : ADDRESS;
-        WriteProtectPassword : ADDRESS;
+        Reserved2 : ARRAY [0..6] OF BYTE;
+        WriteProtectPassword : ARRAY [0..31] OF BYTE;
     END;
     BD_PAC_HEADER = RECORD
-        PACId : ADDRESS;
+        PACId : ARRAY [0..2] OF BYTE;
         PACFormatNumber : BYTE;
-        PACUpdateCount : ADDRESS;
-        UnknownPACRules : ADDRESS;
+        PACUpdateCount : ARRAY [0..3] OF BYTE;
+        UnknownPACRules : ARRAY [0..3] OF BYTE;
         UnkownPACEntireDiscFlag : BYTE;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..1] OF BYTE;
         NumberOfSegments : BYTE;
-        Segments : ADDRESS;
-        Reserved2 : ADDRESS;
+        Segments : ARRAY [0..255] OF BYTE;
+        Reserved2 : ARRAY [0..111] OF BYTE;
     END;
     DVD_ASF = RECORD
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..2] OF BYTE;
         _bitfield : BYTE;
     END;
     DVD_BCA_DESCRIPTOR = RECORD
-        BCAInformation : ADDRESS;
+        BCAInformation : ARRAY [0..0] OF BYTE;
     END;
     DVD_BD_SPARE_AREA_INFORMATION = RECORD
-        Reserved1 : ADDRESS;
-        NumberOfFreeSpareBlocks : ADDRESS;
-        NumberOfAllocatedSpareBlocks : ADDRESS;
+        Reserved1 : ARRAY [0..3] OF BYTE;
+        NumberOfFreeSpareBlocks : ARRAY [0..3] OF BYTE;
+        NumberOfAllocatedSpareBlocks : ARRAY [0..3] OF BYTE;
     END;
     DVD_COPYRIGHT_DESCRIPTOR = RECORD
         CopyrightProtectionType : BYTE;
@@ -132,7 +132,7 @@ TYPE
     END;
     DVD_COPYRIGHT_MANAGEMENT_DESCRIPTOR = RECORD
         Anonymous : ADDRESS;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..7] OF BYTE;
     END;
     DVD_COPY_PROTECT_KEY = RECORD
         KeyLength : DWORD;
@@ -140,17 +140,17 @@ TYPE
         KeyType : INTEGER32;
         KeyFlags : DWORD;
         Parameters : ADDRESS;
-        KeyData : ADDRESS;
+        KeyData : ARRAY [0..7] OF BYTE;
     END;
     DVD_DESCRIPTOR_HEADER = RECORD
         Length : WORD;
-        Reserved : ADDRESS;
-        Data : ADDRESS;
+        Reserved : ARRAY [0..1] OF BYTE;
+        Data : ARRAY [0..1] OF BYTE;
     END;
     DVD_DISC_CONTROL_BLOCK_HEADER = RECORD
-        ContentDescriptor : ADDRESS;
+        ContentDescriptor : ARRAY [0..7] OF BYTE;
         ProhibitedActions : ADDRESS;
-        VendorId : ADDRESS;
+        VendorId : ARRAY [0..31] OF BYTE;
     END;
     DVD_DISC_CONTROL_BLOCK_LIST = RECORD
         header : DVD_DISC_CONTROL_BLOCK_HEADER;
@@ -158,59 +158,59 @@ TYPE
         ReadabldDCBs : BYTE;
         Reserved1 : BYTE;
         WritableDCBs : BYTE;
-        Dcbs : ADDRESS;
+        Dcbs : ARRAY [0..3] OF BYTE;
     END;
     DVD_DISC_CONTROL_BLOCK_LIST_DCB = RECORD
-        DcbIdentifier : ADDRESS;
+        DcbIdentifier : ARRAY [0..3] OF BYTE;
     END;
     DVD_DISC_CONTROL_BLOCK_SESSION = RECORD
         header : DVD_DISC_CONTROL_BLOCK_HEADER;
-        SessionNumber : ADDRESS;
-        Reserved0 : ADDRESS;
-        DiscID : ADDRESS;
-        Reserved1 : ADDRESS;
-        SessionItem : ADDRESS;
-        Reserved2 : ADDRESS;
+        SessionNumber : ARRAY [0..1] OF BYTE;
+        Reserved0 : ARRAY [0..21] OF BYTE;
+        DiscID : ARRAY [0..31] OF BYTE;
+        Reserved1 : ARRAY [0..31] OF BYTE;
+        SessionItem : ARRAY [0..8063] OF BYTE;
+        Reserved2 : ARRAY [0..24575] OF BYTE;
     END;
     DVD_DISC_CONTROL_BLOCK_SESSION_ITEM = RECORD
-        AsByte : ADDRESS;
+        AsByte : ARRAY [0..15] OF BYTE;
     END;
     DVD_DISC_CONTROL_BLOCK_WRITE_INHIBIT = RECORD
         header : DVD_DISC_CONTROL_BLOCK_HEADER;
-        UpdateCount : ADDRESS;
+        UpdateCount : ARRAY [0..7] OF BYTE;
         WriteProtectActions : ADDRESS;
-        Reserved0 : ADDRESS;
-        UpdatePassword : ADDRESS;
-        Reserved1 : ADDRESS;
+        Reserved0 : ARRAY [0..15] OF BYTE;
+        UpdatePassword : ARRAY [0..31] OF BYTE;
+        Reserved1 : ARRAY [0..32671] OF BYTE;
     END;
     DVD_DISK_KEY_DESCRIPTOR = RECORD
-        DiskKeyData : ADDRESS;
+        DiskKeyData : ARRAY [0..2047] OF BYTE;
     END;
     DVD_DUAL_LAYER_JUMP_INTERVAL_SIZE = RECORD
-        Reserved1 : ADDRESS;
-        JumpIntervalSize : ADDRESS;
+        Reserved1 : ARRAY [0..3] OF BYTE;
+        JumpIntervalSize : ARRAY [0..3] OF BYTE;
     END;
     DVD_DUAL_LAYER_MANUAL_LAYER_JUMP = RECORD
-        Reserved1 : ADDRESS;
-        ManualJumpLayerAddress : ADDRESS;
+        Reserved1 : ARRAY [0..3] OF BYTE;
+        ManualJumpLayerAddress : ARRAY [0..3] OF BYTE;
     END;
     DVD_DUAL_LAYER_MIDDLE_ZONE_START_ADDRESS = RECORD
         _bitfield : BYTE;
-        Reserved1 : ADDRESS;
-        ShiftedMiddleAreaStartAddress : ADDRESS;
+        Reserved1 : ARRAY [0..2] OF BYTE;
+        ShiftedMiddleAreaStartAddress : ARRAY [0..3] OF BYTE;
     END;
     DVD_DUAL_LAYER_RECORDING_INFORMATION = RECORD
         _bitfield : BYTE;
-        Reserved1 : ADDRESS;
-        Layer0Sectors : ADDRESS;
+        Reserved1 : ARRAY [0..2] OF BYTE;
+        Layer0Sectors : ARRAY [0..3] OF BYTE;
     END;
     DVD_DUAL_LAYER_REMAPPING_INFORMATION = RECORD
-        Reserved1 : ADDRESS;
-        RemappingAddress : ADDRESS;
+        Reserved1 : ARRAY [0..3] OF BYTE;
+        RemappingAddress : ARRAY [0..3] OF BYTE;
     END;
     DVD_FULL_LAYER_DESCRIPTOR = RECORD
         commonHeader : DVD_LAYER_DESCRIPTOR;
-        MediaSpecific : ADDRESS;
+        MediaSpecific : ARRAY [0..2031] OF BYTE;
     END;
     DVD_LAYER_DESCRIPTOR = RECORD
         _bitfield1 : BYTE;
@@ -223,37 +223,37 @@ TYPE
         _bitfield5 : BYTE;
     END;
     DVD_LIST_OF_RECOGNIZED_FORMAT_LAYERS = RECORD
-        TypeCodeOfFormatLayer : ADDRESS;
+        TypeCodeOfFormatLayer : ARRAY [0..1] OF BYTE;
     END;
     DVD_LIST_OF_RECOGNIZED_FORMAT_LAYERS_TYPE_CODE = RECORD
         NumberOfRecognizedFormatLayers : BYTE;
         _bitfield : BYTE;
     END;
     DVD_MANUFACTURER_DESCRIPTOR = RECORD
-        ManufacturingInformation : ADDRESS;
+        ManufacturingInformation : ARRAY [0..2047] OF BYTE;
     END;
     DVD_PRERECORDED_INFORMATION = RECORD
         FieldID_1 : BYTE;
         DiscApplicationCode : BYTE;
         DiscPhysicalCode : BYTE;
-        LastAddressOfDataRecordableArea : ADDRESS;
+        LastAddressOfDataRecordableArea : ARRAY [0..2] OF BYTE;
         _bitfield : BYTE;
         Reserved0 : BYTE;
         FieldID_2 : BYTE;
         OpcSuggestedCode : BYTE;
         WavelengthCode : BYTE;
-        WriteStrategyCode : ADDRESS;
+        WriteStrategyCode : ARRAY [0..3] OF BYTE;
         Reserved2 : BYTE;
         FieldID_3 : BYTE;
-        ManufacturerId_3 : ADDRESS;
+        ManufacturerId_3 : ARRAY [0..5] OF BYTE;
         Reserved3 : BYTE;
         FieldID_4 : BYTE;
-        ManufacturerId_4 : ADDRESS;
+        ManufacturerId_4 : ARRAY [0..5] OF BYTE;
         Reserved4 : BYTE;
         FieldID_5 : BYTE;
-        ManufacturerId_5 : ADDRESS;
+        ManufacturerId_5 : ARRAY [0..5] OF BYTE;
         Reserved5 : BYTE;
-        Reserved99 : ADDRESS;
+        Reserved99 : ARRAY [0..23] OF BYTE;
     END;
     DVD_RAM_MEDIUM_STATUS = RECORD
         _bitfield : BYTE;
@@ -263,12 +263,12 @@ TYPE
     END;
     DVD_RAM_RECORDING_TYPE = RECORD
         _bitfield : BYTE;
-        Reserved2 : ADDRESS;
+        Reserved2 : ARRAY [0..2] OF BYTE;
     END;
     DVD_RAM_SPARE_AREA_INFORMATION = RECORD
-        FreePrimarySpareSectors : ADDRESS;
-        FreeSupplementalSpareSectors : ADDRESS;
-        AllocatedSupplementalSpareSectors : ADDRESS;
+        FreePrimarySpareSectors : ARRAY [0..3] OF BYTE;
+        FreeSupplementalSpareSectors : ARRAY [0..3] OF BYTE;
+        AllocatedSupplementalSpareSectors : ARRAY [0..3] OF BYTE;
     END;
     DVD_READ_STRUCTURE = RECORD
         BlockByteOffset : INTEGER64;
@@ -277,8 +277,8 @@ TYPE
         LayerNumber : BYTE;
     END;
     DVD_RECORDING_MANAGEMENT_AREA_DATA = RECORD
-        LastRecordedRMASectorNumber : ADDRESS;
-        RMDBytes : ADDRESS;
+        LastRecordedRMASectorNumber : ARRAY [0..3] OF BYTE;
+        RMDBytes : ARRAY [0..0] OF BYTE;
     END;
     DVD_REGION = RECORD
         CopySystem : BYTE;
@@ -294,31 +294,31 @@ TYPE
     END;
     DVD_SET_RPC_KEY = RECORD
         PreferredDriveRegionCode : BYTE;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..2] OF BYTE;
     END;
     DVD_STRUCTURE_LIST_ENTRY = RECORD
         FormatCode : BYTE;
         _bitfield : BYTE;
-        FormatLength : ADDRESS;
+        FormatLength : ARRAY [0..1] OF BYTE;
     END;
     DVD_UNIQUE_DISC_IDENTIFIER = RECORD
-        Reserved0 : ADDRESS;
-        RandomNumber : ADDRESS;
-        Year : ADDRESS;
-        Month : ADDRESS;
-        Day : ADDRESS;
-        Hour : ADDRESS;
-        Minute : ADDRESS;
-        Second : ADDRESS;
+        Reserved0 : ARRAY [0..1] OF BYTE;
+        RandomNumber : ARRAY [0..1] OF BYTE;
+        Year : ARRAY [0..3] OF BYTE;
+        Month : ARRAY [0..1] OF BYTE;
+        Day : ARRAY [0..1] OF BYTE;
+        Hour : ARRAY [0..1] OF BYTE;
+        Minute : ARRAY [0..1] OF BYTE;
+        Second : ARRAY [0..1] OF BYTE;
     END;
     DVD_WRITE_PROTECTION_STATUS = RECORD
         _bitfield : BYTE;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..2] OF BYTE;
     END;
     HD_DVD_R_MEDIUM_STATUS = RECORD
         _bitfield : BYTE;
         NumberOfRemainingRMDsInRDZ : BYTE;
-        NumberOfRemainingRMDsInCurrentRMZ : ADDRESS;
+        NumberOfRemainingRMDsInCurrentRMZ : ARRAY [0..1] OF BYTE;
     END;
     STORAGE_SET_READ_AHEAD = RECORD
         TriggerAddress : INTEGER64;

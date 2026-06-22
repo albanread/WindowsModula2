@@ -69,13 +69,13 @@ TYPE
         fIsGroupPolicy : BOOL;
     END;
     WCM_PROFILE_INFO = RECORD
-        strProfileName : ADDRESS;
+        strProfileName : ARRAY [0..255] OF CHAR;
         AdapterGUID : GUID;
         Media : INTEGER32;
     END;
     WCM_PROFILE_INFO_LIST = RECORD
         dwNumberOfItems : DWORD;
-        ProfileInfo : ADDRESS;
+        ProfileInfo : ARRAY [0..527] OF BYTE;
     END;
     WCM_TIME_INTERVAL = RECORD
         wYear : WORD;

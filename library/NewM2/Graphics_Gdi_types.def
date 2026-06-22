@@ -1697,6 +1697,11 @@ CONST
     TTLOAD_FONT_IN_SYSSTARTUP = 2;
 
 TYPE
+    ABC = RECORD
+        abcA : INTEGER32;
+        abcB : DWORD;
+        abcC : INTEGER32;
+    END;
     ABCFLOAT = RECORD
         abcfA : REAL;
         abcfB : REAL;
@@ -1708,22 +1713,22 @@ TYPE
     AXESLISTA = RECORD
         axlReserved : DWORD;
         axlNumAxes : DWORD;
-        axlAxisInfo : ADDRESS;
+        axlAxisInfo : ARRAY [0..383] OF BYTE;
     END;
     AXESLISTW = RECORD
         axlReserved : DWORD;
         axlNumAxes : DWORD;
-        axlAxisInfo : ADDRESS;
+        axlAxisInfo : ARRAY [0..639] OF BYTE;
     END;
     AXISINFOA = RECORD
         axMinValue : INTEGER32;
         axMaxValue : INTEGER32;
-        axAxisName : ADDRESS;
+        axAxisName : ARRAY [0..15] OF BYTE;
     END;
     AXISINFOW = RECORD
         axMinValue : INTEGER32;
         axMaxValue : INTEGER32;
-        axAxisName : ADDRESS;
+        axAxisName : ARRAY [0..15] OF CHAR;
     END;
     BITMAP = RECORD
         bmType : INTEGER32;
@@ -1743,7 +1748,7 @@ TYPE
     END;
     BITMAPCOREINFO = RECORD
         bmciHeader : BITMAPCOREHEADER;
-        bmciColors : ADDRESS;
+        bmciColors : ARRAY [0..3] OF BYTE;
     END;
     BITMAPFILEHEADER = RECORD
         bfType : WORD;
@@ -1754,7 +1759,7 @@ TYPE
     END;
     BITMAPINFO = RECORD
         bmiHeader : BITMAPINFOHEADER;
-        bmiColors : ADDRESS;
+        bmiColors : ARRAY [0..3] OF BYTE;
     END;
     BITMAPINFOHEADER = RECORD
         biSize : DWORD;
@@ -1817,6 +1822,12 @@ TYPE
         bV5ProfileSize : DWORD;
         bV5Reserved : DWORD;
     END;
+    BLENDFUNCTION = RECORD
+        BlendOp : BYTE;
+        BlendFlags : BYTE;
+        SourceConstantAlpha : BYTE;
+        AlphaFormat : BYTE;
+    END;
     CIEXYZ = RECORD
         ciexyzX : INTEGER32;
         ciexyzY : INTEGER32;
@@ -1827,13 +1838,27 @@ TYPE
         ciexyzGreen : CIEXYZ;
         ciexyzBlue : CIEXYZ;
     END;
+    COLORADJUSTMENT = RECORD
+        caSize : WORD;
+        caFlags : WORD;
+        caIlluminantIndex : WORD;
+        caRedGamma : WORD;
+        caGreenGamma : WORD;
+        caBlueGamma : WORD;
+        caReferenceBlack : WORD;
+        caReferenceWhite : WORD;
+        caContrast : INTEGER16;
+        caBrightness : INTEGER16;
+        caColorfulness : INTEGER16;
+        caRedGreenTint : INTEGER16;
+    END;
     DESIGNVECTOR = RECORD
         dvReserved : DWORD;
         dvNumAxes : DWORD;
-        dvValues : ADDRESS;
+        dvValues : ARRAY [0..15] OF INTEGER32;
     END;
     DEVMODEA = RECORD
-        dmDeviceName : ADDRESS;
+        dmDeviceName : ARRAY [0..31] OF BYTE;
         dmSpecVersion : WORD;
         dmDriverVersion : WORD;
         dmSize : WORD;
@@ -1845,7 +1870,7 @@ TYPE
         dmYResolution : INTEGER16;
         dmTTOption : INTEGER16;
         dmCollate : INTEGER16;
-        dmFormName : ADDRESS;
+        dmFormName : ARRAY [0..31] OF BYTE;
         dmLogPixels : WORD;
         dmBitsPerPel : DWORD;
         dmPelsWidth : DWORD;
@@ -1862,7 +1887,7 @@ TYPE
         dmPanningHeight : DWORD;
     END;
     DEVMODEW = RECORD
-        dmDeviceName : ADDRESS;
+        dmDeviceName : ARRAY [0..31] OF CHAR;
         dmSpecVersion : WORD;
         dmDriverVersion : WORD;
         dmSize : WORD;
@@ -1874,7 +1899,7 @@ TYPE
         dmYResolution : INTEGER16;
         dmTTOption : INTEGER16;
         dmCollate : INTEGER16;
-        dmFormName : ADDRESS;
+        dmFormName : ARRAY [0..31] OF CHAR;
         dmLogPixels : WORD;
         dmBitsPerPel : DWORD;
         dmPelsWidth : DWORD;
@@ -1893,25 +1918,25 @@ TYPE
     DIBSECTION = RECORD
         dsBm : BITMAP;
         dsBmih : BITMAPINFOHEADER;
-        dsBitfields : ADDRESS;
+        dsBitfields : ARRAY [0..3] OF DWORD;
         dshSection : HANDLE;
         dsOffset : DWORD;
     END;
     DISPLAY_DEVICEA = RECORD
         cb : DWORD;
-        DeviceName : ADDRESS;
-        DeviceString : ADDRESS;
+        DeviceName : ARRAY [0..31] OF BYTE;
+        DeviceString : ARRAY [0..127] OF BYTE;
         StateFlags : DWORD;
-        DeviceID : ADDRESS;
-        DeviceKey : ADDRESS;
+        DeviceID : ARRAY [0..127] OF BYTE;
+        DeviceKey : ARRAY [0..127] OF BYTE;
     END;
     DISPLAY_DEVICEW = RECORD
         cb : DWORD;
-        DeviceName : ADDRESS;
-        DeviceString : ADDRESS;
+        DeviceName : ARRAY [0..31] OF CHAR;
+        DeviceString : ARRAY [0..127] OF CHAR;
         StateFlags : DWORD;
-        DeviceID : ADDRESS;
-        DeviceKey : ADDRESS;
+        DeviceID : ARRAY [0..127] OF CHAR;
+        DeviceKey : ARRAY [0..127] OF CHAR;
     END;
     DRAWTEXTPARAMS = RECORD
         cbSize : DWORD;
@@ -1988,7 +2013,7 @@ TYPE
         dwFlags : DWORD;
         cbName : DWORD;
         cbData : DWORD;
-        Data : ADDRESS;
+        Data : ARRAY [0..3] OF BYTE;
     END;
     EMRCREATEBRUSHINDIRECT = RECORD
         emr : EMR;
@@ -2055,7 +2080,7 @@ TYPE
         emr : EMR;
         iEscape : INTEGER32;
         cbEscData : INTEGER32;
-        EscData : ADDRESS;
+        EscData : ARRAY [0..3] OF BYTE;
     END;
     EMREXTFLOODFILL = RECORD
         emr : EMR;
@@ -2067,7 +2092,7 @@ TYPE
         emr : EMR;
         cbRgnData : DWORD;
         iMode : DWORD;
-        RgnData : ADDRESS;
+        RgnData : ARRAY [0..3] OF BYTE;
     END;
     EMREXTTEXTOUTA = RECORD
         emr : EMR;
@@ -2086,7 +2111,7 @@ TYPE
         rclBounds : Foundation.RECTL;
         cbRgnData : DWORD;
         ihBrush : DWORD;
-        RgnData : ADDRESS;
+        RgnData : ARRAY [0..3] OF BYTE;
     END;
     EMRFORMAT = RECORD
         dSignature : DWORD;
@@ -2100,23 +2125,23 @@ TYPE
         cbRgnData : DWORD;
         ihBrush : DWORD;
         szlStroke : Foundation.SIZE;
-        RgnData : ADDRESS;
+        RgnData : ARRAY [0..3] OF BYTE;
     END;
     EMRGDICOMMENT = RECORD
         emr : EMR;
         cbData : DWORD;
-        Data : ADDRESS;
+        Data : ARRAY [0..3] OF BYTE;
     END;
     EMRGLSBOUNDEDRECORD = RECORD
         emr : EMR;
         rclBounds : Foundation.RECTL;
         cbData : DWORD;
-        Data : ADDRESS;
+        Data : ARRAY [0..3] OF BYTE;
     END;
     EMRGLSRECORD = RECORD
         emr : EMR;
         cbData : DWORD;
-        Data : ADDRESS;
+        Data : ARRAY [0..3] OF BYTE;
     END;
     EMRGRADIENTFILL = RECORD
         emr : EMR;
@@ -2124,13 +2149,13 @@ TYPE
         nVer : DWORD;
         nTri : DWORD;
         ulMode : DWORD;
-        Ver : ADDRESS;
+        Ver : ARRAY [0..15] OF BYTE;
     END;
     EMRINVERTRGN = RECORD
         emr : EMR;
         rclBounds : Foundation.RECTL;
         cbRgnData : DWORD;
-        RgnData : ADDRESS;
+        RgnData : ARRAY [0..3] OF BYTE;
     END;
     EMRLINETO = RECORD
         emr : EMR;
@@ -2171,7 +2196,7 @@ TYPE
         iEscape : INTEGER32;
         cbDriver : INTEGER32;
         cbEscData : INTEGER32;
-        EscData : ADDRESS;
+        EscData : ARRAY [0..3] OF BYTE;
     END;
     EMROFFSETCLIPRGN = RECORD
         emr : EMR;
@@ -2180,7 +2205,7 @@ TYPE
     EMRPLGBLT = RECORD
         emr : EMR;
         rclBounds : Foundation.RECTL;
-        aptlDest : ADDRESS;
+        aptlDest : ARRAY [0..23] OF BYTE;
         xSrc : INTEGER32;
         ySrc : INTEGER32;
         cxSrc : INTEGER32;
@@ -2204,43 +2229,43 @@ TYPE
         emr : EMR;
         rclBounds : Foundation.RECTL;
         cptl : DWORD;
-        aptl : ADDRESS;
-        abTypes : ADDRESS;
+        aptl : ARRAY [0..7] OF BYTE;
+        abTypes : ARRAY [0..3] OF BYTE;
     END;
     EMRPOLYDRAW16 = RECORD
         emr : EMR;
         rclBounds : Foundation.RECTL;
         cpts : DWORD;
-        apts : ADDRESS;
-        abTypes : ADDRESS;
+        apts : ARRAY [0..3] OF BYTE;
+        abTypes : ARRAY [0..3] OF BYTE;
     END;
     EMRPOLYLINE = RECORD
         emr : EMR;
         rclBounds : Foundation.RECTL;
         cptl : DWORD;
-        aptl : ADDRESS;
+        aptl : ARRAY [0..7] OF BYTE;
     END;
     EMRPOLYLINE16 = RECORD
         emr : EMR;
         rclBounds : Foundation.RECTL;
         cpts : DWORD;
-        apts : ADDRESS;
+        apts : ARRAY [0..3] OF BYTE;
     END;
     EMRPOLYPOLYLINE = RECORD
         emr : EMR;
         rclBounds : Foundation.RECTL;
         nPolys : DWORD;
         cptl : DWORD;
-        aPolyCounts : ADDRESS;
-        aptl : ADDRESS;
+        aPolyCounts : ARRAY [0..0] OF DWORD;
+        aptl : ARRAY [0..7] OF BYTE;
     END;
     EMRPOLYPOLYLINE16 = RECORD
         emr : EMR;
         rclBounds : Foundation.RECTL;
         nPolys : DWORD;
         cpts : DWORD;
-        aPolyCounts : ADDRESS;
-        apts : ADDRESS;
+        aPolyCounts : ARRAY [0..0] OF DWORD;
+        apts : ARRAY [0..3] OF BYTE;
     END;
     EMRPOLYTEXTOUTA = RECORD
         emr : EMR;
@@ -2249,7 +2274,7 @@ TYPE
         exScale : REAL;
         eyScale : REAL;
         cStrings : INTEGER32;
-        aemrtext : ADDRESS;
+        aemrtext : ARRAY [0..39] OF BYTE;
     END;
     EMRRESIZEPALETTE = RECORD
         emr : EMR;
@@ -2290,7 +2315,7 @@ TYPE
     END;
     EMRSETCOLORADJUSTMENT = RECORD
         emr : EMR;
-        ColorAdjustment : ADDRESS;
+        ColorAdjustment : COLORADJUSTMENT;
     END;
     EMRSETCOLORSPACE = RECORD
         emr : EMR;
@@ -2318,7 +2343,7 @@ TYPE
         dwFlags : DWORD;
         cbName : DWORD;
         cbData : DWORD;
-        Data : ADDRESS;
+        Data : ARRAY [0..3] OF BYTE;
     END;
     EMRSETMAPPERFLAGS = RECORD
         emr : EMR;
@@ -2333,7 +2358,7 @@ TYPE
         ihPal : DWORD;
         iStart : DWORD;
         cEntries : DWORD;
-        aPalEntries : ADDRESS;
+        aPalEntries : ARRAY [0..3] OF BYTE;
     END;
     EMRSETPIXELV = RECORD
         emr : EMR;
@@ -2446,18 +2471,18 @@ TYPE
     ENHMETARECORD = RECORD
         iType : DWORD;
         nSize : DWORD;
-        dParm : ADDRESS;
+        dParm : ARRAY [0..0] OF DWORD;
     END;
     ENUMLOGFONTA = RECORD
         elfLogFont : LOGFONTA;
-        elfFullName : ADDRESS;
-        elfStyle : ADDRESS;
+        elfFullName : ARRAY [0..63] OF BYTE;
+        elfStyle : ARRAY [0..31] OF BYTE;
     END;
     ENUMLOGFONTEXA = RECORD
         elfLogFont : LOGFONTA;
-        elfFullName : ADDRESS;
-        elfStyle : ADDRESS;
-        elfScript : ADDRESS;
+        elfFullName : ARRAY [0..63] OF BYTE;
+        elfStyle : ARRAY [0..31] OF BYTE;
+        elfScript : ARRAY [0..31] OF BYTE;
     END;
     ENUMLOGFONTEXDVA = RECORD
         elfEnumLogfontEx : ENUMLOGFONTEXA;
@@ -2469,36 +2494,36 @@ TYPE
     END;
     ENUMLOGFONTEXW = RECORD
         elfLogFont : LOGFONTW;
-        elfFullName : ADDRESS;
-        elfStyle : ADDRESS;
-        elfScript : ADDRESS;
+        elfFullName : ARRAY [0..63] OF CHAR;
+        elfStyle : ARRAY [0..31] OF CHAR;
+        elfScript : ARRAY [0..31] OF CHAR;
     END;
     ENUMLOGFONTW = RECORD
         elfLogFont : LOGFONTW;
-        elfFullName : ADDRESS;
-        elfStyle : ADDRESS;
+        elfFullName : ARRAY [0..63] OF CHAR;
+        elfStyle : ARRAY [0..31] OF CHAR;
     END;
     EXTLOGFONTA = RECORD
         elfLogFont : LOGFONTA;
-        elfFullName : ADDRESS;
-        elfStyle : ADDRESS;
+        elfFullName : ARRAY [0..63] OF BYTE;
+        elfStyle : ARRAY [0..31] OF BYTE;
         elfVersion : DWORD;
         elfStyleSize : DWORD;
         elfMatch : DWORD;
         elfReserved : DWORD;
-        elfVendorId : ADDRESS;
+        elfVendorId : ARRAY [0..3] OF BYTE;
         elfCulture : DWORD;
         elfPanose : PANOSE;
     END;
     EXTLOGFONTW = RECORD
         elfLogFont : LOGFONTW;
-        elfFullName : ADDRESS;
-        elfStyle : ADDRESS;
+        elfFullName : ARRAY [0..63] OF CHAR;
+        elfStyle : ARRAY [0..31] OF CHAR;
         elfVersion : DWORD;
         elfStyleSize : DWORD;
         elfMatch : DWORD;
         elfReserved : DWORD;
-        elfVendorId : ADDRESS;
+        elfVendorId : ARRAY [0..3] OF BYTE;
         elfCulture : DWORD;
         elfPanose : PANOSE;
     END;
@@ -2509,7 +2534,7 @@ TYPE
         elpColor : Foundation.COLORREF;
         elpHatch : ADRCARD;
         elpNumEntries : DWORD;
-        elpStyleEntry : ADDRESS;
+        elpStyleEntry : ARRAY [0..0] OF DWORD;
     END;
     EXTLOGPEN32 = RECORD
         elpPenStyle : DWORD;
@@ -2518,7 +2543,7 @@ TYPE
         elpColor : Foundation.COLORREF;
         elpHatch : DWORD;
         elpNumEntries : DWORD;
-        elpStyleEntry : ADDRESS;
+        elpStyleEntry : ARRAY [0..0] OF DWORD;
     END;
     FIXED = RECORD
         fract : WORD;
@@ -2558,7 +2583,7 @@ TYPE
         flAccel : DWORD;
         cGlyphsSupported : DWORD;
         cRanges : DWORD;
-        ranges : ADDRESS;
+        ranges : ARRAY [0..3] OF BYTE;
     END;
     GRADIENT_RECT = RECORD
         UpperLeft : DWORD;
@@ -2570,12 +2595,15 @@ TYPE
         Vertex3 : DWORD;
     END;
     HANDLETABLE = RECORD
-        objectHandle : ADDRESS;
+        objectHandle : ARRAY [0..7] OF BYTE;
     END;
     HENHMETAFILE = RECORD
         Value : ADDRESS;
     END;
     HMETAFILE = RECORD
+        Value : ADDRESS;
+    END;
+    HMONITOR = RECORD
         Value : ADDRESS;
     END;
     KERNINGPAIR = RECORD
@@ -2607,7 +2635,7 @@ TYPE
         lfClipPrecision : BYTE;
         lfQuality : BYTE;
         lfPitchAndFamily : BYTE;
-        lfFaceName : ADDRESS;
+        lfFaceName : ARRAY [0..31] OF BYTE;
     END;
     LOGFONTW = RECORD
         lfHeight : INTEGER32;
@@ -2623,12 +2651,12 @@ TYPE
         lfClipPrecision : BYTE;
         lfQuality : BYTE;
         lfPitchAndFamily : BYTE;
-        lfFaceName : ADDRESS;
+        lfFaceName : ARRAY [0..31] OF CHAR;
     END;
     LOGPALETTE = RECORD
         palVersion : WORD;
         palNumEntries : WORD;
-        palPalEntry : ADDRESS;
+        palPalEntry : ARRAY [0..3] OF BYTE;
     END;
     LOGPEN = RECORD
         lopnStyle : DWORD;
@@ -2653,7 +2681,7 @@ TYPE
     METARECORD = RECORD
         rdSize : DWORD;
         rdFunction : WORD;
-        rdParm : ADDRESS;
+        rdParm : ARRAY [0..0] OF WORD;
     END;
     MONITORINFO = RECORD
         cbSize : DWORD;
@@ -2663,11 +2691,11 @@ TYPE
     END;
     MONITORINFOEXA = RECORD
         monitorInfo : MONITORINFO;
-        szDevice : ADDRESS;
+        szDevice : ARRAY [0..31] OF BYTE;
     END;
     MONITORINFOEXW = RECORD
         monitorInfo : MONITORINFO;
-        szDevice : ADDRESS;
+        szDevice : ARRAY [0..31] OF CHAR;
     END;
     NEWTEXTMETRICA = RECORD
         tmHeight : INTEGER32;
@@ -2795,7 +2823,13 @@ TYPE
         rcPaint : Foundation.RECT;
         fRestore : BOOL;
         fIncUpdate : BOOL;
-        rgbReserved : ADDRESS;
+        rgbReserved : ARRAY [0..35] OF BYTE;
+    END;
+    PALETTEENTRY = RECORD
+        peRed : BYTE;
+        peGreen : BYTE;
+        peBlue : BYTE;
+        peFlags : BYTE;
     END;
     PANOSE = RECORD
         bFamilyType : BYTE;
@@ -2856,7 +2890,7 @@ TYPE
     END;
     RGNDATA = RECORD
         rdh : RGNDATAHEADER;
-        Buffer : ADDRESS;
+        Buffer : ARRAY [0..3] OF BYTE;
     END;
     RGNDATAHEADER = RECORD
         dwSize : DWORD;
@@ -2909,6 +2943,14 @@ TYPE
         tmPitchAndFamily : BYTE;
         tmCharSet : BYTE;
     END;
+    TRIVERTEX = RECORD
+        x : INTEGER32;
+        y : INTEGER32;
+        Red : WORD;
+        Green : WORD;
+        Blue : WORD;
+        Alpha : WORD;
+    END;
     TTEMBEDINFO = RECORD
         usStructSize : WORD;
         usRootStrSize : WORD;
@@ -2922,7 +2964,7 @@ TYPE
     TTPOLYCURVE = RECORD
         wType : WORD;
         cpfx : WORD;
-        apfx : ADDRESS;
+        apfx : ARRAY [0..7] OF BYTE;
     END;
     TTPOLYGONHEADER = RECORD
         cb : DWORD;
@@ -2970,9 +3012,9 @@ PROCEDURE AddFontResourceA["AddFontResourceA" EXTERNAL FROM "GDI32.dll"](arg0 : 
 PROCEDURE AddFontResourceExA["AddFontResourceExA" EXTERNAL FROM "GDI32.dll"](fl : PSTR; res : DWORD; arg2 : ADDRESS) : INTEGER32;
 PROCEDURE AddFontResourceExW["AddFontResourceExW" EXTERNAL FROM "GDI32.dll"](fl : PWSTR; res : DWORD; arg2 : ADDRESS) : INTEGER32;
 PROCEDURE AddFontResourceW["AddFontResourceW" EXTERNAL FROM "GDI32.dll"](arg0 : PWSTR) : INTEGER32;
-PROCEDURE AlphaBlend["AlphaBlend" EXTERNAL FROM "MSIMG32.dll"](hdcDest : HDC; xoriginDest : INTEGER32; yoriginDest : INTEGER32; wDest : INTEGER32; hDest : INTEGER32; hdcSrc : HDC; xoriginSrc : INTEGER32; yoriginSrc : INTEGER32; wSrc : INTEGER32; hSrc : INTEGER32; ftn : ADDRESS) : BOOL;
+PROCEDURE AlphaBlend["AlphaBlend" EXTERNAL FROM "MSIMG32.dll"](hdcDest : HDC; xoriginDest : INTEGER32; yoriginDest : INTEGER32; wDest : INTEGER32; hDest : INTEGER32; hdcSrc : HDC; xoriginSrc : INTEGER32; yoriginSrc : INTEGER32; wSrc : INTEGER32; hSrc : INTEGER32; ftn : BLENDFUNCTION) : BOOL;
 PROCEDURE AngleArc["AngleArc" EXTERNAL FROM "GDI32.dll"](hdc : HDC; x : INTEGER32; y : INTEGER32; r : DWORD; StartAngle : REAL; SweepAngle : REAL) : BOOL;
-PROCEDURE AnimatePalette["AnimatePalette" EXTERNAL FROM "GDI32.dll"](hPal : HPALETTE; iStartIndex : DWORD; cEntries : DWORD; ppe : ADDRESS) : BOOL;
+PROCEDURE AnimatePalette["AnimatePalette" EXTERNAL FROM "GDI32.dll"](hPal : HPALETTE; iStartIndex : DWORD; cEntries : DWORD; ppe : POINTER TO PALETTEENTRY) : BOOL;
 PROCEDURE Arc["Arc" EXTERNAL FROM "GDI32.dll"](hdc : HDC; x1 : INTEGER32; y1 : INTEGER32; x2 : INTEGER32; y2 : INTEGER32; x3 : INTEGER32; y3 : INTEGER32; x4 : INTEGER32; y4 : INTEGER32) : BOOL;
 PROCEDURE ArcTo["ArcTo" EXTERNAL FROM "GDI32.dll"](hdc : HDC; left : INTEGER32; top : INTEGER32; right : INTEGER32; bottom : INTEGER32; xr1 : INTEGER32; yr1 : INTEGER32; xr2 : INTEGER32; yr2 : INTEGER32) : BOOL;
 PROCEDURE BeginPaint["BeginPaint" EXTERNAL FROM "USER32.dll"](hWnd : HWND; lpPaint : POINTER TO PAINTSTRUCT) : HDC;
@@ -3090,11 +3132,11 @@ PROCEDURE FlattenPath["FlattenPath" EXTERNAL FROM "GDI32.dll"](hdc : HDC) : BOOL
 PROCEDURE FloodFill["FloodFill" EXTERNAL FROM "GDI32.dll"](hdc : HDC; x : INTEGER32; y : INTEGER32; color : Foundation.COLORREF) : BOOL;
 PROCEDURE FrameRect["FrameRect" EXTERNAL FROM "USER32.dll"](lprc : HDC; hbr : POINTER TO Foundation.RECT; arg2 : HBRUSH) : INTEGER32;
 PROCEDURE FrameRgn["FrameRgn" EXTERNAL FROM "GDI32.dll"](hdc : HDC; hrgn : HRGN; hbr : HBRUSH; w : INTEGER32; h : INTEGER32) : BOOL;
-PROCEDURE GdiAlphaBlend["GdiAlphaBlend" EXTERNAL FROM "GDI32.dll"](hdcDest : HDC; xoriginDest : INTEGER32; yoriginDest : INTEGER32; wDest : INTEGER32; hDest : INTEGER32; hdcSrc : HDC; xoriginSrc : INTEGER32; yoriginSrc : INTEGER32; wSrc : INTEGER32; hSrc : INTEGER32; ftn : ADDRESS) : BOOL;
+PROCEDURE GdiAlphaBlend["GdiAlphaBlend" EXTERNAL FROM "GDI32.dll"](hdcDest : HDC; xoriginDest : INTEGER32; yoriginDest : INTEGER32; wDest : INTEGER32; hDest : INTEGER32; hdcSrc : HDC; xoriginSrc : INTEGER32; yoriginSrc : INTEGER32; wSrc : INTEGER32; hSrc : INTEGER32; ftn : BLENDFUNCTION) : BOOL;
 PROCEDURE GdiComment["GdiComment" EXTERNAL FROM "GDI32.dll"](hdc : HDC; nSize : DWORD; lpData : POINTER TO BYTE) : BOOL;
 PROCEDURE GdiFlush["GdiFlush" EXTERNAL FROM "GDI32.dll"]() : BOOL;
 PROCEDURE GdiGetBatchLimit["GdiGetBatchLimit" EXTERNAL FROM "GDI32.dll"]() : DWORD;
-PROCEDURE GdiGradientFill["GdiGradientFill" EXTERNAL FROM "GDI32.dll"](hdc : HDC; pVertex : ADDRESS; nVertex : DWORD; pMesh : ADDRESS; nCount : DWORD; ulMode : DWORD) : BOOL;
+PROCEDURE GdiGradientFill["GdiGradientFill" EXTERNAL FROM "GDI32.dll"](hdc : HDC; pVertex : POINTER TO TRIVERTEX; nVertex : DWORD; pMesh : ADDRESS; nCount : DWORD; ulMode : DWORD) : BOOL;
 PROCEDURE GdiSetBatchLimit["GdiSetBatchLimit" EXTERNAL FROM "GDI32.dll"](dw : DWORD) : DWORD;
 PROCEDURE GdiTransparentBlt["GdiTransparentBlt" EXTERNAL FROM "GDI32.dll"](hdcDest : HDC; xoriginDest : INTEGER32; yoriginDest : INTEGER32; wDest : INTEGER32; hDest : INTEGER32; hdcSrc : HDC; xoriginSrc : INTEGER32; yoriginSrc : INTEGER32; wSrc : INTEGER32; hSrc : INTEGER32; crTransparent : DWORD) : BOOL;
 PROCEDURE GetArcDirection["GetArcDirection" EXTERNAL FROM "GDI32.dll"](arg0 : HDC) : INTEGER32;
@@ -3105,11 +3147,11 @@ PROCEDURE GetBkColor["GetBkColor" EXTERNAL FROM "GDI32.dll"](hdc : HDC) : Founda
 PROCEDURE GetBkMode["GetBkMode" EXTERNAL FROM "GDI32.dll"](hdc : HDC) : INTEGER32;
 PROCEDURE GetBoundsRect["GetBoundsRect" EXTERNAL FROM "GDI32.dll"](lprect : HDC; flags : POINTER TO Foundation.RECT; arg2 : DWORD) : DWORD;
 PROCEDURE GetBrushOrgEx["GetBrushOrgEx" EXTERNAL FROM "GDI32.dll"](hdc : HDC; lppt : POINTER TO Foundation.POINT) : BOOL;
-PROCEDURE GetCharABCWidthsA["GetCharABCWidthsA" EXTERNAL FROM "GDI32.dll"](hdc : HDC; wFirst : DWORD; wLast : DWORD; lpABC : ADDRESS) : BOOL;
+PROCEDURE GetCharABCWidthsA["GetCharABCWidthsA" EXTERNAL FROM "GDI32.dll"](hdc : HDC; wFirst : DWORD; wLast : DWORD; lpABC : POINTER TO ABC) : BOOL;
 PROCEDURE GetCharABCWidthsFloatA["GetCharABCWidthsFloatA" EXTERNAL FROM "GDI32.dll"](hdc : HDC; iFirst : DWORD; iLast : DWORD; lpABC : POINTER TO ABCFLOAT) : BOOL;
 PROCEDURE GetCharABCWidthsFloatW["GetCharABCWidthsFloatW" EXTERNAL FROM "GDI32.dll"](hdc : HDC; iFirst : DWORD; iLast : DWORD; lpABC : POINTER TO ABCFLOAT) : BOOL;
-PROCEDURE GetCharABCWidthsI["GetCharABCWidthsI" EXTERNAL FROM "GDI32.dll"](hdc : HDC; giFirst : DWORD; cgi : DWORD; pgi : POINTER TO WORD; pabc : ADDRESS) : BOOL;
-PROCEDURE GetCharABCWidthsW["GetCharABCWidthsW" EXTERNAL FROM "GDI32.dll"](hdc : HDC; wFirst : DWORD; wLast : DWORD; lpABC : ADDRESS) : BOOL;
+PROCEDURE GetCharABCWidthsI["GetCharABCWidthsI" EXTERNAL FROM "GDI32.dll"](hdc : HDC; giFirst : DWORD; cgi : DWORD; pgi : POINTER TO WORD; pabc : POINTER TO ABC) : BOOL;
+PROCEDURE GetCharABCWidthsW["GetCharABCWidthsW" EXTERNAL FROM "GDI32.dll"](hdc : HDC; wFirst : DWORD; wLast : DWORD; lpABC : POINTER TO ABC) : BOOL;
 PROCEDURE GetCharWidth32A["GetCharWidth32A" EXTERNAL FROM "GDI32.dll"](hdc : HDC; iFirst : DWORD; iLast : DWORD; lpBuffer : POINTER TO INTEGER32) : BOOL;
 PROCEDURE GetCharWidth32W["GetCharWidth32W" EXTERNAL FROM "GDI32.dll"](hdc : HDC; iFirst : DWORD; iLast : DWORD; lpBuffer : POINTER TO INTEGER32) : BOOL;
 PROCEDURE GetCharWidthA["GetCharWidthA" EXTERNAL FROM "GDI32.dll"](hdc : HDC; iFirst : DWORD; iLast : DWORD; lpBuffer : POINTER TO INTEGER32) : BOOL;
@@ -3121,7 +3163,7 @@ PROCEDURE GetCharacterPlacementA["GetCharacterPlacementA" EXTERNAL FROM "GDI32.d
 PROCEDURE GetCharacterPlacementW["GetCharacterPlacementW" EXTERNAL FROM "GDI32.dll"](hdc : HDC; lpString : PWSTR; nCount : INTEGER32; nMexExtent : INTEGER32; lpResults : POINTER TO GCP_RESULTSW; dwFlags : DWORD) : DWORD;
 PROCEDURE GetClipBox["GetClipBox" EXTERNAL FROM "GDI32.dll"](hdc : HDC; lprect : POINTER TO Foundation.RECT) : INTEGER32;
 PROCEDURE GetClipRgn["GetClipRgn" EXTERNAL FROM "GDI32.dll"](hrgn : HDC; arg1 : HRGN) : INTEGER32;
-PROCEDURE GetColorAdjustment["GetColorAdjustment" EXTERNAL FROM "GDI32.dll"](hdc : HDC; lpca : ADDRESS) : BOOL;
+PROCEDURE GetColorAdjustment["GetColorAdjustment" EXTERNAL FROM "GDI32.dll"](hdc : HDC; lpca : POINTER TO COLORADJUSTMENT) : BOOL;
 PROCEDURE GetCurrentObject["GetCurrentObject" EXTERNAL FROM "GDI32.dll"](hdc : HDC; type_ : DWORD) : HGDIOBJ;
 PROCEDURE GetCurrentPositionEx["GetCurrentPositionEx" EXTERNAL FROM "GDI32.dll"](hdc : HDC; lppt : POINTER TO Foundation.POINT) : BOOL;
 PROCEDURE GetDC["GetDC" EXTERNAL FROM "USER32.dll"](hWnd : HWND) : HDC;
@@ -3137,7 +3179,7 @@ PROCEDURE GetEnhMetaFileBits["GetEnhMetaFileBits" EXTERNAL FROM "GDI32.dll"](nSi
 PROCEDURE GetEnhMetaFileDescriptionA["GetEnhMetaFileDescriptionA" EXTERNAL FROM "GDI32.dll"](cchBuffer : HENHMETAFILE; lpDescription : DWORD; arg2 : PSTR) : DWORD;
 PROCEDURE GetEnhMetaFileDescriptionW["GetEnhMetaFileDescriptionW" EXTERNAL FROM "GDI32.dll"](cchBuffer : HENHMETAFILE; lpDescription : DWORD; arg2 : PWSTR) : DWORD;
 PROCEDURE GetEnhMetaFileHeader["GetEnhMetaFileHeader" EXTERNAL FROM "GDI32.dll"](nSize : HENHMETAFILE; lpEnhMetaHeader : DWORD; arg2 : POINTER TO ENHMETAHEADER) : DWORD;
-PROCEDURE GetEnhMetaFilePaletteEntries["GetEnhMetaFilePaletteEntries" EXTERNAL FROM "GDI32.dll"](nNumEntries : HENHMETAFILE; lpPaletteEntries : DWORD; arg2 : ADDRESS) : DWORD;
+PROCEDURE GetEnhMetaFilePaletteEntries["GetEnhMetaFilePaletteEntries" EXTERNAL FROM "GDI32.dll"](nNumEntries : HENHMETAFILE; lpPaletteEntries : DWORD; arg2 : POINTER TO PALETTEENTRY) : DWORD;
 PROCEDURE GetEnhMetaFileW["GetEnhMetaFileW" EXTERNAL FROM "GDI32.dll"](lpName : PWSTR) : HENHMETAFILE;
 PROCEDURE GetFontData["GetFontData" EXTERNAL FROM "GDI32.dll"](hdc : HDC; dwTable : DWORD; dwOffset : DWORD; pvBuffer : ADDRESS; cjBuffer : DWORD) : DWORD;
 PROCEDURE GetFontLanguageInfo["GetFontLanguageInfo" EXTERNAL FROM "GDI32.dll"](hdc : HDC) : DWORD;
@@ -3156,8 +3198,8 @@ PROCEDURE GetMetaFileBitsEx["GetMetaFileBitsEx" EXTERNAL FROM "GDI32.dll"](cbBuf
 PROCEDURE GetMetaFileW["GetMetaFileW" EXTERNAL FROM "GDI32.dll"](lpName : PWSTR) : HMETAFILE;
 PROCEDURE GetMetaRgn["GetMetaRgn" EXTERNAL FROM "GDI32.dll"](hrgn : HDC; arg1 : HRGN) : INTEGER32;
 PROCEDURE GetMiterLimit["GetMiterLimit" EXTERNAL FROM "GDI32.dll"](hdc : HDC; plimit : POINTER TO REAL) : BOOL;
-PROCEDURE GetMonitorInfoA["GetMonitorInfoA" EXTERNAL FROM "USER32.dll"](hMonitor : ADDRESS; lpmi : POINTER TO MONITORINFO) : BOOL;
-PROCEDURE GetMonitorInfoW["GetMonitorInfoW" EXTERNAL FROM "USER32.dll"](hMonitor : ADDRESS; lpmi : POINTER TO MONITORINFO) : BOOL;
+PROCEDURE GetMonitorInfoA["GetMonitorInfoA" EXTERNAL FROM "USER32.dll"](hMonitor : HMONITOR; lpmi : POINTER TO MONITORINFO) : BOOL;
+PROCEDURE GetMonitorInfoW["GetMonitorInfoW" EXTERNAL FROM "USER32.dll"](hMonitor : HMONITOR; lpmi : POINTER TO MONITORINFO) : BOOL;
 PROCEDURE GetNearestColor["GetNearestColor" EXTERNAL FROM "GDI32.dll"](hdc : HDC; color : Foundation.COLORREF) : Foundation.COLORREF;
 PROCEDURE GetNearestPaletteIndex["GetNearestPaletteIndex" EXTERNAL FROM "GDI32.dll"](color : HPALETTE; arg1 : Foundation.COLORREF) : DWORD;
 PROCEDURE GetObjectA["GetObjectA" EXTERNAL FROM "GDI32.dll"](c : HGDIOBJ; pv : INTEGER32; arg2 : ADDRESS) : INTEGER32;
@@ -3165,7 +3207,7 @@ PROCEDURE GetObjectType["GetObjectType" EXTERNAL FROM "GDI32.dll"](h : HGDIOBJ) 
 PROCEDURE GetObjectW["GetObjectW" EXTERNAL FROM "GDI32.dll"](c : HGDIOBJ; pv : INTEGER32; arg2 : ADDRESS) : INTEGER32;
 PROCEDURE GetOutlineTextMetricsA["GetOutlineTextMetricsA" EXTERNAL FROM "GDI32.dll"](cjCopy : HDC; potm : DWORD; arg2 : POINTER TO OUTLINETEXTMETRICA) : DWORD;
 PROCEDURE GetOutlineTextMetricsW["GetOutlineTextMetricsW" EXTERNAL FROM "GDI32.dll"](cjCopy : HDC; potm : DWORD; arg2 : POINTER TO OUTLINETEXTMETRICW) : DWORD;
-PROCEDURE GetPaletteEntries["GetPaletteEntries" EXTERNAL FROM "GDI32.dll"](iStart : HPALETTE; cEntries : DWORD; pPalEntries : DWORD; arg3 : ADDRESS) : DWORD;
+PROCEDURE GetPaletteEntries["GetPaletteEntries" EXTERNAL FROM "GDI32.dll"](iStart : HPALETTE; cEntries : DWORD; pPalEntries : DWORD; arg3 : POINTER TO PALETTEENTRY) : DWORD;
 PROCEDURE GetPath["GetPath" EXTERNAL FROM "GDI32.dll"](apt : HDC; aj : POINTER TO Foundation.POINT; cpt : POINTER TO BYTE; arg3 : INTEGER32) : INTEGER32;
 PROCEDURE GetPixel["GetPixel" EXTERNAL FROM "GDI32.dll"](hdc : HDC; x : INTEGER32; y : INTEGER32) : Foundation.COLORREF;
 PROCEDURE GetPolyFillMode["GetPolyFillMode" EXTERNAL FROM "GDI32.dll"](arg0 : HDC) : INTEGER32;
@@ -3178,7 +3220,7 @@ PROCEDURE GetStockObject["GetStockObject" EXTERNAL FROM "GDI32.dll"](i : INTEGER
 PROCEDURE GetStretchBltMode["GetStretchBltMode" EXTERNAL FROM "GDI32.dll"](arg0 : HDC) : INTEGER32;
 PROCEDURE GetSysColor["GetSysColor" EXTERNAL FROM "USER32.dll"](nIndex : INTEGER32) : DWORD;
 PROCEDURE GetSysColorBrush["GetSysColorBrush" EXTERNAL FROM "USER32.dll"](nIndex : INTEGER32) : HBRUSH;
-PROCEDURE GetSystemPaletteEntries["GetSystemPaletteEntries" EXTERNAL FROM "GDI32.dll"](iStart : HDC; cEntries : DWORD; pPalEntries : DWORD; arg3 : ADDRESS) : DWORD;
+PROCEDURE GetSystemPaletteEntries["GetSystemPaletteEntries" EXTERNAL FROM "GDI32.dll"](iStart : HDC; cEntries : DWORD; pPalEntries : DWORD; arg3 : POINTER TO PALETTEENTRY) : DWORD;
 PROCEDURE GetSystemPaletteUse["GetSystemPaletteUse" EXTERNAL FROM "GDI32.dll"](arg0 : HDC) : DWORD;
 PROCEDURE GetTabbedTextExtentA["GetTabbedTextExtentA" EXTERNAL FROM "USER32.dll"](hdc : HDC; lpString : PSTR; chCount : INTEGER32; nTabPositions : INTEGER32; lpnTabStopPositions : POINTER TO INTEGER32) : DWORD;
 PROCEDURE GetTabbedTextExtentW["GetTabbedTextExtentW" EXTERNAL FROM "USER32.dll"](hdc : HDC; lpString : PWSTR; chCount : INTEGER32; nTabPositions : INTEGER32; lpnTabStopPositions : POINTER TO INTEGER32) : DWORD;
@@ -3208,7 +3250,7 @@ PROCEDURE GetWindowOrgEx["GetWindowOrgEx" EXTERNAL FROM "GDI32.dll"](hdc : HDC; 
 PROCEDURE GetWindowRgn["GetWindowRgn" EXTERNAL FROM "USER32.dll"](hWnd : HWND; hRgn : HRGN) : INTEGER32;
 PROCEDURE GetWindowRgnBox["GetWindowRgnBox" EXTERNAL FROM "USER32.dll"](hWnd : HWND; lprc : POINTER TO Foundation.RECT) : INTEGER32;
 PROCEDURE GetWorldTransform["GetWorldTransform" EXTERNAL FROM "GDI32.dll"](hdc : HDC; lpxf : POINTER TO XFORM) : BOOL;
-PROCEDURE GradientFill["GradientFill" EXTERNAL FROM "MSIMG32.dll"](hdc : HDC; pVertex : ADDRESS; nVertex : DWORD; pMesh : ADDRESS; nMesh : DWORD; ulMode : DWORD) : BOOL;
+PROCEDURE GradientFill["GradientFill" EXTERNAL FROM "MSIMG32.dll"](hdc : HDC; pVertex : POINTER TO TRIVERTEX; nVertex : DWORD; pMesh : ADDRESS; nMesh : DWORD; ulMode : DWORD) : BOOL;
 PROCEDURE GrayStringA["GrayStringA" EXTERNAL FROM "USER32.dll"](hDC : HDC; hBrush : HBRUSH; lpOutputFunc : ADDRESS; lpData : LPARAM; nCount : INTEGER32; X : INTEGER32; Y : INTEGER32; nWidth : INTEGER32; nHeight : INTEGER32) : BOOL;
 PROCEDURE GrayStringW["GrayStringW" EXTERNAL FROM "USER32.dll"](hDC : HDC; hBrush : HBRUSH; lpOutputFunc : ADDRESS; lpData : LPARAM; nCount : INTEGER32; X : INTEGER32; Y : INTEGER32; nWidth : INTEGER32; nHeight : INTEGER32) : BOOL;
 PROCEDURE InflateRect["InflateRect" EXTERNAL FROM "USER32.dll"](lprc : POINTER TO Foundation.RECT; dx : INTEGER32; dy : INTEGER32) : BOOL;
@@ -3229,9 +3271,9 @@ PROCEDURE MapWindowPoints["MapWindowPoints" EXTERNAL FROM "USER32.dll"](hWndTo :
 PROCEDURE MaskBlt["MaskBlt" EXTERNAL FROM "GDI32.dll"](hdcDest : HDC; xDest : INTEGER32; yDest : INTEGER32; width : INTEGER32; height : INTEGER32; hdcSrc : HDC; xSrc : INTEGER32; ySrc : INTEGER32; hbmMask : HBITMAP; xMask : INTEGER32; yMask : INTEGER32; rop : DWORD) : BOOL;
 PROCEDURE MergeFontPackage["MergeFontPackage" EXTERNAL FROM "FONTSUB.dll"](puchMergeFontBuffer : POINTER TO BYTE; ulMergeFontBufferSize : DWORD; puchFontPackageBuffer : POINTER TO BYTE; ulFontPackageBufferSize : DWORD; ppuchDestBuffer : POINTER TO POINTER TO BYTE; pulDestBufferSize : POINTER TO DWORD; pulBytesWritten : POINTER TO DWORD; usMode : WORD; lpfnAllocate : ADDRESS; lpfnReAllocate : ADDRESS; lpfnFree : ADDRESS; lpvReserved : ADDRESS) : DWORD;
 PROCEDURE ModifyWorldTransform["ModifyWorldTransform" EXTERNAL FROM "GDI32.dll"](hdc : HDC; lpxf : POINTER TO XFORM; mode : DWORD) : BOOL;
-PROCEDURE MonitorFromPoint["MonitorFromPoint" EXTERNAL FROM "USER32.dll"](pt : Foundation.POINT; dwFlags : DWORD) : ADDRESS;
-PROCEDURE MonitorFromRect["MonitorFromRect" EXTERNAL FROM "USER32.dll"](lprc : POINTER TO Foundation.RECT; dwFlags : DWORD) : ADDRESS;
-PROCEDURE MonitorFromWindow["MonitorFromWindow" EXTERNAL FROM "USER32.dll"](hwnd : HWND; dwFlags : DWORD) : ADDRESS;
+PROCEDURE MonitorFromPoint["MonitorFromPoint" EXTERNAL FROM "USER32.dll"](pt : Foundation.POINT; dwFlags : DWORD) : HMONITOR;
+PROCEDURE MonitorFromRect["MonitorFromRect" EXTERNAL FROM "USER32.dll"](lprc : POINTER TO Foundation.RECT; dwFlags : DWORD) : HMONITOR;
+PROCEDURE MonitorFromWindow["MonitorFromWindow" EXTERNAL FROM "USER32.dll"](hwnd : HWND; dwFlags : DWORD) : HMONITOR;
 PROCEDURE MoveToEx["MoveToEx" EXTERNAL FROM "GDI32.dll"](hdc : HDC; x : INTEGER32; y : INTEGER32; lppt : POINTER TO Foundation.POINT) : BOOL;
 PROCEDURE OffsetClipRgn["OffsetClipRgn" EXTERNAL FROM "GDI32.dll"](hdc : HDC; x : INTEGER32; y : INTEGER32) : INTEGER32;
 PROCEDURE OffsetRect["OffsetRect" EXTERNAL FROM "USER32.dll"](lprc : POINTER TO Foundation.RECT; dx : INTEGER32; dy : INTEGER32) : BOOL;
@@ -3292,7 +3334,7 @@ PROCEDURE SetBkColor["SetBkColor" EXTERNAL FROM "GDI32.dll"](hdc : HDC; color : 
 PROCEDURE SetBkMode["SetBkMode" EXTERNAL FROM "GDI32.dll"](mode : HDC; arg1 : INTEGER32) : INTEGER32;
 PROCEDURE SetBoundsRect["SetBoundsRect" EXTERNAL FROM "GDI32.dll"](lprect : HDC; flags : POINTER TO Foundation.RECT; arg2 : DWORD) : DWORD;
 PROCEDURE SetBrushOrgEx["SetBrushOrgEx" EXTERNAL FROM "GDI32.dll"](hdc : HDC; x : INTEGER32; y : INTEGER32; lppt : POINTER TO Foundation.POINT) : BOOL;
-PROCEDURE SetColorAdjustment["SetColorAdjustment" EXTERNAL FROM "GDI32.dll"](hdc : HDC; lpca : ADDRESS) : BOOL;
+PROCEDURE SetColorAdjustment["SetColorAdjustment" EXTERNAL FROM "GDI32.dll"](hdc : HDC; lpca : POINTER TO COLORADJUSTMENT) : BOOL;
 PROCEDURE SetDCBrushColor["SetDCBrushColor" EXTERNAL FROM "GDI32.dll"](hdc : HDC; color : Foundation.COLORREF) : Foundation.COLORREF;
 PROCEDURE SetDCPenColor["SetDCPenColor" EXTERNAL FROM "GDI32.dll"](hdc : HDC; color : Foundation.COLORREF) : Foundation.COLORREF;
 PROCEDURE SetDIBColorTable["SetDIBColorTable" EXTERNAL FROM "GDI32.dll"](iStart : HDC; cEntries : DWORD; prgbq : DWORD; arg3 : POINTER TO RGBQUAD) : DWORD;
@@ -3306,7 +3348,7 @@ PROCEDURE SetMapperFlags["SetMapperFlags" EXTERNAL FROM "GDI32.dll"](hdc : HDC; 
 PROCEDURE SetMetaFileBitsEx["SetMetaFileBitsEx" EXTERNAL FROM "GDI32.dll"](cbBuffer : DWORD; lpData : POINTER TO BYTE) : HMETAFILE;
 PROCEDURE SetMetaRgn["SetMetaRgn" EXTERNAL FROM "GDI32.dll"](hdc : HDC) : INTEGER32;
 PROCEDURE SetMiterLimit["SetMiterLimit" EXTERNAL FROM "GDI32.dll"](hdc : HDC; limit : REAL; old : POINTER TO REAL) : BOOL;
-PROCEDURE SetPaletteEntries["SetPaletteEntries" EXTERNAL FROM "GDI32.dll"](iStart : HPALETTE; cEntries : DWORD; pPalEntries : DWORD; arg3 : ADDRESS) : DWORD;
+PROCEDURE SetPaletteEntries["SetPaletteEntries" EXTERNAL FROM "GDI32.dll"](iStart : HPALETTE; cEntries : DWORD; pPalEntries : DWORD; arg3 : POINTER TO PALETTEENTRY) : DWORD;
 PROCEDURE SetPixel["SetPixel" EXTERNAL FROM "GDI32.dll"](hdc : HDC; x : INTEGER32; y : INTEGER32; color : Foundation.COLORREF) : Foundation.COLORREF;
 PROCEDURE SetPixelV["SetPixelV" EXTERNAL FROM "GDI32.dll"](hdc : HDC; x : INTEGER32; y : INTEGER32; color : Foundation.COLORREF) : BOOL;
 PROCEDURE SetPolyFillMode["SetPolyFillMode" EXTERNAL FROM "GDI32.dll"](mode : HDC; arg1 : INTEGER32) : INTEGER32;
@@ -3361,5 +3403,5 @@ PROCEDURE WidenPath["WidenPath" EXTERNAL FROM "GDI32.dll"](hdc : HDC) : BOOL;
 PROCEDURE WindowFromDC["WindowFromDC" EXTERNAL FROM "USER32.dll"](hDC : HDC) : HWND;
 PROCEDURE wglSwapMultipleBuffers["wglSwapMultipleBuffers" EXTERNAL FROM "OPENGL32.dll"](param0 : DWORD; param1 : POINTER TO WGLSWAP) : DWORD;
 
-(* types-out summary: 151 types emitted; 1691 consts emitted; 396 procedures emitted *)
+(* types-out summary: 157 types emitted; 1691 consts emitted; 396 procedures emitted *)
 END Graphics_Gdi.

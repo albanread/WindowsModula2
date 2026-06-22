@@ -2426,14 +2426,14 @@ TYPE
         dbcc_devicetype : DWORD;
         dbcc_reserved : DWORD;
         dbcc_classguid : GUID;
-        dbcc_name : ADDRESS;
+        dbcc_name : ARRAY [0..7] OF BYTE;
     END;
     DEV_BROADCAST_DEVICEINTERFACE_W = RECORD
         dbcc_size : DWORD;
         dbcc_devicetype : DWORD;
         dbcc_reserved : DWORD;
         dbcc_classguid : GUID;
-        dbcc_name : ADDRESS;
+        dbcc_name : ARRAY [0..3] OF CHAR;
     END;
     DEV_BROADCAST_DEVNODE = RECORD
         dbcd_size : DWORD;
@@ -2449,7 +2449,7 @@ TYPE
         dbch_hdevnotify : HDEVNOTIFY;
         dbch_eventguid : GUID;
         dbch_nameoffset : INTEGER32;
-        dbch_data : ADDRESS;
+        dbch_data : ARRAY [0..3] OF BYTE;
     END;
     DEV_BROADCAST_HANDLE32 = RECORD
         dbch_size : DWORD;
@@ -2459,7 +2459,7 @@ TYPE
         dbch_hdevnotify : DWORD;
         dbch_eventguid : GUID;
         dbch_nameoffset : INTEGER32;
-        dbch_data : ADDRESS;
+        dbch_data : ARRAY [0..3] OF BYTE;
     END;
     DEV_BROADCAST_HANDLE64 = RECORD
         dbch_size : DWORD;
@@ -2469,7 +2469,7 @@ TYPE
         dbch_hdevnotify : QWORD;
         dbch_eventguid : GUID;
         dbch_nameoffset : INTEGER32;
-        dbch_data : ADDRESS;
+        dbch_data : ARRAY [0..3] OF BYTE;
     END;
     DEV_BROADCAST_HDR = RECORD
         dbch_size : DWORD;
@@ -2494,13 +2494,13 @@ TYPE
         dbcp_size : DWORD;
         dbcp_devicetype : DWORD;
         dbcp_reserved : DWORD;
-        dbcp_name : ADDRESS;
+        dbcp_name : ARRAY [0..3] OF BYTE;
     END;
     DEV_BROADCAST_PORT_W = RECORD
         dbcp_size : DWORD;
         dbcp_devicetype : DWORD;
         dbcp_reserved : DWORD;
-        dbcp_name : ADDRESS;
+        dbcp_name : ARRAY [0..1] OF CHAR;
     END;
     DEV_BROADCAST_VOLUME = RECORD
         dbcv_size : DWORD;
@@ -2610,8 +2610,8 @@ TYPE
         hbmMask : HBITMAP;
         hbmColor : HBITMAP;
         wResID : WORD;
-        szModName : ADDRESS;
-        szResName : ADDRESS;
+        szModName : ARRAY [0..259] OF BYTE;
+        szResName : ARRAY [0..265] OF BYTE;
     END;
     ICONINFOEXW = RECORD
         cbSize : DWORD;
@@ -2621,8 +2621,8 @@ TYPE
         hbmMask : HBITMAP;
         hbmColor : HBITMAP;
         wResID : WORD;
-        szModName : ADDRESS;
-        szResName : ADDRESS;
+        szModName : ARRAY [0..259] OF CHAR;
+        szResName : ARRAY [0..262] OF CHAR;
     END;
     ICONMETRICSA = RECORD
         cbSize : DWORD;
@@ -2693,7 +2693,7 @@ TYPE
         dwState : DWORD;
         uId : DWORD;
         wFlags : WORD;
-        szText : ADDRESS;
+        szText : ARRAY [0..0] OF CHAR;
     END;
     MENUGETOBJECTINFO = RECORD
         dwFlags : DWORD;
@@ -2742,7 +2742,7 @@ TYPE
     MENUITEMTEMPLATE = RECORD
         mtOption : WORD;
         mtID : WORD;
-        mtString : ADDRESS;
+        mtString : ARRAY [0..0] OF CHAR;
     END;
     MENUITEMTEMPLATEHEADER = RECORD
         versionNumber : WORD;
@@ -2758,12 +2758,12 @@ TYPE
     END;
     MESSAGE_RESOURCE_DATA = RECORD
         NumberOfBlocks : DWORD;
-        Blocks : ADDRESS;
+        Blocks : ARRAY [0..11] OF BYTE;
     END;
     MESSAGE_RESOURCE_ENTRY = RECORD
         Length : WORD;
         Flags : WORD;
-        Text : ADDRESS;
+        Text : ARRAY [0..1] OF BYTE;
     END;
     MINIMIZEDMETRICS = RECORD
         cbSize : DWORD;
@@ -2837,7 +2837,7 @@ TYPE
         text : PWSTR;
     END;
     NCCALCSIZE_PARAMS = RECORD
-        rgrc : ADDRESS;
+        rgrc : ARRAY [0..47] OF BYTE;
         lppos : POINTER TO WINDOWPOS;
     END;
     NONCLIENTMETRICSA = RECORD
@@ -2883,7 +2883,7 @@ TYPE
         xyThumbTop : INTEGER32;
         xyThumbBottom : INTEGER32;
         reserved : INTEGER32;
-        rgstate : ADDRESS;
+        rgstate : ARRAY [0..5] OF DWORD;
     END;
     SCROLLINFO = RECORD
         cbSize : DWORD;
@@ -2905,13 +2905,13 @@ TYPE
     TITLEBARINFO = RECORD
         cbSize : DWORD;
         rcTitleBar : Foundation.RECT;
-        rgstate : ADDRESS;
+        rgstate : ARRAY [0..5] OF DWORD;
     END;
     TITLEBARINFOEX = RECORD
         cbSize : DWORD;
         rcTitleBar : Foundation.RECT;
-        rgstate : ADDRESS;
-        rgrect : ADDRESS;
+        rgstate : ARRAY [0..5] OF DWORD;
+        rgrect : ARRAY [0..95] OF BYTE;
     END;
     TOUCHPAD_PARAMETERS_V1 = RECORD
         versionNumber : DWORD;
@@ -2948,7 +2948,7 @@ TYPE
         hdcSrc : HDC;
         pptSrc : POINTER TO Foundation.POINT;
         crKey : Foundation.COLORREF;
-        pblend : ADDRESS;
+        pblend : POINTER TO Graphics_Gdi.BLENDFUNCTION;
         dwFlags : DWORD;
         prcDirty : POINTER TO Foundation.RECT;
     END;
@@ -3062,7 +3062,7 @@ TYPE
     END;
     _DEV_BROADCAST_USERDEFINED = RECORD
         dbud_dbh : DEV_BROADCAST_HDR;
-        dbud_szName : ADDRESS;
+        dbud_szName : ARRAY [0..3] OF BYTE;
     END;
 
 PROCEDURE AdjustWindowRect["AdjustWindowRect" EXTERNAL FROM "USER32.dll"](lpRect : POINTER TO Foundation.RECT; dwStyle : DWORD; bMenu : BOOL) : BOOL;
@@ -3286,13 +3286,13 @@ PROCEDURE InsertMenuItemA["InsertMenuItemA" EXTERNAL FROM "USER32.dll"](hmenu : 
 PROCEDURE InsertMenuItemW["InsertMenuItemW" EXTERNAL FROM "USER32.dll"](hmenu : HMENU; item : DWORD; fByPosition : BOOL; lpmi : POINTER TO MENUITEMINFOW) : BOOL;
 PROCEDURE InsertMenuW["InsertMenuW" EXTERNAL FROM "USER32.dll"](hMenu : HMENU; uPosition : DWORD; uFlags : DWORD; uIDNewItem : ADRCARD; lpNewItem : PWSTR) : BOOL;
 PROCEDURE InternalGetWindowText["InternalGetWindowText" EXTERNAL FROM "USER32.dll"](pString : HWND; cchMaxCount : PWSTR; arg2 : INTEGER32) : INTEGER32;
-PROCEDURE IsCharAlphaA["IsCharAlphaA" EXTERNAL FROM "USER32.dll"](ch : ADDRESS) : BOOL;
-PROCEDURE IsCharAlphaNumericA["IsCharAlphaNumericA" EXTERNAL FROM "USER32.dll"](ch : ADDRESS) : BOOL;
+PROCEDURE IsCharAlphaA["IsCharAlphaA" EXTERNAL FROM "USER32.dll"](ch : Foundation.CHAR) : BOOL;
+PROCEDURE IsCharAlphaNumericA["IsCharAlphaNumericA" EXTERNAL FROM "USER32.dll"](ch : Foundation.CHAR) : BOOL;
 PROCEDURE IsCharAlphaNumericW["IsCharAlphaNumericW" EXTERNAL FROM "USER32.dll"](ch : CHAR) : BOOL;
 PROCEDURE IsCharAlphaW["IsCharAlphaW" EXTERNAL FROM "USER32.dll"](ch : CHAR) : BOOL;
-PROCEDURE IsCharLowerA["IsCharLowerA" EXTERNAL FROM "USER32.dll"](ch : ADDRESS) : BOOL;
+PROCEDURE IsCharLowerA["IsCharLowerA" EXTERNAL FROM "USER32.dll"](ch : Foundation.CHAR) : BOOL;
 PROCEDURE IsCharLowerW["IsCharLowerW" EXTERNAL FROM "USER32.dll"](ch : CHAR) : BOOL;
-PROCEDURE IsCharUpperA["IsCharUpperA" EXTERNAL FROM "USER32.dll"](ch : ADDRESS) : BOOL;
+PROCEDURE IsCharUpperA["IsCharUpperA" EXTERNAL FROM "USER32.dll"](ch : Foundation.CHAR) : BOOL;
 PROCEDURE IsCharUpperW["IsCharUpperW" EXTERNAL FROM "USER32.dll"](ch : CHAR) : BOOL;
 PROCEDURE IsChild["IsChild" EXTERNAL FROM "USER32.dll"](hWndParent : HWND; hWnd : HWND) : BOOL;
 PROCEDURE IsDialogMessageA["IsDialogMessageA" EXTERNAL FROM "USER32.dll"](hDlg : HWND; lpMsg : POINTER TO MSG) : BOOL;
@@ -3480,7 +3480,7 @@ PROCEDURE UnhookWindowsHookEx["UnhookWindowsHookEx" EXTERNAL FROM "USER32.dll"](
 PROCEDURE UnregisterClassA["UnregisterClassA" EXTERNAL FROM "USER32.dll"](lpClassName : PSTR; hInstance : HINSTANCE) : BOOL;
 PROCEDURE UnregisterClassW["UnregisterClassW" EXTERNAL FROM "USER32.dll"](lpClassName : PWSTR; hInstance : HINSTANCE) : BOOL;
 PROCEDURE UnregisterDeviceNotification["UnregisterDeviceNotification" EXTERNAL FROM "USER32.dll"](Handle : HDEVNOTIFY) : BOOL;
-PROCEDURE UpdateLayeredWindow["UpdateLayeredWindow" EXTERNAL FROM "USER32.dll"](hWnd : HWND; hdcDst : HDC; pptDst : POINTER TO Foundation.POINT; psize : POINTER TO Foundation.SIZE; hdcSrc : HDC; pptSrc : POINTER TO Foundation.POINT; crKey : Foundation.COLORREF; pblend : ADDRESS; dwFlags : DWORD) : BOOL;
+PROCEDURE UpdateLayeredWindow["UpdateLayeredWindow" EXTERNAL FROM "USER32.dll"](hWnd : HWND; hdcDst : HDC; pptDst : POINTER TO Foundation.POINT; psize : POINTER TO Foundation.SIZE; hdcSrc : HDC; pptSrc : POINTER TO Foundation.POINT; crKey : Foundation.COLORREF; pblend : POINTER TO Graphics_Gdi.BLENDFUNCTION; dwFlags : DWORD) : BOOL;
 PROCEDURE UpdateLayeredWindowIndirect["UpdateLayeredWindowIndirect" EXTERNAL FROM "USER32.dll"](hWnd : HWND; pULWInfo : POINTER TO UPDATELAYEREDWINDOWINFO) : BOOL;
 PROCEDURE WaitMessage["WaitMessage" EXTERNAL FROM "USER32.dll"]() : BOOL;
 PROCEDURE WindowFromPhysicalPoint["WindowFromPhysicalPoint" EXTERNAL FROM "USER32.dll"](Point : Foundation.POINT) : HWND;

@@ -7,6 +7,25 @@ CONST
     SMEXF_SERVER = 1;
     SMEXF_HANDLER = 2;
 
+INTERFACE IMarshal* ["00000003-0000-0000-c000-000000000046"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE GetUnmarshalClass(riid : ADDRESS; pv : ADDRESS; dwDestContext : DWORD; pvDestContext : ADDRESS; mshlflags : DWORD; pCid : ADDRESS) : HRESULT <*@3*>;
+    PROCEDURE GetMarshalSizeMax(riid : ADDRESS; pv : ADDRESS; dwDestContext : DWORD; pvDestContext : ADDRESS; mshlflags : DWORD; pSize : ADDRESS) : HRESULT <*@4*>;
+    PROCEDURE MarshalInterface(pStm : ADDRESS; riid : ADDRESS; pv : ADDRESS; dwDestContext : DWORD; pvDestContext : ADDRESS; mshlflags : DWORD) : HRESULT <*@5*>;
+    PROCEDURE UnmarshalInterface(pStm : ADDRESS; riid : ADDRESS; ppv : ADDRESS) : HRESULT <*@6*>;
+    PROCEDURE ReleaseMarshalData(pStm : ADDRESS) : HRESULT <*@7*>;
+    PROCEDURE DisconnectObject(dwReserved : DWORD) : HRESULT <*@8*>;
+END IMarshal;
+
+INTERFACE IMarshal2* ["000001cf-0000-0000-c000-000000000046"];
+    INHERIT IMarshal;
+END IMarshal2;
+
+INTERFACE IMarshalingStream* ["d8f2f5e6-6102-4863-9f26-389a4676efde"];
+    INHERIT System_Com.IStream;
+    PROCEDURE GetMarshalingContextAttribute(attribute : INTEGER32; pAttributeValue : ADDRESS) : HRESULT <*@14*>;
+END IMarshalingStream;
+
 PROCEDURE BSTR_UserFree["BSTR_UserFree" EXTERNAL FROM "OLEAUT32.dll"](param1 : POINTER TO DWORD; arg1 : POINTER TO Foundation.BSTR);
 PROCEDURE BSTR_UserFree64["BSTR_UserFree64" EXTERNAL FROM "OLEAUT32.dll"](param1 : POINTER TO DWORD; arg1 : POINTER TO Foundation.BSTR);
 PROCEDURE BSTR_UserMarshal["BSTR_UserMarshal" EXTERNAL FROM "OLEAUT32.dll"](param0 : POINTER TO DWORD; param1 : POINTER TO BYTE; param2 : POINTER TO Foundation.BSTR) : POINTER TO BYTE;
@@ -121,5 +140,5 @@ PROCEDURE STGMEDIUM_UserSize64["STGMEDIUM_UserSize64" EXTERNAL FROM "OLE32.dll"]
 PROCEDURE STGMEDIUM_UserUnmarshal["STGMEDIUM_UserUnmarshal" EXTERNAL FROM "OLE32.dll"](param0 : POINTER TO DWORD; param1 : POINTER TO BYTE; param2 : POINTER TO System_Com.STGMEDIUM) : POINTER TO BYTE;
 PROCEDURE STGMEDIUM_UserUnmarshal64["STGMEDIUM_UserUnmarshal64" EXTERNAL FROM "OLE32.dll"](param0 : POINTER TO DWORD; param1 : POINTER TO BYTE; param2 : POINTER TO System_Com.STGMEDIUM) : POINTER TO BYTE;
 
-(* types-out summary: 0 types emitted; 2 consts emitted; 113 procedures emitted *)
+(* types-out summary: 3 types emitted; 2 consts emitted; 113 procedures emitted *)
 END System_Com_Marshal.

@@ -143,6 +143,7 @@ fn format_inst(inst: &Inst) -> String {
         Inst::Alloca { dst, ty } => format!("v{} = alloca T{}", dst.0, ty.0),
         Inst::Load { dst, ptr } => format!("v{} = load *v{}", dst.0, ptr.0),
         Inst::Store { ptr, val } => format!("*v{} = v{}", ptr.0, val.0),
+        Inst::MemCopy { dst, src, ty } => format!("memcopy *v{} <- *v{} : T{}", dst.0, src.0, ty.0),
         Inst::FieldPtr { dst, base, field } => {
             format!("v{} = &v{}.{}", dst.0, base.0, field)
         }
@@ -306,5 +307,6 @@ fn format_cast(kind: CastKind) -> &'static str {
         CastKind::CharToOrd => "char2ord",
         CastKind::PtrToInt => "ptr2int",
         CastKind::IntToPtr => "int2ptr",
+        CastKind::MemReinterpret => "reinterp",
     }
 }

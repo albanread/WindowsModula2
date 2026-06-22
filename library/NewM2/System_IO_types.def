@@ -7,18 +7,30 @@ TYPE
         Anonymous : ADDRESS;
         Information : ADRCARD;
     END;
+    OVERLAPPED = RECORD
+        Internal : ADRCARD;
+        InternalHigh : ADRCARD;
+        Anonymous : ADDRESS;
+        hEvent : HANDLE;
+    END;
+    OVERLAPPED_ENTRY = RECORD
+        lpCompletionKey : ADRCARD;
+        lpOverlapped : POINTER TO OVERLAPPED;
+        Internal : ADRCARD;
+        dwNumberOfBytesTransferred : DWORD;
+    END;
 
 PROCEDURE BindIoCompletionCallback["BindIoCompletionCallback" EXTERNAL FROM "KERNEL32.dll"](FileHandle : HANDLE; Function : ADDRESS; Flags : DWORD) : BOOL;
 PROCEDURE CancelIo["CancelIo" EXTERNAL FROM "KERNEL32.dll"](hFile : HANDLE) : BOOL;
-PROCEDURE CancelIoEx["CancelIoEx" EXTERNAL FROM "KERNEL32.dll"](hFile : HANDLE; lpOverlapped : ADDRESS) : BOOL;
+PROCEDURE CancelIoEx["CancelIoEx" EXTERNAL FROM "KERNEL32.dll"](hFile : HANDLE; lpOverlapped : POINTER TO OVERLAPPED) : BOOL;
 PROCEDURE CancelSynchronousIo["CancelSynchronousIo" EXTERNAL FROM "KERNEL32.dll"](hThread : HANDLE) : BOOL;
 PROCEDURE CreateIoCompletionPort["CreateIoCompletionPort" EXTERNAL FROM "KERNEL32.dll"](FileHandle : HANDLE; ExistingCompletionPort : HANDLE; CompletionKey : ADRCARD; NumberOfConcurrentThreads : DWORD) : HANDLE;
-PROCEDURE DeviceIoControl["DeviceIoControl" EXTERNAL FROM "KERNEL32.dll"](hDevice : HANDLE; dwIoControlCode : DWORD; lpInBuffer : ADDRESS; nInBufferSize : DWORD; lpOutBuffer : ADDRESS; nOutBufferSize : DWORD; lpBytesReturned : POINTER TO DWORD; lpOverlapped : ADDRESS) : BOOL;
-PROCEDURE GetOverlappedResult["GetOverlappedResult" EXTERNAL FROM "KERNEL32.dll"](hFile : HANDLE; lpOverlapped : ADDRESS; lpNumberOfBytesTransferred : POINTER TO DWORD; bWait : BOOL) : BOOL;
-PROCEDURE GetOverlappedResultEx["GetOverlappedResultEx" EXTERNAL FROM "KERNEL32.dll"](hFile : HANDLE; lpOverlapped : ADDRESS; lpNumberOfBytesTransferred : POINTER TO DWORD; dwMilliseconds : DWORD; bAlertable : BOOL) : BOOL;
-PROCEDURE GetQueuedCompletionStatus["GetQueuedCompletionStatus" EXTERNAL FROM "KERNEL32.dll"](CompletionPort : HANDLE; lpNumberOfBytesTransferred : POINTER TO DWORD; lpCompletionKey : POINTER TO ADRCARD; lpOverlapped : ADDRESS; dwMilliseconds : DWORD) : BOOL;
-PROCEDURE GetQueuedCompletionStatusEx["GetQueuedCompletionStatusEx" EXTERNAL FROM "KERNEL32.dll"](CompletionPort : HANDLE; lpCompletionPortEntries : ADDRESS; ulCount : DWORD; ulNumEntriesRemoved : POINTER TO DWORD; dwMilliseconds : DWORD; fAlertable : BOOL) : BOOL;
-PROCEDURE PostQueuedCompletionStatus["PostQueuedCompletionStatus" EXTERNAL FROM "KERNEL32.dll"](CompletionPort : HANDLE; dwNumberOfBytesTransferred : DWORD; dwCompletionKey : ADRCARD; lpOverlapped : ADDRESS) : BOOL;
+PROCEDURE DeviceIoControl["DeviceIoControl" EXTERNAL FROM "KERNEL32.dll"](hDevice : HANDLE; dwIoControlCode : DWORD; lpInBuffer : ADDRESS; nInBufferSize : DWORD; lpOutBuffer : ADDRESS; nOutBufferSize : DWORD; lpBytesReturned : POINTER TO DWORD; lpOverlapped : POINTER TO OVERLAPPED) : BOOL;
+PROCEDURE GetOverlappedResult["GetOverlappedResult" EXTERNAL FROM "KERNEL32.dll"](hFile : HANDLE; lpOverlapped : POINTER TO OVERLAPPED; lpNumberOfBytesTransferred : POINTER TO DWORD; bWait : BOOL) : BOOL;
+PROCEDURE GetOverlappedResultEx["GetOverlappedResultEx" EXTERNAL FROM "KERNEL32.dll"](hFile : HANDLE; lpOverlapped : POINTER TO OVERLAPPED; lpNumberOfBytesTransferred : POINTER TO DWORD; dwMilliseconds : DWORD; bAlertable : BOOL) : BOOL;
+PROCEDURE GetQueuedCompletionStatus["GetQueuedCompletionStatus" EXTERNAL FROM "KERNEL32.dll"](CompletionPort : HANDLE; lpNumberOfBytesTransferred : POINTER TO DWORD; lpCompletionKey : POINTER TO ADRCARD; lpOverlapped : POINTER TO POINTER TO OVERLAPPED; dwMilliseconds : DWORD) : BOOL;
+PROCEDURE GetQueuedCompletionStatusEx["GetQueuedCompletionStatusEx" EXTERNAL FROM "KERNEL32.dll"](CompletionPort : HANDLE; lpCompletionPortEntries : POINTER TO OVERLAPPED_ENTRY; ulCount : DWORD; ulNumEntriesRemoved : POINTER TO DWORD; dwMilliseconds : DWORD; fAlertable : BOOL) : BOOL;
+PROCEDURE PostQueuedCompletionStatus["PostQueuedCompletionStatus" EXTERNAL FROM "KERNEL32.dll"](CompletionPort : HANDLE; dwNumberOfBytesTransferred : DWORD; dwCompletionKey : ADRCARD; lpOverlapped : POINTER TO OVERLAPPED) : BOOL;
 
-(* types-out summary: 1 type emitted; 11 procedures emitted *)
+(* types-out summary: 3 types emitted; 11 procedures emitted *)
 END System_IO.

@@ -263,9 +263,9 @@ TYPE
         pszCryptoProvider : PWSTR;
     END;
     WLX_TERMINAL_SERVICES_DATA = RECORD
-        ProfilePath : ADDRESS;
-        HomeDir : ADDRESS;
-        HomeDirDrive : ADDRESS;
+        ProfilePath : ARRAY [0..256] OF CHAR;
+        HomeDir : ARRAY [0..256] OF CHAR;
+        HomeDirDrive : ARRAY [0..3] OF CHAR;
     END;
 
 (* types-out summary: 15 types emitted; 62 consts emitted *)

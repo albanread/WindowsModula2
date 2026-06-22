@@ -28,11 +28,11 @@ CONST
 
 TYPE
     ENCLAVE_IDENTITY = RECORD
-        OwnerId : ADDRESS;
-        UniqueId : ADDRESS;
-        AuthorId : ADDRESS;
-        FamilyId : ADDRESS;
-        ImageId : ADDRESS;
+        OwnerId : ARRAY [0..31] OF BYTE;
+        UniqueId : ARRAY [0..31] OF BYTE;
+        AuthorId : ARRAY [0..31] OF BYTE;
+        FamilyId : ARRAY [0..15] OF BYTE;
+        ImageId : ARRAY [0..15] OF BYTE;
         EnclaveSvn : DWORD;
         SecureKernelSvn : DWORD;
         PlatformSvn : DWORD;
@@ -55,7 +55,7 @@ TYPE
         CurrentSystemKeyID : DWORD;
     END;
     PS_TRUSTLET_TKSESSION_ID = RECORD
-        SessionId : ADDRESS;
+        SessionId : ARRAY [0..3] OF QWORD;
     END;
     TRUSTLET_BINDING_DATA = RECORD
         TrustletIdentity : QWORD;
@@ -67,7 +67,7 @@ TYPE
     VBS_BASIC_ENCLAVE_EXCEPTION_AMD64 = RECORD
         ExceptionCode : DWORD;
         NumberParameters : DWORD;
-        ExceptionInformation : ADDRESS;
+        ExceptionInformation : ARRAY [0..2] OF ADRCARD;
         ExceptionRAX : ADRCARD;
         ExceptionRCX : ADRCARD;
         ExceptionRIP : ADRCARD;
@@ -90,7 +90,7 @@ TYPE
         GenerateRandomData : ADDRESS;
     END;
     VBS_BASIC_ENCLAVE_THREAD_DESCRIPTOR32 = RECORD
-        ThreadContext : ADDRESS;
+        ThreadContext : ARRAY [0..3] OF DWORD;
         EntryPoint : DWORD;
         StackPointer : DWORD;
         ExceptionEntryPoint : DWORD;
@@ -98,7 +98,7 @@ TYPE
         ExceptionActive : DWORD;
     END;
     VBS_BASIC_ENCLAVE_THREAD_DESCRIPTOR64 = RECORD
-        ThreadContext : ADDRESS;
+        ThreadContext : ARRAY [0..3] OF QWORD;
         EntryPoint : QWORD;
         StackPointer : QWORD;
         ExceptionEntryPoint : QWORD;
@@ -108,17 +108,17 @@ TYPE
     VBS_ENCLAVE_REPORT = RECORD
         ReportSize : DWORD;
         ReportVersion : DWORD;
-        EnclaveData : ADDRESS;
+        EnclaveData : ARRAY [0..63] OF BYTE;
         EnclaveIdentity : ENCLAVE_IDENTITY;
     END;
     VBS_ENCLAVE_REPORT_MODULE = RECORD
         Header : VBS_ENCLAVE_REPORT_VARDATA_HEADER;
-        UniqueId : ADDRESS;
-        AuthorId : ADDRESS;
-        FamilyId : ADDRESS;
-        ImageId : ADDRESS;
+        UniqueId : ARRAY [0..31] OF BYTE;
+        AuthorId : ARRAY [0..31] OF BYTE;
+        FamilyId : ARRAY [0..15] OF BYTE;
+        ImageId : ARRAY [0..15] OF BYTE;
         Svn : DWORD;
-        ModuleName : ADDRESS;
+        ModuleName : ARRAY [0..1] OF CHAR;
     END;
     VBS_ENCLAVE_REPORT_PKG_HEADER = RECORD
         PackageSize : DWORD;

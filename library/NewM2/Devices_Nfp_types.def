@@ -12,7 +12,7 @@ CONST
 TYPE
     SUBSCRIBED_MESSAGE = RECORD
         cbPayloadHint : DWORD;
-        payload : ADDRESS;
+        payload : ARRAY [0..3] OF BYTE;
     END;
 
 (* types-out summary: 1 type emitted; 7 consts emitted *)

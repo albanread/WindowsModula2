@@ -21,7 +21,7 @@ TYPE
         CycleTime : QWORD;
         RetryCount : DWORD;
         Reserved : DWORD;
-        HwCounters : ADDRESS;
+        HwCounters : ARRAY [0..255] OF BYTE;
     END;
 
 PROCEDURE DisableThreadProfiling["DisableThreadProfiling" EXTERNAL FROM "KERNEL32.dll"](PerformanceDataHandle : HANDLE) : DWORD;

@@ -15,7 +15,7 @@ CONST
 
 TYPE
     MAGCOLOREFFECT = RECORD
-        transform : ADDRESS;
+        transform : ARRAY [0..24] OF REAL;
     END;
     MAGIMAGEHEADER = RECORD
         width : DWORD;
@@ -26,7 +26,7 @@ TYPE
         cbSize : ADRCARD;
     END;
     MAGTRANSFORM = RECORD
-        v : ADDRESS;
+        v : ARRAY [0..8] OF REAL;
     END;
 
 PROCEDURE MagGetColorEffect["MagGetColorEffect" EXTERNAL FROM "MAGNIFICATION.dll"](hwnd : HWND; pEffect : POINTER TO MAGCOLOREFFECT) : BOOL;

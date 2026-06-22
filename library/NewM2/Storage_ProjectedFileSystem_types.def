@@ -116,11 +116,11 @@ TYPE
         SecurityInformation : ADDRESS;
         StreamsInformation : ADDRESS;
         VersionInfo : PRJ_PLACEHOLDER_VERSION_INFO;
-        VariableData : ADDRESS;
+        VariableData : ARRAY [0..7] OF BYTE;
     END;
     PRJ_PLACEHOLDER_VERSION_INFO = RECORD
-        ProviderID : ADDRESS;
-        ContentID : ADDRESS;
+        ProviderID : ARRAY [0..127] OF BYTE;
+        ContentID : ARRAY [0..127] OF BYTE;
     END;
     PRJ_STARTVIRTUALIZING_OPTIONS = RECORD
         Flags : INTEGER32;

@@ -48,7 +48,7 @@ TYPE
     RAWHID = RECORD
         dwSizeHid : DWORD;
         dwCount : DWORD;
-        bRawData : ADDRESS;
+        bRawData : ARRAY [0..3] OF BYTE;
     END;
     RAWINPUT = RECORD
         header : RAWINPUTHEADER;

@@ -441,6 +441,9 @@ TYPE
         wParamL : WORD;
         wParamH : WORD;
     END;
+    HKL = RECORD
+        Value : ADDRESS;
+    END;
     INPUT = RECORD
         type_ : DWORD;
         Anonymous : ADDRESS;
@@ -472,13 +475,13 @@ TYPE
         dwSubType : DWORD;
     END;
     KBDTABLE_DESC = RECORD
-        wszDllName : ADDRESS;
+        wszDllName : ARRAY [0..31] OF CHAR;
         dwType : DWORD;
         dwSubType : DWORD;
     END;
     KBDTABLE_MULTI = RECORD
         nTables : DWORD;
-        aKbdTables : ADDRESS;
+        aKbdTables : ARRAY [0..575] OF BYTE;
     END;
     KBD_TYPE_INFO = RECORD
         dwVersion : DWORD;
@@ -499,32 +502,32 @@ TYPE
     LIGATURE1 = RECORD
         VirtualKey : BYTE;
         ModificationNumber : WORD;
-        wch : ADDRESS;
+        wch : ARRAY [0..0] OF CHAR;
     END;
     LIGATURE2 = RECORD
         VirtualKey : BYTE;
         ModificationNumber : WORD;
-        wch : ADDRESS;
+        wch : ARRAY [0..1] OF CHAR;
     END;
     LIGATURE3 = RECORD
         VirtualKey : BYTE;
         ModificationNumber : WORD;
-        wch : ADDRESS;
+        wch : ARRAY [0..2] OF CHAR;
     END;
     LIGATURE4 = RECORD
         VirtualKey : BYTE;
         ModificationNumber : WORD;
-        wch : ADDRESS;
+        wch : ARRAY [0..3] OF CHAR;
     END;
     LIGATURE5 = RECORD
         VirtualKey : BYTE;
         ModificationNumber : WORD;
-        wch : ADDRESS;
+        wch : ARRAY [0..4] OF CHAR;
     END;
     MODIFIERS = RECORD
         pVkToBit : POINTER TO VK_TO_BIT;
         wMaxModBits : WORD;
-        ModNumber : ADDRESS;
+        ModNumber : ARRAY [0..5] OF BYTE;
     END;
     MOUSEINPUT = RECORD
         dx : INTEGER32;
@@ -551,8 +554,8 @@ TYPE
         NLSFEProcType : BYTE;
         NLSFEProcCurrent : BYTE;
         NLSFEProcSwitch : BYTE;
-        NLSFEProc : ADDRESS;
-        NLSFEProcAlt : ADDRESS;
+        NLSFEProc : ARRAY [0..63] OF BYTE;
+        NLSFEProcAlt : ARRAY [0..63] OF BYTE;
     END;
     VK_FPARAM = RECORD
         NLSFEProcIndex : BYTE;
@@ -565,52 +568,52 @@ TYPE
     VK_TO_WCHARS1 = RECORD
         VirtualKey : BYTE;
         Attributes : BYTE;
-        wch : ADDRESS;
+        wch : ARRAY [0..0] OF CHAR;
     END;
     VK_TO_WCHARS10 = RECORD
         VirtualKey : BYTE;
         Attributes : BYTE;
-        wch : ADDRESS;
+        wch : ARRAY [0..9] OF CHAR;
     END;
     VK_TO_WCHARS2 = RECORD
         VirtualKey : BYTE;
         Attributes : BYTE;
-        wch : ADDRESS;
+        wch : ARRAY [0..1] OF CHAR;
     END;
     VK_TO_WCHARS3 = RECORD
         VirtualKey : BYTE;
         Attributes : BYTE;
-        wch : ADDRESS;
+        wch : ARRAY [0..2] OF CHAR;
     END;
     VK_TO_WCHARS4 = RECORD
         VirtualKey : BYTE;
         Attributes : BYTE;
-        wch : ADDRESS;
+        wch : ARRAY [0..3] OF CHAR;
     END;
     VK_TO_WCHARS5 = RECORD
         VirtualKey : BYTE;
         Attributes : BYTE;
-        wch : ADDRESS;
+        wch : ARRAY [0..4] OF CHAR;
     END;
     VK_TO_WCHARS6 = RECORD
         VirtualKey : BYTE;
         Attributes : BYTE;
-        wch : ADDRESS;
+        wch : ARRAY [0..5] OF CHAR;
     END;
     VK_TO_WCHARS7 = RECORD
         VirtualKey : BYTE;
         Attributes : BYTE;
-        wch : ADDRESS;
+        wch : ARRAY [0..6] OF CHAR;
     END;
     VK_TO_WCHARS8 = RECORD
         VirtualKey : BYTE;
         Attributes : BYTE;
-        wch : ADDRESS;
+        wch : ARRAY [0..7] OF CHAR;
     END;
     VK_TO_WCHARS9 = RECORD
         VirtualKey : BYTE;
         Attributes : BYTE;
-        wch : ADDRESS;
+        wch : ARRAY [0..8] OF CHAR;
     END;
     VK_TO_WCHAR_TABLE = RECORD
         pVkToWchars : POINTER TO VK_TO_WCHARS1;
@@ -630,7 +633,7 @@ TYPE
         Vk : WORD;
     END;
 
-PROCEDURE ActivateKeyboardLayout["ActivateKeyboardLayout" EXTERNAL FROM "USER32.dll"](hkl : ADDRESS; Flags : DWORD) : ADDRESS;
+PROCEDURE ActivateKeyboardLayout["ActivateKeyboardLayout" EXTERNAL FROM "USER32.dll"](hkl : HKL; Flags : DWORD) : HKL;
 PROCEDURE BlockInput["BlockInput" EXTERNAL FROM "USER32.dll"](fBlockIt : BOOL) : BOOL;
 PROCEDURE DragDetect["DragDetect" EXTERNAL FROM "USER32.dll"](hwnd : HWND; pt : Foundation.POINT) : BOOL;
 PROCEDURE EnableWindow["EnableWindow" EXTERNAL FROM "USER32.dll"](hWnd : HWND; bEnable : BOOL) : BOOL;
@@ -643,8 +646,8 @@ PROCEDURE GetKBCodePage["GetKBCodePage" EXTERNAL FROM "USER32.dll"]() : DWORD;
 PROCEDURE GetKeyNameTextA["GetKeyNameTextA" EXTERNAL FROM "USER32.dll"](lpString : INTEGER32; cchSize : PSTR; arg2 : INTEGER32) : INTEGER32;
 PROCEDURE GetKeyNameTextW["GetKeyNameTextW" EXTERNAL FROM "USER32.dll"](lpString : INTEGER32; cchSize : PWSTR; arg2 : INTEGER32) : INTEGER32;
 PROCEDURE GetKeyState["GetKeyState" EXTERNAL FROM "USER32.dll"](arg0 : INTEGER32) : INTEGER16;
-PROCEDURE GetKeyboardLayout["GetKeyboardLayout" EXTERNAL FROM "USER32.dll"](idThread : DWORD) : ADDRESS;
-PROCEDURE GetKeyboardLayoutList["GetKeyboardLayoutList" EXTERNAL FROM "USER32.dll"](lpList : INTEGER32; arg1 : ADDRESS) : INTEGER32;
+PROCEDURE GetKeyboardLayout["GetKeyboardLayout" EXTERNAL FROM "USER32.dll"](idThread : DWORD) : HKL;
+PROCEDURE GetKeyboardLayoutList["GetKeyboardLayoutList" EXTERNAL FROM "USER32.dll"](lpList : INTEGER32; arg1 : POINTER TO HKL) : INTEGER32;
 PROCEDURE GetKeyboardLayoutNameA["GetKeyboardLayoutNameA" EXTERNAL FROM "USER32.dll"](pwszKLID : PSTR) : BOOL;
 PROCEDURE GetKeyboardLayoutNameW["GetKeyboardLayoutNameW" EXTERNAL FROM "USER32.dll"](pwszKLID : PWSTR) : BOOL;
 PROCEDURE GetKeyboardState["GetKeyboardState" EXTERNAL FROM "USER32.dll"](lpKeyState : POINTER TO BYTE) : BOOL;
@@ -652,11 +655,11 @@ PROCEDURE GetKeyboardType["GetKeyboardType" EXTERNAL FROM "USER32.dll"](arg0 : I
 PROCEDURE GetLastInputInfo["GetLastInputInfo" EXTERNAL FROM "USER32.dll"](plii : POINTER TO LASTINPUTINFO) : BOOL;
 PROCEDURE GetMouseMovePointsEx["GetMouseMovePointsEx" EXTERNAL FROM "USER32.dll"](lppt : DWORD; lpptBuf : POINTER TO MOUSEMOVEPOINT; nBufPoints : POINTER TO MOUSEMOVEPOINT; resolution : INTEGER32; arg4 : DWORD) : INTEGER32;
 PROCEDURE IsWindowEnabled["IsWindowEnabled" EXTERNAL FROM "USER32.dll"](hWnd : HWND) : BOOL;
-PROCEDURE LoadKeyboardLayoutA["LoadKeyboardLayoutA" EXTERNAL FROM "USER32.dll"](pwszKLID : PSTR; Flags : DWORD) : ADDRESS;
-PROCEDURE LoadKeyboardLayoutW["LoadKeyboardLayoutW" EXTERNAL FROM "USER32.dll"](pwszKLID : PWSTR; Flags : DWORD) : ADDRESS;
+PROCEDURE LoadKeyboardLayoutA["LoadKeyboardLayoutA" EXTERNAL FROM "USER32.dll"](pwszKLID : PSTR; Flags : DWORD) : HKL;
+PROCEDURE LoadKeyboardLayoutW["LoadKeyboardLayoutW" EXTERNAL FROM "USER32.dll"](pwszKLID : PWSTR; Flags : DWORD) : HKL;
 PROCEDURE MapVirtualKeyA["MapVirtualKeyA" EXTERNAL FROM "USER32.dll"](uMapType : DWORD; arg1 : DWORD) : DWORD;
-PROCEDURE MapVirtualKeyExA["MapVirtualKeyExA" EXTERNAL FROM "USER32.dll"](uMapType : DWORD; dwhkl : DWORD; arg2 : ADDRESS) : DWORD;
-PROCEDURE MapVirtualKeyExW["MapVirtualKeyExW" EXTERNAL FROM "USER32.dll"](uMapType : DWORD; dwhkl : DWORD; arg2 : ADDRESS) : DWORD;
+PROCEDURE MapVirtualKeyExA["MapVirtualKeyExA" EXTERNAL FROM "USER32.dll"](uMapType : DWORD; dwhkl : DWORD; arg2 : HKL) : DWORD;
+PROCEDURE MapVirtualKeyExW["MapVirtualKeyExW" EXTERNAL FROM "USER32.dll"](uMapType : DWORD; dwhkl : DWORD; arg2 : HKL) : DWORD;
 PROCEDURE MapVirtualKeyW["MapVirtualKeyW" EXTERNAL FROM "USER32.dll"](uMapType : DWORD; arg1 : DWORD) : DWORD;
 PROCEDURE OemKeyScan["OemKeyScan" EXTERNAL FROM "USER32.dll"](wOemChar : WORD) : DWORD;
 PROCEDURE RegisterHotKey["RegisterHotKey" EXTERNAL FROM "USER32.dll"](hWnd : HWND; id : INTEGER32; fsModifiers : DWORD; vk : DWORD) : BOOL;
@@ -669,19 +672,19 @@ PROCEDURE SetFocus["SetFocus" EXTERNAL FROM "USER32.dll"](hWnd : HWND) : HWND;
 PROCEDURE SetKeyboardState["SetKeyboardState" EXTERNAL FROM "USER32.dll"](lpKeyState : POINTER TO BYTE) : BOOL;
 PROCEDURE SwapMouseButton["SwapMouseButton" EXTERNAL FROM "USER32.dll"](fSwap : BOOL) : BOOL;
 PROCEDURE ToAscii["ToAscii" EXTERNAL FROM "USER32.dll"](uScanCode : DWORD; lpKeyState : DWORD; lpChar : POINTER TO BYTE; uFlags : POINTER TO WORD; arg4 : DWORD) : INTEGER32;
-PROCEDURE ToAsciiEx["ToAsciiEx" EXTERNAL FROM "USER32.dll"](uScanCode : DWORD; lpKeyState : DWORD; lpChar : POINTER TO BYTE; uFlags : POINTER TO WORD; dwhkl : DWORD; arg5 : ADDRESS) : INTEGER32;
+PROCEDURE ToAsciiEx["ToAsciiEx" EXTERNAL FROM "USER32.dll"](uScanCode : DWORD; lpKeyState : DWORD; lpChar : POINTER TO BYTE; uFlags : POINTER TO WORD; dwhkl : DWORD; arg5 : HKL) : INTEGER32;
 PROCEDURE ToUnicode["ToUnicode" EXTERNAL FROM "USER32.dll"](wScanCode : DWORD; lpKeyState : DWORD; pwszBuff : POINTER TO BYTE; cchBuff : PWSTR; wFlags : INTEGER32; arg5 : DWORD) : INTEGER32;
-PROCEDURE ToUnicodeEx["ToUnicodeEx" EXTERNAL FROM "USER32.dll"](wScanCode : DWORD; lpKeyState : DWORD; pwszBuff : POINTER TO BYTE; cchBuff : PWSTR; wFlags : INTEGER32; dwhkl : DWORD; arg6 : ADDRESS) : INTEGER32;
+PROCEDURE ToUnicodeEx["ToUnicodeEx" EXTERNAL FROM "USER32.dll"](wScanCode : DWORD; lpKeyState : DWORD; pwszBuff : POINTER TO BYTE; cchBuff : PWSTR; wFlags : INTEGER32; dwhkl : DWORD; arg6 : HKL) : INTEGER32;
 PROCEDURE TrackMouseEvent["TrackMouseEvent" EXTERNAL FROM "USER32.dll"](lpEventTrack : POINTER TO TRACKMOUSEEVENT) : BOOL;
-PROCEDURE UnloadKeyboardLayout["UnloadKeyboardLayout" EXTERNAL FROM "USER32.dll"](hkl : ADDRESS) : BOOL;
+PROCEDURE UnloadKeyboardLayout["UnloadKeyboardLayout" EXTERNAL FROM "USER32.dll"](hkl : HKL) : BOOL;
 PROCEDURE UnregisterHotKey["UnregisterHotKey" EXTERNAL FROM "USER32.dll"](hWnd : HWND; id : INTEGER32) : BOOL;
-PROCEDURE VkKeyScanA["VkKeyScanA" EXTERNAL FROM "USER32.dll"](arg0 : ADDRESS) : INTEGER16;
-PROCEDURE VkKeyScanExA["VkKeyScanExA" EXTERNAL FROM "USER32.dll"](dwhkl : ADDRESS; arg1 : ADDRESS) : INTEGER16;
-PROCEDURE VkKeyScanExW["VkKeyScanExW" EXTERNAL FROM "USER32.dll"](dwhkl : CHAR; arg1 : ADDRESS) : INTEGER16;
+PROCEDURE VkKeyScanA["VkKeyScanA" EXTERNAL FROM "USER32.dll"](arg0 : Foundation.CHAR) : INTEGER16;
+PROCEDURE VkKeyScanExA["VkKeyScanExA" EXTERNAL FROM "USER32.dll"](dwhkl : Foundation.CHAR; arg1 : HKL) : INTEGER16;
+PROCEDURE VkKeyScanExW["VkKeyScanExW" EXTERNAL FROM "USER32.dll"](dwhkl : CHAR; arg1 : HKL) : INTEGER16;
 PROCEDURE VkKeyScanW["VkKeyScanW" EXTERNAL FROM "USER32.dll"](arg0 : CHAR) : INTEGER16;
 PROCEDURE _TrackMouseEvent["_TrackMouseEvent" EXTERNAL FROM "COMCTL32.dll"](lpEventTrack : POINTER TO TRACKMOUSEEVENT) : BOOL;
 PROCEDURE keybd_event["keybd_event" EXTERNAL FROM "USER32.dll"](bScan : BYTE; dwFlags : BYTE; dwExtraInfo : DWORD; arg3 : ADRCARD);
 PROCEDURE mouse_event["mouse_event" EXTERNAL FROM "USER32.dll"](dx : DWORD; dy : INTEGER32; dwData : INTEGER32; dwExtraInfo : INTEGER32; arg4 : ADRCARD);
 
-(* types-out summary: 36 types emitted; 425 consts emitted; 52 procedures emitted *)
+(* types-out summary: 37 types emitted; 425 consts emitted; 52 procedures emitted *)
 END UI_Input_KeyboardAndMouse.

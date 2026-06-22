@@ -181,25 +181,25 @@ TYPE
     DXGI_GAMMA_CONTROL = RECORD
         Scale : DXGI_RGB;
         Offset : DXGI_RGB;
-        GammaCurve : ADDRESS;
+        GammaCurve : ARRAY [0..12299] OF BYTE;
     END;
     DXGI_GAMMA_CONTROL_CAPABILITIES = RECORD
         ScaleAndOffsetSupported : BOOL;
         MaxConvertedValue : REAL;
         MinConvertedValue : REAL;
         NumGammaControlPoints : DWORD;
-        ControlPointPositions : ADDRESS;
+        ControlPointPositions : ARRAY [0..1024] OF REAL;
     END;
     DXGI_JPEG_AC_HUFFMAN_TABLE = RECORD
-        CodeCounts : ADDRESS;
-        CodeValues : ADDRESS;
+        CodeCounts : ARRAY [0..15] OF BYTE;
+        CodeValues : ARRAY [0..161] OF BYTE;
     END;
     DXGI_JPEG_DC_HUFFMAN_TABLE = RECORD
-        CodeCounts : ADDRESS;
-        CodeValues : ADDRESS;
+        CodeCounts : ARRAY [0..11] OF BYTE;
+        CodeValues : ARRAY [0..11] OF BYTE;
     END;
     DXGI_JPEG_QUANTIZATION_TABLE = RECORD
-        Elements : ADDRESS;
+        Elements : ARRAY [0..63] OF BYTE;
     END;
     DXGI_MODE_DESC = RECORD
         Width : DWORD;

@@ -774,7 +774,7 @@ TYPE
         SlotNumber : BYTE;
         CommitActionType : BYTE;
         Result : WORD;
-        Reserved2 : ADDRESS;
+        Reserved2 : ARRAY [0..19] OF BYTE;
     END;
     IO_COMMAND_SET_VECTOR = RECORD
         _bitfield : QWORD;
@@ -830,7 +830,7 @@ TYPE
         Reserved0 : BYTE;
         HALEN : BYTE;
         DHLEN : BYTE;
-        IdList : ADDRESS;
+        IdList : ARRAY [0..59] OF BYTE;
     END;
     NVMEOF_AUTH_DHCHAP_REPLY = RECORD
         AUTH_TYPE : BYTE;
@@ -852,14 +852,14 @@ TYPE
         HL : BYTE;
         Reserved1 : BYTE;
         RVALID : BYTE;
-        Reserved2 : ADDRESS;
+        Reserved2 : ARRAY [0..6] OF BYTE;
     END;
     NVMEOF_AUTH_DHCHAP_SUCCESS2 = RECORD
         AUTH_TYPE : BYTE;
         AUTH_ID : BYTE;
         Reserved0 : WORD;
         T_ID : WORD;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..9] OF BYTE;
     END;
     NVMEOF_AUTH_FAILURE = RECORD
         AUTH_TYPE : BYTE;
@@ -882,14 +882,14 @@ TYPE
         Reserved0 : BYTE;
         CID : WORD;
         FCTYPE : BYTE;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..18] OF BYTE;
         SGL1 : NVME_SGL_DESC;
         Reserved2 : BYTE;
         SPSP0 : BYTE;
         SPSP1 : BYTE;
         SECP : BYTE;
         AL : DWORD;
-        Reserved3 : ADDRESS;
+        Reserved3 : ARRAY [0..15] OF BYTE;
     END;
     NVMEOF_AUTH_RECEIVE_RESPONSE = RECORD
         Reserved0 : QWORD;
@@ -903,14 +903,14 @@ TYPE
         Reserved0 : BYTE;
         CID : WORD;
         FCTYPE : BYTE;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..18] OF BYTE;
         SGL1 : NVME_SGL_DESC;
         Reserved2 : BYTE;
         SPSP0 : BYTE;
         SPSP1 : BYTE;
         SECP : BYTE;
         TL : DWORD;
-        Reserved3 : ADDRESS;
+        Reserved3 : ARRAY [0..15] OF BYTE;
     END;
     NVMEOF_AUTH_SEND_RESPONSE = RECORD
         Reserved0 : QWORD;
@@ -924,7 +924,7 @@ TYPE
         Reserved0 : BYTE;
         CID : WORD;
         FCTYPE : BYTE;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..18] OF BYTE;
         SGL1 : NVME_SGL_DESC;
         RECFMT : WORD;
         QID : WORD;
@@ -932,15 +932,15 @@ TYPE
         CATTR : ADDRESS;
         Reserved2 : BYTE;
         KATO : DWORD;
-        Reserved3 : ADDRESS;
+        Reserved3 : ARRAY [0..15] OF BYTE;
     END;
     NVMEOF_CONNECT_DATA = RECORD
-        HOSTID : ADDRESS;
+        HOSTID : ARRAY [0..15] OF BYTE;
         CNTLID : WORD;
-        Reserved0 : ADDRESS;
-        SUBNQN : ADDRESS;
-        HOSTNQN : ADDRESS;
-        Reserved1 : ADDRESS;
+        Reserved0 : ARRAY [0..237] OF BYTE;
+        SUBNQN : ARRAY [0..255] OF BYTE;
+        HOSTNQN : ARRAY [0..255] OF BYTE;
+        Reserved1 : ARRAY [0..255] OF BYTE;
     END;
     NVMEOF_CONNECT_RESPONSE = RECORD
         SCSpecific : ADDRESS;
@@ -955,10 +955,10 @@ TYPE
         Reserved0 : BYTE;
         CID : WORD;
         FCTYPE : BYTE;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..18] OF BYTE;
         SGL1 : NVME_SGL_DATABLOCK_DESC;
         RECFMT : WORD;
-        Reserved2 : ADDRESS;
+        Reserved2 : ARRAY [0..21] OF BYTE;
     END;
     NVMEOF_DISCONNECT_RESPONSE = RECORD
         Reserved0 : QWORD;
@@ -972,11 +972,11 @@ TYPE
         PSDT : BYTE;
         CID : WORD;
         FCTYPE : BYTE;
-        Reserved : ADDRESS;
-        Specific : ADDRESS;
+        Reserved : ARRAY [0..34] OF BYTE;
+        Specific : ARRAY [0..23] OF BYTE;
     END;
     NVMEOF_FABRICS_RESPONSE = RECORD
-        Specific : ADDRESS;
+        Specific : ARRAY [0..7] OF BYTE;
         SQHD : WORD;
         Reserved : WORD;
         CID : WORD;
@@ -987,11 +987,11 @@ TYPE
         Reserved0 : BYTE;
         CID : WORD;
         FCTYPE : BYTE;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..34] OF BYTE;
         ATTRIB : ADDRESS;
-        Reserved2 : ADDRESS;
+        Reserved2 : ARRAY [0..2] OF BYTE;
         OFST : DWORD;
-        Reserved3 : ADDRESS;
+        Reserved3 : ARRAY [0..15] OF BYTE;
     END;
     NVMEOF_PROPERTY_GET_RESPONSE = RECORD
         VALUE : ADDRESS;
@@ -1005,12 +1005,12 @@ TYPE
         Reserved0 : BYTE;
         CID : WORD;
         FCTYPE : BYTE;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..34] OF BYTE;
         ATTRIB : ADDRESS;
-        Reserved2 : ADDRESS;
+        Reserved2 : ARRAY [0..2] OF BYTE;
         OFST : DWORD;
         VALUE : ADDRESS;
-        Reserved3 : ADDRESS;
+        Reserved3 : ARRAY [0..7] OF BYTE;
     END;
     NVMEOF_PROPERTY_SET_RESPONSE = RECORD
         Reserved0 : QWORD;
@@ -1020,7 +1020,7 @@ TYPE
         STS : WORD;
     END;
     NVME_ACTIVE_NAMESPACE_ID_LIST = RECORD
-        NSID : ADDRESS;
+        NSID : ARRAY [0..1023] OF DWORD;
     END;
     NVME_ADMIN_COMPLETION_QUEUE_BASE_ADDRESS;
     NVME_ADMIN_QUEUE_ATTRIBUTES;
@@ -1152,17 +1152,17 @@ TYPE
     NVME_CDW15_VERIFY_COMMAND;
     NVME_CDW15_ZONE_APPEND;
     NVME_CHANGED_NAMESPACE_LIST_LOG = RECORD
-        NSID : ADDRESS;
+        NSID : ARRAY [0..1023] OF DWORD;
     END;
     NVME_CHANGED_ZONE_LIST_LOG = RECORD
         ZoneIdentifiersCount : WORD;
-        Reserved : ADDRESS;
-        ZoneIdentifier : ADDRESS;
+        Reserved : ARRAY [0..5] OF BYTE;
+        ZoneIdentifier : ARRAY [0..510] OF QWORD;
     END;
     NVME_COMMAND = RECORD
         CDW0 : NVME_COMMAND_DWORD0;
         NSID : DWORD;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..2] OF DWORD;
         MPTR : QWORD;
         Anonymous : ADDRESS;
         u : ADDRESS;
@@ -1170,9 +1170,9 @@ TYPE
     NVME_COMMAND_DWORD0;
     NVME_COMMAND_EFFECTS_DATA;
     NVME_COMMAND_EFFECTS_LOG = RECORD
-        ACS : ADDRESS;
-        IOCS : ADDRESS;
-        Reserved : ADDRESS;
+        ACS : ARRAY [0..8191] OF BYTE;
+        IOCS : ARRAY [0..8191] OF BYTE;
+        Reserved : ARRAY [0..2047] OF BYTE;
     END;
     NVME_COMMAND_STATUS;
     NVME_COMPLETION_DW0_ASYNC_EVENT_REQUEST = RECORD
@@ -1194,7 +1194,7 @@ TYPE
     NVME_CONTROLLER_CONFIGURATION;
     NVME_CONTROLLER_LIST = RECORD
         NumberOfIdentifiers : WORD;
-        ControllerID : ADDRESS;
+        ControllerID : ARRAY [0..2046] OF WORD;
     END;
     NVME_CONTROLLER_MEMORY_BUFFER_LOCATION;
     NVME_CONTROLLER_MEMORY_BUFFER_SIZE;
@@ -1213,19 +1213,19 @@ TYPE
         ACQ : NVME_ADMIN_COMPLETION_QUEUE_BASE_ADDRESS;
         CMBLOC : NVME_CONTROLLER_MEMORY_BUFFER_LOCATION;
         CMBSZ : NVME_CONTROLLER_MEMORY_BUFFER_SIZE;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..8] OF DWORD;
         NSSD : NVME_NVM_SUBSYSTEM_SHUTDOWN;
         CRTO : NVME_CONTROLLER_READY_TIMEOUTS;
-        Reserved2 : ADDRESS;
-        Reserved3 : ADDRESS;
-        Doorbells : ADDRESS;
+        Reserved2 : ARRAY [0..932] OF DWORD;
+        Reserved3 : ARRAY [0..63] OF DWORD;
+        Doorbells : ARRAY [0..0] OF DWORD;
     END;
     NVME_CONTROLLER_STATUS;
     NVME_DEVICE_SELF_TEST_LOG = RECORD
         CurrentOperation : ADDRESS;
         CurrentCompletion : ADDRESS;
-        Reserved : ADDRESS;
-        ResultData : ADDRESS;
+        Reserved : ARRAY [0..5] OF BYTE;
+        ResultData : ARRAY [0..799] OF BYTE;
     END;
     NVME_DEVICE_SELF_TEST_RESULT_DATA = RECORD
         Status : ADDRESS;
@@ -1245,22 +1245,22 @@ TYPE
     END;
     NVME_DIRECTIVE_IDENTIFY_RETURN_PARAMETERS_DESCRIPTOR = RECORD
         _bitfield : BYTE;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..30] OF BYTE;
     END;
     NVME_DIRECTIVE_STREAMS_GET_STATUS_DATA = RECORD
         OpenStreamCount : WORD;
-        StreamIdentifiers : ADDRESS;
+        StreamIdentifiers : ARRAY [0..65534] OF WORD;
     END;
     NVME_DIRECTIVE_STREAMS_RETURN_PARAMETERS = RECORD
         MSL : WORD;
         NSSA : WORD;
         NSSO : WORD;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..9] OF BYTE;
         SWS : DWORD;
         SGS : WORD;
         NSA : WORD;
         NSO : WORD;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..5] OF BYTE;
     END;
     NVME_DISCOVERY_ENTRY = RECORD
         TRTYPE : BYTE;
@@ -1271,12 +1271,12 @@ TYPE
         CNTLID : WORD;
         ASQSZ : WORD;
         EFLAGS : ADDRESS;
-        Reserved0 : ADDRESS;
-        TRSVCID : ADDRESS;
-        Reserved1 : ADDRESS;
-        NQN : ADDRESS;
-        TRADDR : ADDRESS;
-        TSAS : ADDRESS;
+        Reserved0 : ARRAY [0..19] OF BYTE;
+        TRSVCID : ARRAY [0..31] OF BYTE;
+        Reserved1 : ARRAY [0..191] OF BYTE;
+        NQN : ARRAY [0..255] OF BYTE;
+        TRADDR : ARRAY [0..255] OF BYTE;
+        TSAS : ARRAY [0..259] OF BYTE;
     END;
     NVME_DISCOVERY_HEADER = RECORD
         GENCTR : QWORD;
@@ -1285,7 +1285,7 @@ TYPE
         DLPF : ADDRESS;
         Reserved0 : BYTE;
         TDLPL : DWORD;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..999] OF BYTE;
     END;
     NVME_DISCOVERY_INFO_MGMT_HEADER = RECORD
         TDL : DWORD;
@@ -1296,21 +1296,21 @@ TYPE
         PORTLCL : BYTE;
         Reserved1 : BYTE;
         EKTYPE : ADDRESS;
-        EID : ADDRESS;
-        ENAME : ADDRESS;
-        EVER : ADDRESS;
-        Reserved2 : ADDRESS;
+        EID : ARRAY [0..255] OF BYTE;
+        ENAME : ARRAY [0..255] OF BYTE;
+        EVER : ARRAY [0..63] OF BYTE;
+        Reserved2 : ARRAY [0..423] OF BYTE;
     END;
     NVME_ENDURANCE_GROUP_LOG = RECORD
         Reserved0 : DWORD;
         AvailableSpareThreshold : BYTE;
         PercentageUsed : BYTE;
-        Reserved1 : ADDRESS;
-        EnduranceEstimate : ADDRESS;
-        DataUnitsRead : ADDRESS;
-        DataUnitsWritten : ADDRESS;
-        MediaUnitsWritten : ADDRESS;
-        Reserved2 : ADDRESS;
+        Reserved1 : ARRAY [0..25] OF BYTE;
+        EnduranceEstimate : ARRAY [0..15] OF BYTE;
+        DataUnitsRead : ARRAY [0..15] OF BYTE;
+        DataUnitsWritten : ARRAY [0..15] OF BYTE;
+        MediaUnitsWritten : ARRAY [0..15] OF BYTE;
+        Reserved2 : ARRAY [0..415] OF BYTE;
     END;
     NVME_ERROR_INFO_LOG = RECORD
         ErrorCount : QWORD;
@@ -1322,21 +1322,21 @@ TYPE
         NameSpace : DWORD;
         VendorInfoAvailable : BYTE;
         TRTYPE : BYTE;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..1] OF BYTE;
         CommandSpecificInfo : QWORD;
         TransportTypeSpecificInfo : WORD;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..21] OF BYTE;
     END;
     NVME_ERROR_INJECTION_ENTRY = RECORD
         Flags : ADDRESS;
         Reserved1 : BYTE;
         ErrorInjectionType : WORD;
-        ErrorInjectionTypeSpecific : ADDRESS;
+        ErrorInjectionTypeSpecific : ARRAY [0..27] OF BYTE;
     END;
     NVME_EXTENDED_ATTR = RECORD
         EXATTYPE : WORD;
         EXATLEN : WORD;
-        EXATVAL : ADDRESS;
+        EXATVAL : ARRAY [0..1] OF BYTE;
     END;
     NVME_EXTENDED_DISCOVERY_ENTRY = RECORD
         TRTYPE : BYTE;
@@ -1347,40 +1347,40 @@ TYPE
         CNTLID : WORD;
         ASQSZ : WORD;
         EFLAGS : ADDRESS;
-        Reserved0 : ADDRESS;
-        TRSVCID : ADDRESS;
-        Reserved1 : ADDRESS;
-        NQN : ADDRESS;
-        TRADDR : ADDRESS;
-        TSAS : ADDRESS;
+        Reserved0 : ARRAY [0..19] OF BYTE;
+        TRSVCID : ARRAY [0..31] OF BYTE;
+        Reserved1 : ARRAY [0..191] OF BYTE;
+        NQN : ARRAY [0..255] OF BYTE;
+        TRADDR : ARRAY [0..255] OF BYTE;
+        TSAS : ARRAY [0..255] OF BYTE;
         TEL : DWORD;
         NUMEXAT : WORD;
         Reserved2 : WORD;
     END;
     NVME_EXTENDED_REPORT_ZONE_INFO = RECORD
         ZoneCount : QWORD;
-        Reserved : ADDRESS;
-        Desc : ADDRESS;
+        Reserved : ARRAY [0..6] OF QWORD;
+        Desc : ARRAY [0..159] OF BYTE;
     END;
     NVME_FEATURE_HOST_IDENTIFIER_DATA = RECORD
-        HOSTID : ADDRESS;
+        HOSTID : ARRAY [0..15] OF BYTE;
     END;
     NVME_FEATURE_HOST_METADATA_DATA = RECORD
         NumberOfMetadataElementDescriptors : BYTE;
         Reserved0 : BYTE;
-        MetadataElementDescriptors : ADDRESS;
+        MetadataElementDescriptors : ARRAY [0..4093] OF BYTE;
     END;
     NVME_FEATURE_IDENTIFIERS_EFFECTS_LOG = RECORD
-        FeatureIdentifierSupported : ADDRESS;
+        FeatureIdentifierSupported : ARRAY [0..1023] OF BYTE;
     END;
     NVME_FID_SUPPORTED_AND_EFFECTS = RECORD
         _bitfield : DWORD;
     END;
     NVME_FIRMWARE_SLOT_INFO_LOG = RECORD
         AFI : ADDRESS;
-        Reserved0 : ADDRESS;
-        FRS : ADDRESS;
-        Reserved1 : ADDRESS;
+        Reserved0 : ARRAY [0..6] OF BYTE;
+        FRS : ARRAY [0..6] OF QWORD;
+        Reserved1 : ARRAY [0..447] OF BYTE;
     END;
     NVME_GET_FEATURE_TIMESTAMP = RECORD
         Anonymous : ADDRESS;
@@ -1388,21 +1388,21 @@ TYPE
     END;
     NVME_HEALTH_INFO_LOG = RECORD
         CriticalWarning : ADDRESS;
-        Temperature : ADDRESS;
+        Temperature : ARRAY [0..1] OF BYTE;
         AvailableSpare : BYTE;
         AvailableSpareThreshold : BYTE;
         PercentageUsed : BYTE;
-        Reserved0 : ADDRESS;
-        DataUnitRead : ADDRESS;
-        DataUnitWritten : ADDRESS;
-        HostReadCommands : ADDRESS;
-        HostWrittenCommands : ADDRESS;
-        ControllerBusyTime : ADDRESS;
-        PowerCycle : ADDRESS;
-        PowerOnHours : ADDRESS;
-        UnsafeShutdowns : ADDRESS;
-        MediaErrors : ADDRESS;
-        ErrorInfoLogEntryCount : ADDRESS;
+        Reserved0 : ARRAY [0..25] OF BYTE;
+        DataUnitRead : ARRAY [0..15] OF BYTE;
+        DataUnitWritten : ARRAY [0..15] OF BYTE;
+        HostReadCommands : ARRAY [0..15] OF BYTE;
+        HostWrittenCommands : ARRAY [0..15] OF BYTE;
+        ControllerBusyTime : ARRAY [0..15] OF BYTE;
+        PowerCycle : ARRAY [0..15] OF BYTE;
+        PowerOnHours : ARRAY [0..15] OF BYTE;
+        UnsafeShutdowns : ARRAY [0..15] OF BYTE;
+        MediaErrors : ARRAY [0..15] OF BYTE;
+        ErrorInfoLogEntryCount : ARRAY [0..16] OF BYTE;
         WarningCompositeTemperatureTime : DWORD;
         CriticalCompositeTemperatureTime : DWORD;
         TemperatureSensor1 : WORD;
@@ -1413,13 +1413,13 @@ TYPE
         TemperatureSensor6 : WORD;
         TemperatureSensor7 : WORD;
         TemperatureSensor8 : WORD;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..295] OF BYTE;
     END;
     NVME_HOST_BEHAVIOR_SUPPORT_DATA = RECORD
         ACRE : BYTE;
         ETDAS : BYTE;
         LBAFEE : BYTE;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..508] OF BYTE;
     END;
     NVME_HOST_MEMORY_BUFFER_DESCRIPTOR_ENTRY = RECORD
         BADD : QWORD;
@@ -1428,16 +1428,16 @@ TYPE
     END;
     NVME_HOST_METADATA_ELEMENT_DESCRIPTOR = RECORD
         _bitfield : DWORD;
-        EVAL : ADDRESS;
+        EVAL : ARRAY [0..3] OF BYTE;
     END;
     NVME_IDENTIFY_CONTROLLER_DATA = RECORD
         VID : WORD;
         SSVID : WORD;
-        SN : ADDRESS;
-        MN : ADDRESS;
-        FR : ADDRESS;
+        SN : ARRAY [0..19] OF BYTE;
+        MN : ARRAY [0..39] OF BYTE;
+        FR : ARRAY [0..7] OF BYTE;
         RAB : BYTE;
-        IEEE : ADDRESS;
+        IEEE : ARRAY [0..2] OF BYTE;
         CMIC : ADDRESS;
         MDTS : BYTE;
         CNTLID : WORD;
@@ -1447,14 +1447,14 @@ TYPE
         OAES : ADDRESS;
         CTRATT : ADDRESS;
         RRLS : ADDRESS;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..8] OF BYTE;
         CNTRLTYPE : BYTE;
-        FGUID : ADDRESS;
+        FGUID : ARRAY [0..15] OF BYTE;
         CRDT1 : WORD;
         CRDT2 : WORD;
         CRDT3 : WORD;
-        Reserved1 : ADDRESS;
-        ReservedForManagement : ADDRESS;
+        Reserved1 : ARRAY [0..105] OF BYTE;
+        ReservedForManagement : ARRAY [0..12] OF BYTE;
         NVMSR : BYTE;
         VWCI : BYTE;
         MEC : BYTE;
@@ -1472,8 +1472,8 @@ TYPE
         MTFA : WORD;
         HMPRE : DWORD;
         HMMIN : DWORD;
-        TNVMCAP : ADDRESS;
-        UNVMCAP : ADDRESS;
+        TNVMCAP : ARRAY [0..15] OF BYTE;
+        UNVMCAP : ARRAY [0..15] OF BYTE;
         RPMBS : ADDRESS;
         EDSTT : WORD;
         DSTO : BYTE;
@@ -1493,12 +1493,12 @@ TYPE
         NANAGRPID : DWORD;
         PELS : DWORD;
         DomainId : WORD;
-        Reserved2 : ADDRESS;
-        MEGCAP : ADDRESS;
+        Reserved2 : ARRAY [0..9] OF BYTE;
+        MEGCAP : ARRAY [0..15] OF BYTE;
         TMPTHHA : BYTE;
         Reserved3 : BYTE;
         CQT : WORD;
-        Reserved4 : ADDRESS;
+        Reserved4 : ARRAY [0..123] OF BYTE;
         SQES : ADDRESS;
         CQES : ADDRESS;
         MAXCMD : WORD;
@@ -1515,11 +1515,11 @@ TYPE
         CopyDescFormats : WORD;
         SGLS : ADDRESS;
         MNAN : DWORD;
-        MAXDNA : ADDRESS;
+        MAXDNA : ARRAY [0..15] OF BYTE;
         MAXCNA : DWORD;
-        Reserved6 : ADDRESS;
-        SUBNQN : ADDRESS;
-        Reserved7 : ADDRESS;
+        Reserved6 : ARRAY [0..203] OF BYTE;
+        SUBNQN : ARRAY [0..255] OF BYTE;
+        Reserved7 : ARRAY [0..767] OF BYTE;
         IOCCSZ : DWORD;
         IORCSZ : DWORD;
         ICDOFF : WORD;
@@ -1527,12 +1527,12 @@ TYPE
         MSDBD : BYTE;
         OFCS : ADDRESS;
         DCTYPE : BYTE;
-        Reserved8 : ADDRESS;
-        PDS : ADDRESS;
-        VS : ADDRESS;
+        Reserved8 : ARRAY [0..240] OF BYTE;
+        PDS : ARRAY [0..1023] OF BYTE;
+        VS : ARRAY [0..1023] OF BYTE;
     END;
     NVME_IDENTIFY_IO_COMMAND_SET = RECORD
-        IOCommandSetVector : ADDRESS;
+        IOCommandSetVector : ARRAY [0..4095] OF BYTE;
     END;
     NVME_IDENTIFY_NAMESPACE_DATA = RECORD
         NSZE : QWORD;
@@ -1555,7 +1555,7 @@ TYPE
         NABO : WORD;
         NABSPF : WORD;
         NOIOB : WORD;
-        NVMCAP : ADDRESS;
+        NVMCAP : ARRAY [0..15] OF BYTE;
         NPWG : WORD;
         NPWA : WORD;
         NPDG : WORD;
@@ -1564,22 +1564,22 @@ TYPE
         MSSRL : WORD;
         MCL : DWORD;
         MSRC : BYTE;
-        Reserved2 : ADDRESS;
+        Reserved2 : ARRAY [0..10] OF BYTE;
         ANAGRPID : DWORD;
-        Reserved3 : ADDRESS;
+        Reserved3 : ARRAY [0..2] OF BYTE;
         NSATTR : ADDRESS;
         NVMSETID : WORD;
         ENDGID : WORD;
-        NGUID : ADDRESS;
-        EUI64 : ADDRESS;
-        LBAF : ADDRESS;
-        VS : ADDRESS;
+        NGUID : ARRAY [0..15] OF BYTE;
+        EUI64 : ARRAY [0..7] OF BYTE;
+        LBAF : ARRAY [0..2047] OF BYTE;
+        VS : ARRAY [0..3711] OF BYTE;
     END;
     NVME_IDENTIFY_NAMESPACE_DESCRIPTOR = RECORD
         NIDT : BYTE;
         NIDL : BYTE;
-        Reserved : ADDRESS;
-        NID : ADDRESS;
+        Reserved : ARRAY [0..1] OF BYTE;
+        NID : ARRAY [0..0] OF BYTE;
     END;
     NVME_IDENTIFY_NVM_SPECIFIC_CONTROLLER_IO_COMMAND_SET = RECORD
         VSL : BYTE;
@@ -1588,7 +1588,7 @@ TYPE
         DMRL : BYTE;
         DMRSL : DWORD;
         DMSL : QWORD;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..4079] OF BYTE;
     END;
     NVME_IDENTIFY_SPECIFIC_NAMESPACE_IO_COMMAND_SET = RECORD
         ZOC : ADDRESS;
@@ -1597,14 +1597,14 @@ TYPE
         MOR : DWORD;
         RRL : DWORD;
         FRL : DWORD;
-        Reserved0 : ADDRESS;
-        LBAEF : ADDRESS;
-        Reserved1 : ADDRESS;
-        VS : ADDRESS;
+        Reserved0 : ARRAY [0..2795] OF BYTE;
+        LBAEF : ARRAY [0..255] OF BYTE;
+        Reserved1 : ARRAY [0..767] OF BYTE;
+        VS : ARRAY [0..255] OF BYTE;
     END;
     NVME_IDENTIFY_ZNS_SPECIFIC_CONTROLLER_IO_COMMAND_SET = RECORD
         ZASL : BYTE;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..4094] OF BYTE;
     END;
     NVME_LATENCY_MONITORING_ENTRY = RECORD
         ActiveBucketTimerThreshold : WORD;
@@ -1617,7 +1617,7 @@ TYPE
         DebugLogTriggerEnable : WORD;
         DiscardDebugLog : BYTE;
         LatencyMonitorFeatureEnable : BYTE;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..4083] OF BYTE;
     END;
     NVME_LBA_FORMAT;
     NVME_LBA_RANGE = RECORD
@@ -1628,16 +1628,16 @@ TYPE
     NVME_LBA_RANGET_TYPE_ENTRY = RECORD
         Type_ : BYTE;
         Attributes : ADDRESS;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..15] OF BYTE;
         SLBA : QWORD;
         NLB : QWORD;
-        GUID : ADDRESS;
-        Reserved1 : ADDRESS;
+        GUID : ARRAY [0..15] OF BYTE;
+        Reserved1 : ARRAY [0..15] OF BYTE;
     END;
     NVME_LBA_ZONE_FORMAT = RECORD
         ZoneSize : QWORD;
         ZDES : BYTE;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..6] OF BYTE;
     END;
     NVME_LID_SPECIFIC_PERSISTENT_EVENT_LOG = RECORD
         _bitfield : WORD;
@@ -1649,8 +1649,8 @@ TYPE
         _bitfield : DWORD;
     END;
     NVME_NVME_MI_COMMANDS_SUPPORTED_AND_EFFECTS_LOG = RECORD
-        ManagementInterfaceCommandSupported : ADDRESS;
-        Reserved : ADDRESS;
+        ManagementInterfaceCommandSupported : ARRAY [0..1023] OF BYTE;
+        Reserved : ARRAY [0..3071] OF BYTE;
     END;
     NVME_NVM_SUBSYSTEM_RESET = RECORD
         NSSRC : DWORD;
@@ -1668,8 +1668,8 @@ TYPE
         FusedCommand : ADDRESS;
         MinimumValidDSSDPowerState : WORD;
         Reserved0 : BYTE;
-        DssdDescriptors : ADDRESS;
-        Reserved1 : ADDRESS;
+        DssdDescriptors : ARRAY [0..126] OF BYTE;
+        Reserved1 : ARRAY [0..3933] OF BYTE;
         LogPageVersionNumber : WORD;
         LogPageGUID : GUID;
     END;
@@ -1680,22 +1680,22 @@ TYPE
         PanicId : QWORD;
         DeviceCapabilitiesA : NVME_WCS_DEVICE_CAPABILITIES;
         VendorSpecificRecoveryCode : BYTE;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..2] OF BYTE;
         VendorSpecificCommandCDW12 : DWORD;
         VendorSpecificCommandCDW13 : DWORD;
         VendorSpecificCommandTimeout : BYTE;
         DeviceRecoveryAction2 : BYTE;
         DeviceRecoveryAction2Timeout : BYTE;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..462] OF BYTE;
         LogPageVersionNumber : WORD;
         LogPageGUID : GUID;
     END;
     NVME_OCP_DEVICE_FIRMWARE_ACTIVATION_HISTORY_LOG = RECORD
         LID : BYTE;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..2] OF BYTE;
         ValidNumberOfEntries : DWORD;
-        Entries : ADDRESS;
-        Reserved1 : ADDRESS;
+        Entries : ARRAY [0..1439] OF BYTE;
+        Reserved1 : ARRAY [0..2789] OF BYTE;
         LogPageVersionNumber : WORD;
         LogPageGUID : GUID;
     END;
@@ -1710,7 +1710,7 @@ TYPE
         ActiveThresholdD : BYTE;
         ActiveLatencyConfig : ACTIVE_LATENCY_CONFIGURATION;
         ActiveLatencyMinimumWindow : BYTE;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..18] OF BYTE;
         ActiveBucketCounter0 : BUCKET_COUNTER;
         ActiveBucketCounter1 : BUCKET_COUNTER;
         ActiveBucketCounter2 : BUCKET_COUNTER;
@@ -1718,7 +1718,7 @@ TYPE
         ActiveLatencyStamp : LATENCY_STAMP;
         ActiveMeasuredLatency : MEASURED_LATENCY;
         ActiveLatencyStampUnits : LATENCY_STAMP_UNITS;
-        Reserved2 : ADDRESS;
+        Reserved2 : ARRAY [0..21] OF BYTE;
         StaticBucketCounter0 : BUCKET_COUNTER;
         StaticBucketCounter1 : BUCKET_COUNTER;
         StaticBucketCounter2 : BUCKET_COUNTER;
@@ -1726,20 +1726,20 @@ TYPE
         StaticLatencyStamp : LATENCY_STAMP;
         StaticMeasuredLatency : MEASURED_LATENCY;
         StaticLatencyStampUnits : LATENCY_STAMP_UNITS;
-        Reserved3 : ADDRESS;
+        Reserved3 : ARRAY [0..21] OF BYTE;
         DebugLogTriggerEnable : DEBUG_BIT_FIELD;
         DebugLogMeasuredLatency : WORD;
         DebugLogLatencyStamp : QWORD;
         DebugLogPointer : WORD;
         DebugCounterTriggerSource : DEBUG_BIT_FIELD;
         DebugLogStampUnits : ADDRESS;
-        Reserved4 : ADDRESS;
+        Reserved4 : ARRAY [0..29] OF BYTE;
         LogPageVersionNumber : WORD;
         LogPageGUID : GUID;
     END;
     NVME_OCP_DEVICE_SMART_INFORMATION_LOG_V3 = RECORD
-        MediaUnitsWritten : ADDRESS;
-        MediaUnitsRead : ADDRESS;
+        MediaUnitsWritten : ARRAY [0..15] OF BYTE;
+        MediaUnitsRead : ARRAY [0..15] OF BYTE;
         BadUserNANDBlockCount : ADDRESS;
         BadSystemNANDBlockCount : ADDRESS;
         XORRecoveryCount : QWORD;
@@ -1747,7 +1747,7 @@ TYPE
         SoftECCErrorCount : QWORD;
         EndToEndCorrectionCounts : ADDRESS;
         PercentageSystemDataUsed : BYTE;
-        RefreshCount : ADDRESS;
+        RefreshCount : ARRAY [0..6] OF BYTE;
         UserDataEraseCounts : ADDRESS;
         ThermalThrottling : ADDRESS;
         DSSDSpecVersion : ADDRESS;
@@ -1755,24 +1755,24 @@ TYPE
         IncompleteShutdownCount : DWORD;
         Reserved1 : DWORD;
         PercentageFreeBlocks : BYTE;
-        Reserved2 : ADDRESS;
+        Reserved2 : ARRAY [0..6] OF BYTE;
         CapacitorHealth : WORD;
         NvmeErrata : BYTE;
-        Reserved3 : ADDRESS;
+        Reserved3 : ARRAY [0..4] OF BYTE;
         UnalignedIOCount : QWORD;
         SecurityVersionNumber : QWORD;
         NUSE : QWORD;
-        PLPStartCount : ADDRESS;
-        EnduranceEstimate : ADDRESS;
+        PLPStartCount : ARRAY [0..15] OF BYTE;
+        EnduranceEstimate : ARRAY [0..15] OF BYTE;
         PCIeLinkRetrainingCount : QWORD;
         PowerStateChangeCount : QWORD;
-        Reserved4 : ADDRESS;
+        Reserved4 : ARRAY [0..285] OF BYTE;
         LogPageVersionNumber : WORD;
         LogPageGUID : GUID;
     END;
     NVME_OCP_DEVICE_TCG_CONFIGURATION_LOG = RECORD
         State : ADDRESS;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..2] OF BYTE;
         LSPActivationCount : BYTE;
         TPRevertCount : BYTE;
         LSPRevertCount : BYTE;
@@ -1789,24 +1789,24 @@ TYPE
         SIDAuthTryLimit : DWORD;
         ResetCount : DWORD;
         ResetLockCount : DWORD;
-        Reserved2 : ADDRESS;
+        Reserved2 : ARRAY [0..461] OF BYTE;
         LogPageVersionNumber : WORD;
         LogPageGUID : GUID;
     END;
     NVME_OCP_DEVICE_TCG_HISTORY_LOG = RECORD
         LID : BYTE;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..2] OF BYTE;
         HistoryEntryCount : DWORD;
-        HistoryEntries : ADDRESS;
-        Reserved1 : ADDRESS;
+        HistoryEntries : ARRAY [0..4031] OF BYTE;
+        Reserved1 : ARRAY [0..37] OF BYTE;
         LogPageVersionNumber : WORD;
         LogPageGUID : GUID;
     END;
     NVME_OCP_DEVICE_UNSUPPORTED_REQUIREMENTS_LOG = RECORD
         UnsupportedCount : WORD;
-        Reserved0 : ADDRESS;
-        UnsupportedReqList : ADDRESS;
-        Reserved1 : ADDRESS;
+        Reserved0 : ARRAY [0..13] OF BYTE;
+        UnsupportedReqList : ARRAY [0..4047] OF BYTE;
+        Reserved1 : ARRAY [0..13] OF BYTE;
         LogPageVersionNumber : WORD;
         LogPageGUID : GUID;
     END;
@@ -1817,28 +1817,28 @@ TYPE
         Reserved0 : BYTE;
         ControllerIdentifier : WORD;
         EventTimestamp : QWORD;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..5] OF BYTE;
         VendorSpecificInformationLength : WORD;
         EventLength : WORD;
     END;
     NVME_PERSISTENT_EVENT_LOG_HEADER = RECORD
         LogIdentifier : BYTE;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..2] OF BYTE;
         TotalNumberOfEvents : DWORD;
         TotalLogLength : QWORD;
         LogRevision : BYTE;
         Reserved1 : BYTE;
         LogHeaderLength : WORD;
         Timestamp : QWORD;
-        PowerOnHours : ADDRESS;
+        PowerOnHours : ARRAY [0..15] OF BYTE;
         PowerCycleCount : QWORD;
         PciVendorId : WORD;
         PciSubsystemVendorId : WORD;
-        SerialNumber : ADDRESS;
-        ModelNumber : ADDRESS;
-        NVMSubsystemNVMeQualifiedName : ADDRESS;
-        Reserved : ADDRESS;
-        SupportedEventsBitmap : ADDRESS;
+        SerialNumber : ARRAY [0..19] OF BYTE;
+        ModelNumber : ARRAY [0..39] OF BYTE;
+        NVMSubsystemNVMeQualifiedName : ARRAY [0..255] OF BYTE;
+        Reserved : ARRAY [0..107] OF BYTE;
+        SupportedEventsBitmap : ARRAY [0..35] OF BYTE;
     END;
     NVME_POWER_STATE_DESC = RECORD
         MP : WORD;
@@ -1855,28 +1855,28 @@ TYPE
         Reserved7 : BYTE;
         ACTP : WORD;
         _bitfield7 : BYTE;
-        Reserved9 : ADDRESS;
+        Reserved9 : ARRAY [0..8] OF BYTE;
     END;
     NVME_PRP_ENTRY;
     NVME_REGISTERED_CONTROLLER_DATA = RECORD
         CNTLID : WORD;
         RCSTS : ADDRESS;
-        Reserved : ADDRESS;
-        HOSTID : ADDRESS;
+        Reserved : ARRAY [0..4] OF BYTE;
+        HOSTID : ARRAY [0..7] OF BYTE;
         RKEY : QWORD;
     END;
     NVME_REGISTERED_CONTROLLER_EXTENDED_DATA = RECORD
         CNTLID : WORD;
         RCSTS : ADDRESS;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..4] OF BYTE;
         RKEY : QWORD;
-        HOSTID : ADDRESS;
-        Reserved1 : ADDRESS;
+        HOSTID : ARRAY [0..15] OF BYTE;
+        Reserved1 : ARRAY [0..31] OF BYTE;
     END;
     NVME_REPORT_ZONE_INFO = RECORD
         ZoneCount : QWORD;
-        Reserved : ADDRESS;
-        ZoneDescriptor : ADDRESS;
+        Reserved : ARRAY [0..6] OF QWORD;
+        ZoneDescriptor : ARRAY [0..95] OF BYTE;
     END;
     NVME_RESERVATION_ACQUIRE_DATA_STRUCTURE = RECORD
         CRKEY : QWORD;
@@ -1886,9 +1886,9 @@ TYPE
         LogPageCount : QWORD;
         LogPageType : BYTE;
         AvailableLogPageCount : BYTE;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..1] OF BYTE;
         NameSpaceId : DWORD;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..47] OF BYTE;
     END;
     NVME_RESERVATION_REGISTER_DATA_STRUCTURE = RECORD
         CRKEY : QWORD;
@@ -1899,20 +1899,20 @@ TYPE
     END;
     NVME_RESERVATION_REPORT_STATUS_DATA_STRUCTURE = RECORD
         Header : NVME_RESERVATION_REPORT_STATUS_HEADER;
-        RegisteredControllersData : ADDRESS;
+        RegisteredControllersData : ARRAY [0..23] OF BYTE;
     END;
     NVME_RESERVATION_REPORT_STATUS_EXTENDED_DATA_STRUCTURE = RECORD
         Header : NVME_RESERVATION_REPORT_STATUS_HEADER;
-        Reserved1 : ADDRESS;
-        RegisteredControllersExtendedData : ADDRESS;
+        Reserved1 : ARRAY [0..43] OF BYTE;
+        RegisteredControllersExtendedData : ARRAY [0..63] OF BYTE;
     END;
     NVME_RESERVATION_REPORT_STATUS_HEADER = RECORD
         GEN : DWORD;
         RTYPE : BYTE;
         REGCTL : WORD;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..1] OF BYTE;
         PTPLS : BYTE;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..16] OF BYTE;
     END;
     NVME_SANITIZE_STATUS = RECORD
         _bitfield : WORD;
@@ -1927,13 +1927,13 @@ TYPE
         EstimatedTimeForOverwriteWithNoDeallocateMediaModification : DWORD;
         EstimatedTimeForBlockEraseWithNoDeallocateMediaModification : DWORD;
         EstimatedTimeForCryptoEraseWithNoDeallocateMediaModification : DWORD;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..479] OF BYTE;
     END;
     NVME_SCSI_NAME_STRING = RECORD
-        PCIVendorID : ADDRESS;
-        ModelNumber : ADDRESS;
-        NamespaceID : ADDRESS;
-        SerialNumber : ADDRESS;
+        PCIVendorID : ARRAY [0..3] OF BYTE;
+        ModelNumber : ARRAY [0..39] OF BYTE;
+        NamespaceID : ARRAY [0..3] OF BYTE;
+        SerialNumber : ARRAY [0..19] OF BYTE;
     END;
     NVME_SET_ATTRIBUTES_ENTRY = RECORD
         Identifier : WORD;
@@ -1941,90 +1941,90 @@ TYPE
         Reserved1 : DWORD;
         Random4KBReadTypical : DWORD;
         OptimalWriteSize : DWORD;
-        TotalCapacity : ADDRESS;
-        UnallocatedCapacity : ADDRESS;
-        Reserved2 : ADDRESS;
+        TotalCapacity : ARRAY [0..15] OF BYTE;
+        UnallocatedCapacity : ARRAY [0..15] OF BYTE;
+        Reserved2 : ARRAY [0..79] OF BYTE;
     END;
     NVME_SGL_BITBUCKET_DESC = RECORD
         Reserved0 : QWORD;
         Length : DWORD;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..3] OF BYTE;
         Identifier : ADDRESS;
     END;
     NVME_SGL_DATABLOCK_DESC = RECORD
         Address : QWORD;
         Length : DWORD;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..3] OF BYTE;
         Identifier : ADDRESS;
     END;
     NVME_SGL_DESC = RECORD
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..15] OF BYTE;
         Identifier : ADDRESS;
     END;
     NVME_SGL_KEYDATABLOCK_DESC = RECORD
         Address : QWORD;
-        Length : ADDRESS;
-        Key : ADDRESS;
+        Length : ARRAY [0..2] OF BYTE;
+        Key : ARRAY [0..4] OF BYTE;
         Identifier : ADDRESS;
     END;
     NVME_SGL_LASTSEG_DESC = RECORD
         Address : QWORD;
         Length : DWORD;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..3] OF BYTE;
         Identifier : ADDRESS;
     END;
     NVME_SGL_SEGMENT_DESC = RECORD
         Address : QWORD;
         Length : DWORD;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..3] OF BYTE;
         Identifier : ADDRESS;
     END;
     NVME_SGL_TRANSPORTDATA_DESC = RECORD
         Reserved0 : QWORD;
         Length : DWORD;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..3] OF BYTE;
         Identifier : ADDRESS;
     END;
     NVME_SUBMISSION_QUEUE_TAIL_DOORBELL;
     NVME_SUPPORTED_LOG_PAGES_LOG = RECORD
-        LogPageIdentifierSupported : ADDRESS;
+        LogPageIdentifierSupported : ARRAY [0..1023] OF BYTE;
     END;
     NVME_TELEMETRY_CONTROLLER_INITIATED_LOG = RECORD
         LogIdentifier : BYTE;
-        Reserved0 : ADDRESS;
-        OrganizationID : ADDRESS;
+        Reserved0 : ARRAY [0..3] OF BYTE;
+        OrganizationID : ARRAY [0..2] OF BYTE;
         Area1LastBlock : WORD;
         Area2LastBlock : WORD;
         Area3LastBlock : WORD;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..1] OF BYTE;
         Area4LastBlock : DWORD;
-        Reserved2 : ADDRESS;
+        Reserved2 : ARRAY [0..361] OF BYTE;
         ControllerInitiatedDataAvailable : BYTE;
         ControllerInitiatedDataGenerationNumber : BYTE;
-        ReasonIdentifier : ADDRESS;
+        ReasonIdentifier : ARRAY [0..127] OF BYTE;
     END;
     NVME_TELEMETRY_HOST_INITIATED_LOG = RECORD
         LogIdentifier : BYTE;
-        Reserved0 : ADDRESS;
-        OrganizationID : ADDRESS;
+        Reserved0 : ARRAY [0..3] OF BYTE;
+        OrganizationID : ARRAY [0..2] OF BYTE;
         Area1LastBlock : WORD;
         Area2LastBlock : WORD;
         Area3LastBlock : WORD;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..1] OF BYTE;
         Area4LastBlock : DWORD;
-        Reserved2 : ADDRESS;
+        Reserved2 : ARRAY [0..360] OF BYTE;
         HostInitiatedDataGenerationNumber : BYTE;
         ControllerInitiatedDataAvailable : BYTE;
         ControllerInitiatedDataGenerationNumber : BYTE;
-        ReasonIdentifier : ADDRESS;
+        ReasonIdentifier : ARRAY [0..127] OF BYTE;
     END;
     NVME_UUID_LIST = RECORD
-        UUID : ADDRESS;
+        UUID : ARRAY [0..4095] OF BYTE;
     END;
     NVME_UUID_LIST_ENTRY = RECORD
         _bitfield : BYTE;
-        Reserved1 : ADDRESS;
-        UUID : ADDRESS;
+        Reserved1 : ARRAY [0..14] OF BYTE;
+        UUID : ARRAY [0..15] OF BYTE;
     END;
     NVME_VERSION;
     NVME_WCS_DEVICE_CAPABILITIES = RECORD
@@ -2037,10 +2037,10 @@ TYPE
         PanicId : QWORD;
         DeviceCapabilitiesA : NVME_WCS_DEVICE_CAPABILITIES;
         VendorSpecificRecoveryCode : BYTE;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..2] OF BYTE;
         VendorSpecificCommandCDW12 : DWORD;
         VendorSpecificCommandCDW13 : DWORD;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..465] OF BYTE;
         LogPageVersionNumber : WORD;
         LogPageGUID : GUID;
     END;
@@ -2048,13 +2048,13 @@ TYPE
         Anonymous : ADDRESS;
     END;
     NVME_WCS_DEVICE_SMART_ATTRIBUTES_LOG = RECORD
-        VersionSpecificData : ADDRESS;
+        VersionSpecificData : ARRAY [0..493] OF BYTE;
         LogPageVersionNumber : WORD;
         LogPageGUID : GUID;
     END;
     NVME_WCS_DEVICE_SMART_ATTRIBUTES_LOG_V2 = RECORD
-        MediaUnitsWritten : ADDRESS;
-        MediaUnitsRead : ADDRESS;
+        MediaUnitsWritten : ARRAY [0..15] OF BYTE;
+        MediaUnitsRead : ARRAY [0..15] OF BYTE;
         BadUserNANDBlockCount : ADDRESS;
         BadSystemNANDBlockCount : ADDRESS;
         XORRecoveryCount : QWORD;
@@ -2062,23 +2062,23 @@ TYPE
         SoftECCErrorCount : QWORD;
         EndToEndCorrectionCounts : ADDRESS;
         PercentageSystemDataUsed : BYTE;
-        RefreshCount : ADDRESS;
+        RefreshCount : ARRAY [0..6] OF BYTE;
         UserDataEraseCounts : ADDRESS;
         ThermalThrottling : ADDRESS;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..5] OF BYTE;
         PCIeCorrectableErrorCount : QWORD;
         IncompleteShutdownCount : DWORD;
         Reserved1 : DWORD;
         PercentageFreeBlocks : BYTE;
-        Reserved2 : ADDRESS;
+        Reserved2 : ARRAY [0..6] OF BYTE;
         CapacitorHealth : WORD;
-        Reserved3 : ADDRESS;
+        Reserved3 : ARRAY [0..5] OF BYTE;
         UnalignedIOCount : QWORD;
         SecurityVersionNumber : QWORD;
         NUSE : QWORD;
-        PLPStartCount : ADDRESS;
-        EnduranceEstimate : ADDRESS;
-        Reserved4 : ADDRESS;
+        PLPStartCount : ARRAY [0..15] OF BYTE;
+        EnduranceEstimate : ARRAY [0..15] OF BYTE;
+        Reserved4 : ARRAY [0..301] OF BYTE;
         LogPageVersionNumber : WORD;
         LogPageGUID : GUID;
     END;
@@ -2086,24 +2086,24 @@ TYPE
         Anonymous1 : ADDRESS;
         Anonymous2 : ADDRESS;
         ZA : ADDRESS;
-        Reserved3 : ADDRESS;
+        Reserved3 : ARRAY [0..6] OF BYTE;
         ZCAP : QWORD;
         ZSLBA : QWORD;
         WritePointer : QWORD;
-        Reserved4 : ADDRESS;
+        Reserved4 : ARRAY [0..31] OF BYTE;
     END;
     NVME_ZONE_DESCRIPTOR_EXTENSION = RECORD
-        ZoneDescriptorExtensionInfo : ADDRESS;
+        ZoneDescriptorExtensionInfo : ARRAY [0..63] OF BYTE;
     END;
     NVME_ZONE_EXTENDED_REPORT_ZONE_DESC = RECORD
         ZoneDescriptor : NVME_ZONE_DESCRIPTOR;
-        ZoneDescriptorExtension : ADDRESS;
+        ZoneDescriptorExtension : ARRAY [0..63] OF BYTE;
     END;
     NVM_RESERVATION_CAPABILITIES;
     NVM_SET_LIST = RECORD
         IdentifierCount : BYTE;
-        Reserved : ADDRESS;
-        Entry : ADDRESS;
+        Reserved : ARRAY [0..126] OF BYTE;
+        Entry : ARRAY [0..127] OF BYTE;
     END;
     TCG_ACTIVATE_METHOD_SPECIFIC = RECORD
         RangeStartLengthPolicy : BYTE;
@@ -2130,13 +2130,13 @@ TYPE
         ProtocolId : BYTE;
         TcgStatus : BYTE;
         ProcessTime : WORD;
-        CommandSpecific : ADDRESS;
+        CommandSpecific : ARRAY [0..9] OF BYTE;
     END;
     TCG_REACTIVATE_METHOD_SPECIFIC = RECORD
         RangeStartLengthPolicy : BYTE;
     END;
     UNSUPPORTED_REQUIREMENT = RECORD
-        ReqId : ADDRESS;
+        ReqId : ARRAY [0..15] OF BYTE;
     END;
 
 (* types-out summary: 253 types emitted; 741 consts emitted *)

@@ -232,8 +232,8 @@ TYPE
         TimeOutValue : DWORD;
         ReservedAsUlong : DWORD;
         DataBuffer : ADDRESS;
-        PreviousTaskFile : ADDRESS;
-        CurrentTaskFile : ADDRESS;
+        PreviousTaskFile : ARRAY [0..7] OF BYTE;
+        CurrentTaskFile : ARRAY [0..7] OF BYTE;
     END;
     ATA_PASS_THROUGH_DIRECT32 = RECORD
         Length : WORD;
@@ -246,8 +246,8 @@ TYPE
         TimeOutValue : DWORD;
         ReservedAsUlong : DWORD;
         DataBuffer : ADDRESS;
-        PreviousTaskFile : ADDRESS;
-        CurrentTaskFile : ADDRESS;
+        PreviousTaskFile : ARRAY [0..7] OF BYTE;
+        CurrentTaskFile : ARRAY [0..7] OF BYTE;
     END;
     ATA_PASS_THROUGH_EX = RECORD
         Length : WORD;
@@ -260,8 +260,8 @@ TYPE
         TimeOutValue : DWORD;
         ReservedAsUlong : DWORD;
         DataBufferOffset : ADRCARD;
-        PreviousTaskFile : ADDRESS;
-        CurrentTaskFile : ADDRESS;
+        PreviousTaskFile : ARRAY [0..7] OF BYTE;
+        CurrentTaskFile : ARRAY [0..7] OF BYTE;
     END;
     ATA_PASS_THROUGH_EX32 = RECORD
         Length : WORD;
@@ -274,27 +274,27 @@ TYPE
         TimeOutValue : DWORD;
         ReservedAsUlong : DWORD;
         DataBufferOffset : DWORD;
-        PreviousTaskFile : ADDRESS;
-        CurrentTaskFile : ADDRESS;
+        PreviousTaskFile : ARRAY [0..7] OF BYTE;
+        CurrentTaskFile : ARRAY [0..7] OF BYTE;
     END;
     DSM_NOTIFICATION_REQUEST_BLOCK = RECORD
         Size : DWORD;
         Version : DWORD;
         NotifyFlags : DWORD;
         DataSetProfile : DWORD;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..2] OF DWORD;
         DataSetRangesCount : DWORD;
-        DataSetRanges : ADDRESS;
+        DataSetRanges : ARRAY [0..15] OF BYTE;
     END;
     DUMP_DRIVER = RECORD
         DumpDriverList : ADDRESS;
-        DriverName : ADDRESS;
-        BaseName : ADDRESS;
+        DriverName : ARRAY [0..14] OF CHAR;
+        BaseName : ARRAY [0..16] OF CHAR;
     END;
     DUMP_DRIVER_EX = RECORD
         DumpDriverList : ADDRESS;
-        DriverName : ADDRESS;
-        BaseName : ADDRESS;
+        DriverName : ARRAY [0..14] OF CHAR;
+        BaseName : ARRAY [0..16] OF CHAR;
         DriverFullPath : NTSCSI_UNICODE_STRING;
     END;
     DUMP_POINTERS = RECORD
@@ -306,7 +306,7 @@ TYPE
         CommonBufferSize : DWORD;
         AllocateCommonBuffers : BOOLEAN;
         UseDiskDump : BOOLEAN;
-        Spare1 : ADDRESS;
+        Spare1 : ARRAY [0..1] OF BYTE;
         DeviceObject : ADDRESS;
     END;
     DUMP_POINTERS_EX = RECORD
@@ -376,7 +376,7 @@ TYPE
     END;
     IDE_IO_CONTROL = RECORD
         HeaderLength : DWORD;
-        Signature : ADDRESS;
+        Signature : ARRAY [0..7] OF BYTE;
         Timeout : DWORD;
         ControlCode : DWORD;
         ReturnStatus : DWORD;
@@ -410,7 +410,7 @@ TYPE
         TargetAddress : PSTR;
         InitiatorSocket : WORD;
         TargetSocket : WORD;
-        CID : ADDRESS;
+        CID : ARRAY [0..3] OF BYTE;
     END;
     ISCSI_CONNECTION_INFOW = RECORD
         ConnectionId : ISCSI_UNIQUE_SESSION_ID;
@@ -418,7 +418,7 @@ TYPE
         TargetAddress : PWSTR;
         InitiatorSocket : WORD;
         TargetSocket : WORD;
-        CID : ADDRESS;
+        CID : ARRAY [0..3] OF BYTE;
     END;
     ISCSI_CONNECTION_INFO_EX = RECORD
         ConnectionId : ISCSI_UNIQUE_SESSION_ID;
@@ -432,22 +432,22 @@ TYPE
         MaxDatagramSize : DWORD;
     END;
     ISCSI_DEVICE_ON_SESSIONA = RECORD
-        InitiatorName : ADDRESS;
-        TargetName : ADDRESS;
+        InitiatorName : ARRAY [0..255] OF BYTE;
+        TargetName : ARRAY [0..223] OF BYTE;
         ScsiAddress : SCSI_ADDRESS;
         DeviceInterfaceType : GUID;
-        DeviceInterfaceName : ADDRESS;
-        LegacyName : ADDRESS;
+        DeviceInterfaceName : ARRAY [0..259] OF BYTE;
+        LegacyName : ARRAY [0..259] OF BYTE;
         StorageDeviceNumber : System_Ioctl.STORAGE_DEVICE_NUMBER;
         DeviceInstance : DWORD;
     END;
     ISCSI_DEVICE_ON_SESSIONW = RECORD
-        InitiatorName : ADDRESS;
-        TargetName : ADDRESS;
+        InitiatorName : ARRAY [0..255] OF CHAR;
+        TargetName : ARRAY [0..223] OF CHAR;
         ScsiAddress : SCSI_ADDRESS;
         DeviceInterfaceType : GUID;
-        DeviceInterfaceName : ADDRESS;
-        LegacyName : ADDRESS;
+        DeviceInterfaceName : ARRAY [0..259] OF CHAR;
+        LegacyName : ARRAY [0..259] OF CHAR;
         StorageDeviceNumber : System_Ioctl.STORAGE_DEVICE_NUMBER;
         DeviceInstance : DWORD;
     END;
@@ -471,8 +471,8 @@ TYPE
         InitiatorName : PSTR;
         TargetNodeName : PSTR;
         TargetName : PSTR;
-        ISID : ADDRESS;
-        TSID : ADDRESS;
+        ISID : ARRAY [0..5] OF BYTE;
+        TSID : ARRAY [0..1] OF BYTE;
         ConnectionCount : DWORD;
         Connections : POINTER TO ISCSI_CONNECTION_INFOA;
     END;
@@ -481,8 +481,8 @@ TYPE
         InitiatorName : PWSTR;
         TargetNodeName : PWSTR;
         TargetName : PWSTR;
-        ISID : ADDRESS;
-        TSID : ADDRESS;
+        ISID : ARRAY [0..5] OF BYTE;
+        TSID : ARRAY [0..1] OF BYTE;
         ConnectionCount : DWORD;
         Connections : POINTER TO ISCSI_CONNECTION_INFOW;
     END;
@@ -502,9 +502,9 @@ TYPE
         Connections : POINTER TO ISCSI_CONNECTION_INFO_EX;
     END;
     ISCSI_TARGET_MAPPINGA = RECORD
-        InitiatorName : ADDRESS;
-        TargetName : ADDRESS;
-        OSDeviceName : ADDRESS;
+        InitiatorName : ARRAY [0..255] OF BYTE;
+        TargetName : ARRAY [0..223] OF BYTE;
+        OSDeviceName : ARRAY [0..263] OF BYTE;
         SessionId : ISCSI_UNIQUE_SESSION_ID;
         OSBusNumber : DWORD;
         OSTargetNumber : DWORD;
@@ -512,9 +512,9 @@ TYPE
         LUNList : POINTER TO SCSI_LUN_LIST;
     END;
     ISCSI_TARGET_MAPPINGW = RECORD
-        InitiatorName : ADDRESS;
-        TargetName : ADDRESS;
-        OSDeviceName : ADDRESS;
+        InitiatorName : ARRAY [0..255] OF CHAR;
+        TargetName : ARRAY [0..223] OF CHAR;
+        OSDeviceName : ARRAY [0..259] OF CHAR;
         SessionId : ISCSI_UNIQUE_SESSION_ID;
         OSBusNumber : DWORD;
         OSTargetNumber : DWORD;
@@ -522,51 +522,51 @@ TYPE
         LUNList : POINTER TO SCSI_LUN_LIST;
     END;
     ISCSI_TARGET_PORTALA = RECORD
-        SymbolicName : ADDRESS;
-        Address : ADDRESS;
+        SymbolicName : ARRAY [0..255] OF BYTE;
+        Address : ARRAY [0..255] OF BYTE;
         Socket : WORD;
     END;
     ISCSI_TARGET_PORTALW = RECORD
-        SymbolicName : ADDRESS;
-        Address : ADDRESS;
+        SymbolicName : ARRAY [0..255] OF CHAR;
+        Address : ARRAY [0..255] OF CHAR;
         Socket : WORD;
     END;
     ISCSI_TARGET_PORTAL_GROUPA = RECORD
         Count : DWORD;
-        Portals : ADDRESS;
+        Portals : ARRAY [0..515] OF BYTE;
     END;
     ISCSI_TARGET_PORTAL_GROUPW = RECORD
         Count : DWORD;
-        Portals : ADDRESS;
+        Portals : ARRAY [0..1027] OF BYTE;
     END;
     ISCSI_TARGET_PORTAL_INFOA = RECORD
-        InitiatorName : ADDRESS;
+        InitiatorName : ARRAY [0..255] OF BYTE;
         InitiatorPortNumber : DWORD;
-        SymbolicName : ADDRESS;
-        Address : ADDRESS;
+        SymbolicName : ARRAY [0..255] OF BYTE;
+        Address : ARRAY [0..255] OF BYTE;
         Socket : WORD;
     END;
     ISCSI_TARGET_PORTAL_INFOW = RECORD
-        InitiatorName : ADDRESS;
+        InitiatorName : ARRAY [0..255] OF CHAR;
         InitiatorPortNumber : DWORD;
-        SymbolicName : ADDRESS;
-        Address : ADDRESS;
+        SymbolicName : ARRAY [0..255] OF CHAR;
+        Address : ARRAY [0..255] OF CHAR;
         Socket : WORD;
     END;
     ISCSI_TARGET_PORTAL_INFO_EXA = RECORD
-        InitiatorName : ADDRESS;
+        InitiatorName : ARRAY [0..255] OF BYTE;
         InitiatorPortNumber : DWORD;
-        SymbolicName : ADDRESS;
-        Address : ADDRESS;
+        SymbolicName : ARRAY [0..255] OF BYTE;
+        Address : ARRAY [0..255] OF BYTE;
         Socket : WORD;
         SecurityFlags : QWORD;
         LoginOptions : ISCSI_LOGIN_OPTIONS;
     END;
     ISCSI_TARGET_PORTAL_INFO_EXW = RECORD
-        InitiatorName : ADDRESS;
+        InitiatorName : ARRAY [0..255] OF CHAR;
         InitiatorPortNumber : DWORD;
-        SymbolicName : ADDRESS;
-        Address : ADDRESS;
+        SymbolicName : ARRAY [0..255] OF CHAR;
+        Address : ARRAY [0..255] OF CHAR;
         Socket : WORD;
         SecurityFlags : QWORD;
         LoginOptions : ISCSI_LOGIN_OPTIONS;
@@ -666,11 +666,11 @@ TYPE
         LBA47_40 : BYTE;
         Auxiliary7_0 : BYTE;
         Auxiliary23_16 : BYTE;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..3] OF BYTE;
     END;
     NVCACHE_PRIORITY_LEVEL_DESCRIPTOR = RECORD
         PriorityLevel : BYTE;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..2] OF BYTE;
         ConsumedNVMSizeFraction : DWORD;
         ConsumedMappingResourcesFraction : DWORD;
         ConsumedNVMSizeForDirtyDataFraction : DWORD;
@@ -706,12 +706,12 @@ TYPE
         Flags : ADDRESS;
         WriteCacheType : BYTE;
         WriteCacheTypeEffective : BYTE;
-        ParameterReserve1 : ADDRESS;
+        ParameterReserve1 : ARRAY [0..4] OF BYTE;
     END;
     PERSISTENT_ISCSI_LOGIN_INFOA = RECORD
-        TargetName : ADDRESS;
+        TargetName : ARRAY [0..223] OF BYTE;
         IsInformationalSession : BOOLEAN;
-        InitiatorInstance : ADDRESS;
+        InitiatorInstance : ARRAY [0..258] OF BYTE;
         InitiatorPortNumber : DWORD;
         TargetPortal : ISCSI_TARGET_PORTALA;
         SecurityFlags : QWORD;
@@ -719,9 +719,9 @@ TYPE
         LoginOptions : ISCSI_LOGIN_OPTIONS;
     END;
     PERSISTENT_ISCSI_LOGIN_INFOW = RECORD
-        TargetName : ADDRESS;
+        TargetName : ARRAY [0..223] OF CHAR;
         IsInformationalSession : BOOLEAN;
-        InitiatorInstance : ADDRESS;
+        InitiatorInstance : ARRAY [0..256] OF CHAR;
         InitiatorPortNumber : DWORD;
         TargetPortal : ISCSI_TARGET_PORTALW;
         SecurityFlags : QWORD;
@@ -730,7 +730,7 @@ TYPE
     END;
     SCSI_ADAPTER_BUS_INFO = RECORD
         NumberOfBuses : BYTE;
-        BusData : ADDRESS;
+        BusData : ARRAY [0..7] OF BYTE;
     END;
     SCSI_ADDRESS = RECORD
         Length : DWORD;
@@ -751,7 +751,7 @@ TYPE
         DeviceClaimed : BOOLEAN;
         InquiryDataLength : DWORD;
         NextInquiryDataOffset : DWORD;
-        InquiryData : ADDRESS;
+        InquiryData : ARRAY [0..3] OF BYTE;
     END;
     SCSI_LUN_LIST = RECORD
         OSLUN : DWORD;
@@ -770,7 +770,7 @@ TYPE
         TimeOutValue : DWORD;
         DataBufferOffset : ADRCARD;
         SenseInfoOffset : DWORD;
-        Cdb : ADDRESS;
+        Cdb : ARRAY [0..19] OF BYTE;
     END;
     SCSI_PASS_THROUGH32 = RECORD
         Length : WORD;
@@ -785,7 +785,7 @@ TYPE
         TimeOutValue : DWORD;
         DataBufferOffset : DWORD;
         SenseInfoOffset : DWORD;
-        Cdb : ADDRESS;
+        Cdb : ARRAY [0..15] OF BYTE;
     END;
     SCSI_PASS_THROUGH32_EX = RECORD
         Version : DWORD;
@@ -803,7 +803,7 @@ TYPE
         DataInTransferLength : DWORD;
         DataOutBufferOffset : DWORD;
         DataInBufferOffset : DWORD;
-        Cdb : ADDRESS;
+        Cdb : ARRAY [0..3] OF BYTE;
     END;
     SCSI_PASS_THROUGH_DIRECT = RECORD
         Length : WORD;
@@ -818,7 +818,7 @@ TYPE
         TimeOutValue : DWORD;
         DataBuffer : ADDRESS;
         SenseInfoOffset : DWORD;
-        Cdb : ADDRESS;
+        Cdb : ARRAY [0..19] OF BYTE;
     END;
     SCSI_PASS_THROUGH_DIRECT32 = RECORD
         Length : WORD;
@@ -833,7 +833,7 @@ TYPE
         TimeOutValue : DWORD;
         DataBuffer : ADDRESS;
         SenseInfoOffset : DWORD;
-        Cdb : ADDRESS;
+        Cdb : ARRAY [0..19] OF BYTE;
     END;
     SCSI_PASS_THROUGH_DIRECT32_EX = RECORD
         Version : DWORD;
@@ -851,7 +851,7 @@ TYPE
         DataInTransferLength : DWORD;
         DataOutBuffer : ADDRESS;
         DataInBuffer : ADDRESS;
-        Cdb : ADDRESS;
+        Cdb : ARRAY [0..7] OF BYTE;
     END;
     SCSI_PASS_THROUGH_DIRECT_EX = RECORD
         Version : DWORD;
@@ -869,7 +869,7 @@ TYPE
         DataInTransferLength : DWORD;
         DataOutBuffer : ADDRESS;
         DataInBuffer : ADDRESS;
-        Cdb : ADDRESS;
+        Cdb : ARRAY [0..7] OF BYTE;
     END;
     SCSI_PASS_THROUGH_EX = RECORD
         Version : DWORD;
@@ -887,11 +887,11 @@ TYPE
         DataInTransferLength : DWORD;
         DataOutBufferOffset : ADRCARD;
         DataInBufferOffset : ADRCARD;
-        Cdb : ADDRESS;
+        Cdb : ARRAY [0..7] OF BYTE;
     END;
     SRB_IO_CONTROL = RECORD
         HeaderLength : DWORD;
-        Signature : ADDRESS;
+        Signature : ARRAY [0..7] OF BYTE;
         Timeout : DWORD;
         ControlCode : DWORD;
         ReturnCode : DWORD;
@@ -905,7 +905,7 @@ TYPE
         ProviderId : GUID;
         BufferSize : DWORD;
         Reserved : DWORD;
-        DataBuffer : ADDRESS;
+        DataBuffer : ARRAY [0..7] OF BYTE;
     END;
     STORAGE_ENDURANCE_DATA_DESCRIPTOR = RECORD
         Version : DWORD;
@@ -917,21 +917,21 @@ TYPE
         GroupId : DWORD;
         Flags : ADDRESS;
         LifePercentage : DWORD;
-        BytesReadCount : ADDRESS;
-        ByteWriteCount : ADDRESS;
+        BytesReadCount : ARRAY [0..15] OF BYTE;
+        ByteWriteCount : ARRAY [0..15] OF BYTE;
     END;
     STORAGE_FIRMWARE_ACTIVATE = RECORD
         Version : DWORD;
         Size : DWORD;
         SlotToActivate : BYTE;
-        Reserved0 : ADDRESS;
+        Reserved0 : ARRAY [0..2] OF BYTE;
     END;
     STORAGE_FIRMWARE_DOWNLOAD = RECORD
         Version : DWORD;
         Size : DWORD;
         Offset : QWORD;
         BufferSize : QWORD;
-        ImageBuffer : ADDRESS;
+        ImageBuffer : ARRAY [0..7] OF BYTE;
     END;
     STORAGE_FIRMWARE_DOWNLOAD_V2 = RECORD
         Version : DWORD;
@@ -939,9 +939,9 @@ TYPE
         Offset : QWORD;
         BufferSize : QWORD;
         Slot : BYTE;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..2] OF BYTE;
         ImageSize : DWORD;
-        ImageBuffer : ADDRESS;
+        ImageBuffer : ARRAY [0..7] OF BYTE;
     END;
     STORAGE_FIRMWARE_INFO = RECORD
         Version : DWORD;
@@ -951,7 +951,7 @@ TYPE
         ActiveSlot : BYTE;
         PendingActivateSlot : BYTE;
         Reserved : DWORD;
-        Slot : ADDRESS;
+        Slot : ARRAY [0..15] OF BYTE;
     END;
     STORAGE_FIRMWARE_INFO_V2 = RECORD
         Version : DWORD;
@@ -961,22 +961,22 @@ TYPE
         ActiveSlot : BYTE;
         PendingActivateSlot : BYTE;
         FirmwareShared : BOOLEAN;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..2] OF BYTE;
         ImagePayloadAlignment : DWORD;
         ImagePayloadMaxSize : DWORD;
-        Slot : ADDRESS;
+        Slot : ARRAY [0..23] OF BYTE;
     END;
     STORAGE_FIRMWARE_SLOT_INFO = RECORD
         SlotNumber : BYTE;
         ReadOnly : BOOLEAN;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..5] OF BYTE;
         Revision : ADDRESS;
     END;
     STORAGE_FIRMWARE_SLOT_INFO_V2 = RECORD
         SlotNumber : BYTE;
         ReadOnly : BOOLEAN;
-        Reserved : ADDRESS;
-        Revision : ADDRESS;
+        Reserved : ARRAY [0..5] OF BYTE;
+        Revision : ARRAY [0..15] OF BYTE;
     END;
     _ADAPTER_OBJECT = RECORD
         Value : ADRINT;

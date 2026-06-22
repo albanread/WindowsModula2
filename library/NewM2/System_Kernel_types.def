@@ -65,7 +65,7 @@ TYPE
         ErrorSelector : DWORD;
         DataOffset : DWORD;
         DataSelector : DWORD;
-        RegisterArea : ADDRESS;
+        RegisterArea : ARRAY [0..79] OF BYTE;
         Spare0 : DWORD;
     END;
     LIST_ENTRY = RECORD
@@ -93,6 +93,11 @@ TYPE
         Lineage : GUID;
         Uniquifier : DWORD;
     END;
+    PROCESSOR_NUMBER = RECORD
+        Group : WORD;
+        Number : BYTE;
+        Reserved : BYTE;
+    END;
     QUAD = RECORD
         Anonymous : ADDRESS;
     END;
@@ -106,6 +111,10 @@ TYPE
     SINGLE_LIST_ENTRY32 = RECORD
         Next : DWORD;
     END;
+    SLIST_ENTRY = RECORD
+        Next : POINTER TO SLIST_ENTRY;
+    END;
+    SLIST_HEADER;
     STRING = RECORD
         Length : WORD;
         MaximumLength : WORD;
@@ -122,16 +131,16 @@ TYPE
         Buffer : QWORD;
     END;
     WNF_STATE_NAME = RECORD
-        Data : ADDRESS;
+        Data : ARRAY [0..1] OF DWORD;
     END;
 
-PROCEDURE RtlFirstEntrySList["RtlFirstEntrySList" EXTERNAL FROM "ntdll.dll"](ListHead : ADDRESS) : ADDRESS;
-PROCEDURE RtlInitializeSListHead["RtlInitializeSListHead" EXTERNAL FROM "ntdll.dll"](arg0 : ADDRESS);
-PROCEDURE RtlInterlockedFlushSList["RtlInterlockedFlushSList" EXTERNAL FROM "ntdll.dll"](ListHead : ADDRESS) : ADDRESS;
-PROCEDURE RtlInterlockedPopEntrySList["RtlInterlockedPopEntrySList" EXTERNAL FROM "ntdll.dll"](ListHead : ADDRESS) : ADDRESS;
-PROCEDURE RtlInterlockedPushEntrySList["RtlInterlockedPushEntrySList" EXTERNAL FROM "ntdll.dll"](ListHead : ADDRESS; ListEntry : ADDRESS) : ADDRESS;
-PROCEDURE RtlInterlockedPushListSListEx["RtlInterlockedPushListSListEx" EXTERNAL FROM "ntdll.dll"](ListHead : ADDRESS; List : ADDRESS; ListEnd : ADDRESS; Count : DWORD) : ADDRESS;
-PROCEDURE RtlQueryDepthSList["RtlQueryDepthSList" EXTERNAL FROM "ntdll.dll"](ListHead : ADDRESS) : WORD;
+PROCEDURE RtlFirstEntrySList["RtlFirstEntrySList" EXTERNAL FROM "ntdll.dll"](ListHead : POINTER TO SLIST_HEADER) : POINTER TO SLIST_ENTRY;
+PROCEDURE RtlInitializeSListHead["RtlInitializeSListHead" EXTERNAL FROM "ntdll.dll"](arg0 : POINTER TO SLIST_HEADER);
+PROCEDURE RtlInterlockedFlushSList["RtlInterlockedFlushSList" EXTERNAL FROM "ntdll.dll"](ListHead : POINTER TO SLIST_HEADER) : POINTER TO SLIST_ENTRY;
+PROCEDURE RtlInterlockedPopEntrySList["RtlInterlockedPopEntrySList" EXTERNAL FROM "ntdll.dll"](ListHead : POINTER TO SLIST_HEADER) : POINTER TO SLIST_ENTRY;
+PROCEDURE RtlInterlockedPushEntrySList["RtlInterlockedPushEntrySList" EXTERNAL FROM "ntdll.dll"](ListHead : POINTER TO SLIST_HEADER; ListEntry : POINTER TO SLIST_ENTRY) : POINTER TO SLIST_ENTRY;
+PROCEDURE RtlInterlockedPushListSListEx["RtlInterlockedPushListSListEx" EXTERNAL FROM "ntdll.dll"](ListHead : POINTER TO SLIST_HEADER; List : POINTER TO SLIST_ENTRY; ListEnd : POINTER TO SLIST_ENTRY; Count : DWORD) : POINTER TO SLIST_ENTRY;
+PROCEDURE RtlQueryDepthSList["RtlQueryDepthSList" EXTERNAL FROM "ntdll.dll"](ListHead : POINTER TO SLIST_HEADER) : WORD;
 
-(* types-out summary: 16 types emitted; 43 consts emitted; 7 procedures emitted *)
+(* types-out summary: 19 types emitted; 43 consts emitted; 7 procedures emitted *)
 END System_Kernel.

@@ -160,9 +160,15 @@ pub fn generate_namespace_with_ifaces(
     // --- classify types ---------------------------------------------------
     let mut abi_of: HashMap<String, Option<String>> = HashMap::new();
     let mut struct_names: BTreeSet<String> = BTreeSet::new();
+    // Struct total size in BYTES (from winmd size_bits), to recover a trailing
+    // fixed-array field's length (span = struct_size - field_offset).
+    let mut struct_size_bytes: HashMap<String, i64> = HashMap::new();
     for t in &types {
         if t.kind == "struct" {
             abi_of.insert(t.type_name.clone(), t.abi_kind.clone());
+            if let Some(bits) = t.size_bits {
+                struct_size_bytes.insert(t.type_name.clone(), bits / 8);
+            }
             if !win32_owned.contains(&t.type_name) {
                 struct_names.insert(t.type_name.clone());
             }
@@ -235,7 +241,7 @@ pub fn generate_namespace_with_ifaces(
             Some(fields) if !is_union && !fields.is_empty() => {
                 let mut rec_fields: Vec<RecordField> = Vec::new();
                 let mut seen_fields: BTreeSet<String> = BTreeSet::new();
-                for f in fields {
+                for (i, f) in fields.iter().enumerate() {
                     let fname = sanitize_ident(&f.field_name);
                     // The metadata occasionally lists a field twice (e.g.
                     // MINIDUMP_THREAD_CALLBACK.StackEnd); a record may not
@@ -244,7 +250,33 @@ pub fn generate_namespace_with_ifaces(
                         warnings.push(format!("struct '{name}': duplicate field '{fname}' dropped"));
                         continue;
                     }
-                    let m2 = policy::resolve(&f.type_name, &ctx, index, &module_name, &mut warnings);
+                    // A fixed-array struct field arrives as `Elem[]` (the winmd
+                    // ArrayShape length was dropped). Recover the count from the
+                    // field's byte span — next field's offset, or the struct size
+                    // for a trailing field — so the record stays the correct size
+                    // (was wrongly ADDRESS, under-sizing the struct).
+                    let elem = f.type_name.trim_end();
+                    let m2 = if let Some(elem) = elem.strip_suffix("[]") {
+                        let next_off = fields.get(i + 1).and_then(|nf| nf.byte_offset);
+                        let span = match (f.byte_offset, next_off) {
+                            (Some(o), Some(n)) => Some(n - o),
+                            (Some(o), None) => struct_size_bytes.get(name).map(|s| s - o),
+                            _ => None,
+                        };
+                        match span {
+                            Some(sp) if sp > 0 => policy::resolve_field_array(
+                                elem.trim_end(),
+                                sp,
+                                &ctx,
+                                index,
+                                &module_name,
+                                &mut warnings,
+                            ),
+                            _ => policy::resolve(&f.type_name, &ctx, index, &module_name, &mut warnings),
+                        }
+                    } else {
+                        policy::resolve(&f.type_name, &ctx, index, &module_name, &mut warnings)
+                    };
                     m2.collect_imports(&mut win32_imports, &mut cross_imports);
                     rec_fields.push(build::record_field(&fname, m2.to_type_expr()));
                 }

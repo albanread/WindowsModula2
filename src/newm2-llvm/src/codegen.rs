@@ -1013,6 +1013,18 @@ impl<'ctx, 'ir> Codegen<'ctx, 'ir> {
                     ptr_elem_types.insert(*ptr, et);
                 }
             }
+            Inst::MemCopy { dst, src, ty } => {
+                // Whole-aggregate copy by address — memmove (handles self/overlap)
+                // instead of a by-value aggregate load/store that LLVM can't
+                // legalise for huge aggregates.
+                let (dptr, _) = self.ptr_of(dst, vals, allocas, ptr_elem_types);
+                let (sptr, _) = self.ptr_of(src, vals, allocas, ptr_elem_types);
+                let size = self
+                    .llvm_type(*ty)
+                    .size_of()
+                    .unwrap_or_else(|| self.ctx.i64_type().const_zero());
+                self.builder.build_memmove(dptr, 1, sptr, 1, size).unwrap();
+            }
             Inst::FieldPtr { dst, base, field } => {
                 let (base_ptr, base_ty) =
                     self.ptr_of(base, vals, allocas, ptr_elem_types);
@@ -2269,6 +2281,18 @@ impl<'ctx, 'ir> Codegen<'ctx, 'ir> {
                     // Pointer ↔ pointer (opaque) and same-type: identity.
                     _ => v,
                 }
+            }
+            CastKind::MemReinterpret => {
+                // One operand is an aggregate (RECORD / closed ARRAY): reinterpret
+                // the bits through a stack slot sized to the LARGER of source/target
+                // (so the store is always in-bounds), then load the target type.
+                let src_ty = v.get_type();
+                let s_sz = src_ty.size_of().and_then(|c| c.get_zero_extended_constant()).unwrap_or(0);
+                let d_sz = target.size_of().and_then(|c| c.get_zero_extended_constant()).unwrap_or(0);
+                let slot_ty = if d_sz >= s_sz { target } else { src_ty };
+                let slot = self.builder.build_alloca(slot_ty, "reinterp.slot").unwrap();
+                self.builder.build_store(slot, v).unwrap();
+                self.builder.build_load(target, slot, "reinterp").unwrap()
             }
         }
     }

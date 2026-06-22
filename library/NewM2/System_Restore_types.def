@@ -40,20 +40,20 @@ TYPE
         dwEventType : DWORD;
         dwRestorePtType : DWORD;
         llSequenceNumber : INTEGER64;
-        szDescription : ADDRESS;
+        szDescription : ARRAY [0..63] OF BYTE;
     END;
     RESTOREPOINTINFOEX = RECORD
         ftCreation : Foundation.FILETIME;
         dwEventType : DWORD;
         dwRestorePtType : DWORD;
         dwRPNum : DWORD;
-        szDescription : ADDRESS;
+        szDescription : ARRAY [0..255] OF CHAR;
     END;
     RESTOREPOINTINFOW = RECORD
         dwEventType : DWORD;
         dwRestorePtType : DWORD;
         llSequenceNumber : INTEGER64;
-        szDescription : ADDRESS;
+        szDescription : ARRAY [0..255] OF CHAR;
     END;
     STATEMGRSTATUS = RECORD
         nStatus : DWORD;

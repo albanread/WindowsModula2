@@ -180,7 +180,7 @@ TYPE
     END;
     CERT_SELECTUI_INPUT = RECORD
         hStore : Security_Cryptography.HCERTSTORE;
-        prgpChain : ADDRESS;
+        prgpChain : POINTER TO POINTER TO Security_Cryptography.CERT_CHAIN_CONTEXT;
         cChain : DWORD;
     END;
     CERT_SELECT_STRUCT_A = RECORD
@@ -194,7 +194,7 @@ TYPE
         arrayCertStore : POINTER TO Security_Cryptography.HCERTSTORE;
         szPurposeOid : PSTR;
         cCertContext : DWORD;
-        arrayCertContext : ADDRESS;
+        arrayCertContext : POINTER TO POINTER TO Security_Cryptography.CERT_CONTEXT;
         lCustData : LPARAM;
         pfnHook : ADDRESS;
         pfnFilter : ADDRESS;
@@ -213,7 +213,7 @@ TYPE
         arrayCertStore : POINTER TO Security_Cryptography.HCERTSTORE;
         szPurposeOid : PSTR;
         cCertContext : DWORD;
-        arrayCertContext : ADDRESS;
+        arrayCertContext : POINTER TO POINTER TO Security_Cryptography.CERT_CONTEXT;
         lCustData : LPARAM;
         pfnHook : ADDRESS;
         pfnFilter : ADDRESS;
@@ -223,7 +223,7 @@ TYPE
     END;
     CERT_VERIFY_CERTIFICATE_TRUST = RECORD
         cbSize : DWORD;
-        pccert : ADDRESS;
+        pccert : POINTER TO Security_Cryptography.CERT_CONTEXT;
         dwFlags : DWORD;
         dwIgnoreErr : DWORD;
         pdwErrors : POINTER TO DWORD;
@@ -238,9 +238,9 @@ TYPE
         lCustData : LPARAM;
         pfnTrustHelper : ADDRESS;
         pcChain : POINTER TO DWORD;
-        prgChain : ADDRESS;
+        prgChain : POINTER TO POINTER TO POINTER TO Security_Cryptography.CERT_CONTEXT;
         prgdwErrors : POINTER TO POINTER TO DWORD;
-        prgpbTrustInfo : ADDRESS;
+        prgpbTrustInfo : POINTER TO POINTER TO Security_Cryptography.CRYPT_INTEGER_BLOB;
     END;
     CERT_VIEWPROPERTIES_STRUCT_A = RECORD
         dwSize : DWORD;
@@ -248,7 +248,7 @@ TYPE
         hInstance : HINSTANCE;
         dwFlags : DWORD;
         szTitle : PSTR;
-        pCertContext : ADDRESS;
+        pCertContext : POINTER TO Security_Cryptography.CERT_CONTEXT;
         arrayPurposes : POINTER TO PSTR;
         cArrayPurposes : DWORD;
         cRootStores : DWORD;
@@ -272,7 +272,7 @@ TYPE
         hInstance : HINSTANCE;
         dwFlags : DWORD;
         szTitle : PWSTR;
-        pCertContext : ADDRESS;
+        pCertContext : POINTER TO Security_Cryptography.CERT_CONTEXT;
         arrayPurposes : POINTER TO PSTR;
         cArrayPurposes : DWORD;
         cRootStores : DWORD;
@@ -299,14 +299,14 @@ TYPE
     END;
     CRYPTUI_INITDIALOG_STRUCT = RECORD
         lParam : LPARAM;
-        pCertContext : ADDRESS;
+        pCertContext : POINTER TO Security_Cryptography.CERT_CONTEXT;
     END;
     CRYPTUI_VIEWCERTIFICATE_STRUCTA = RECORD
         dwSize : DWORD;
         hwndParent : HWND;
         dwFlags : DWORD;
         szTitle : PSTR;
-        pCertContext : ADDRESS;
+        pCertContext : POINTER TO Security_Cryptography.CERT_CONTEXT;
         rgszPurposes : POINTER TO PSTR;
         cPurposes : DWORD;
         Anonymous : ADDRESS;
@@ -326,7 +326,7 @@ TYPE
         hwndParent : HWND;
         dwFlags : DWORD;
         szTitle : PWSTR;
-        pCertContext : ADDRESS;
+        pCertContext : POINTER TO Security_Cryptography.CERT_CONTEXT;
         rgszPurposes : POINTER TO PSTR;
         cPurposes : DWORD;
         Anonymous : ADDRESS;
@@ -417,14 +417,14 @@ TYPE
         pwszPassword : PWSTR;
     END;
     CTL_MODIFY_REQUEST = RECORD
-        pccert : ADDRESS;
+        pccert : POINTER TO Security_Cryptography.CERT_CONTEXT;
         dwOperation : DWORD;
         dwError : DWORD;
     END;
 
 PROCEDURE CertSelectionGetSerializedBlob["CertSelectionGetSerializedBlob" EXTERNAL FROM "CRYPTUI.dll"](pcsi : POINTER TO CERT_SELECTUI_INPUT; ppOutBuffer : ADDRESS; pulOutBufferSize : POINTER TO DWORD) : HRESULT;
 PROCEDURE CryptUIDlgCertMgr["CryptUIDlgCertMgr" EXTERNAL FROM "CRYPTUI.dll"](pCryptUICertMgr : POINTER TO CRYPTUI_CERT_MGR_STRUCT) : BOOL;
-PROCEDURE CryptUIDlgSelectCertificateFromStore["CryptUIDlgSelectCertificateFromStore" EXTERNAL FROM "CRYPTUI.dll"](hCertStore : Security_Cryptography.HCERTSTORE; hwnd : HWND; pwszTitle : PWSTR; pwszDisplayString : PWSTR; dwDontUseColumn : DWORD; dwFlags : DWORD; pvReserved : ADDRESS) : ADDRESS;
+PROCEDURE CryptUIDlgSelectCertificateFromStore["CryptUIDlgSelectCertificateFromStore" EXTERNAL FROM "CRYPTUI.dll"](hCertStore : Security_Cryptography.HCERTSTORE; hwnd : HWND; pwszTitle : PWSTR; pwszDisplayString : PWSTR; dwDontUseColumn : DWORD; dwFlags : DWORD; pvReserved : ADDRESS) : POINTER TO Security_Cryptography.CERT_CONTEXT;
 PROCEDURE CryptUIDlgViewCertificateA["CryptUIDlgViewCertificateA" EXTERNAL FROM "CRYPTUI.dll"](pCertViewInfo : POINTER TO CRYPTUI_VIEWCERTIFICATE_STRUCTA; pfPropertiesChanged : POINTER TO BOOL) : BOOL;
 PROCEDURE CryptUIDlgViewCertificateW["CryptUIDlgViewCertificateW" EXTERNAL FROM "CRYPTUI.dll"](pCertViewInfo : POINTER TO CRYPTUI_VIEWCERTIFICATE_STRUCTW; pfPropertiesChanged : POINTER TO BOOL) : BOOL;
 PROCEDURE CryptUIDlgViewContext["CryptUIDlgViewContext" EXTERNAL FROM "CRYPTUI.dll"](dwContextType : DWORD; pvContext : ADDRESS; hwnd : HWND; pwszTitle : PWSTR; dwFlags : DWORD; pvReserved : ADDRESS) : BOOL;

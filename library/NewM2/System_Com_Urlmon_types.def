@@ -773,14 +773,323 @@ TYPE
     END;
     ZONEATTRIBUTES = RECORD
         cbSize : DWORD;
-        szDisplayName : ADDRESS;
-        szDescription : ADDRESS;
-        szIconPath : ADDRESS;
+        szDisplayName : ARRAY [0..259] OF CHAR;
+        szDescription : ARRAY [0..199] OF CHAR;
+        szIconPath : ARRAY [0..259] OF CHAR;
         dwTemplateMinLevel : DWORD;
         dwTemplateRecommended : DWORD;
         dwTemplateCurrentLevel : DWORD;
         dwFlags : DWORD;
     END;
+
+INTERFACE IBindCallbackRedirect* ["11c81bc2-121e-4ed5-b9c4-b430bd54f2c0"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE Redirect(lpcUrl : PWSTR; vbCancel : ADDRESS) : HRESULT <*@3*>;
+END IBindCallbackRedirect;
+
+INTERFACE IBindHttpSecurity* ["a9eda967-f50e-4a33-b358-206f6ef3086d"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE GetIgnoreCertMask(pdwIgnoreCertMask : ADDRESS) : HRESULT <*@3*>;
+END IBindHttpSecurity;
+
+INTERFACE IBindProtocol* ["79eac9cd-baf9-11ce-8c82-00aa004ba90b"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE CreateBinding(szUrl : PWSTR; pbc : ADDRESS; ppb : ADDRESS) : HRESULT <*@3*>;
+END IBindProtocol;
+
+INTERFACE ICatalogFileInfo* ["711c7600-6b48-11d1-b403-00aa00b92af1"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE GetCatalogFile(ppszCatalogFile : ADDRESS) : HRESULT <*@3*>;
+    PROCEDURE GetJavaTrust(ppJavaTrust : ADDRESS) : HRESULT <*@4*>;
+END ICatalogFileInfo;
+
+INTERFACE ICodeInstall* ["79eac9d1-baf9-11ce-8c82-00aa004ba90b"];
+    INHERIT IWindowForBindingUI;
+    PROCEDURE OnCodeInstallProblem(ulStatusCode : DWORD; szDestination : PWSTR; szSource : PWSTR; dwReserved : DWORD) : HRESULT <*@4*>;
+END ICodeInstall;
+
+INTERFACE IDataFilter* ["69d14c80-c18e-11d0-a9ce-006097942311"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE DoEncode(dwFlags : DWORD; lInBufferSize : INTEGER32; pbInBuffer : ADDRESS; lOutBufferSize : INTEGER32; pbOutBuffer : ADDRESS; lInBytesAvailable : INTEGER32; plInBytesRead : ADDRESS; plOutBytesWritten : ADDRESS; dwReserved : DWORD) : HRESULT <*@3*>;
+    PROCEDURE DoDecode(dwFlags : DWORD; lInBufferSize : INTEGER32; pbInBuffer : ADDRESS; lOutBufferSize : INTEGER32; pbOutBuffer : ADDRESS; lInBytesAvailable : INTEGER32; plInBytesRead : ADDRESS; plOutBytesWritten : ADDRESS; dwReserved : DWORD) : HRESULT <*@4*>;
+    PROCEDURE SetEncodingLevel(dwEncLevel : DWORD) : HRESULT <*@5*>;
+END IDataFilter;
+
+INTERFACE IEncodingFilterFactory* ["70bdde00-c18e-11d0-a9ce-006097942311"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE FindBestFilter(pwzCodeIn : PWSTR; pwzCodeOut : PWSTR; info : DATAINFO; ppDF : ADDRESS) : HRESULT <*@3*>;
+    PROCEDURE GetDefaultFilter(pwzCodeIn : PWSTR; pwzCodeOut : PWSTR; ppDF : ADDRESS) : HRESULT <*@4*>;
+END IEncodingFilterFactory;
+
+INTERFACE IGetBindHandle* ["af0ff408-129d-4b20-91f0-02bd23d88352"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE GetBindHandle(enumRequestedHandle : INTEGER32; pRetHandle : ADDRESS) : HRESULT <*@3*>;
+END IGetBindHandle;
+
+INTERFACE IHttpNegotiate* ["79eac9d2-baf9-11ce-8c82-00aa004ba90b"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE BeginningTransaction(szURL : PWSTR; szHeaders : PWSTR; dwReserved : DWORD; pszAdditionalHeaders : ADDRESS) : HRESULT <*@3*>;
+    PROCEDURE OnResponse(dwResponseCode : DWORD; szResponseHeaders : PWSTR; szRequestHeaders : PWSTR; pszAdditionalRequestHeaders : ADDRESS) : HRESULT <*@4*>;
+END IHttpNegotiate;
+
+INTERFACE IHttpNegotiate2* ["4f9f9fcb-e0f4-48eb-b7ab-fa2ea9365cb4"];
+    INHERIT IHttpNegotiate;
+    PROCEDURE GetRootSecurityId(pbSecurityId : ADDRESS; pcbSecurityId : ADDRESS; dwReserved : ADRCARD) : HRESULT <*@5*>;
+END IHttpNegotiate2;
+
+INTERFACE IHttpNegotiate3* ["57b6c80a-34c2-4602-bc26-66a02fc57153"];
+    INHERIT IHttpNegotiate2;
+    PROCEDURE GetSerializedClientCertContext(ppbCert : ADDRESS; pcbCert : ADDRESS) : HRESULT <*@6*>;
+END IHttpNegotiate3;
+
+INTERFACE IHttpSecurity* ["79eac9d7-bafa-11ce-8c82-00aa004ba90b"];
+    INHERIT IWindowForBindingUI;
+    PROCEDURE OnSecurityProblem(dwProblem : DWORD) : HRESULT <*@4*>;
+END IHttpSecurity;
+
+INTERFACE IInternet* ["79eac9e0-baf9-11ce-8c82-00aa004ba90b"];
+    INHERIT System_Com.IUnknown;
+END IInternet;
+
+INTERFACE IInternetBindInfo* ["79eac9e1-baf9-11ce-8c82-00aa004ba90b"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE GetBindInfo(grfBINDF : ADDRESS; pbindinfo : ADDRESS) : HRESULT <*@3*>;
+    PROCEDURE GetBindString(ulStringType : DWORD; ppwzStr : ADDRESS; cEl : DWORD; pcElFetched : ADDRESS) : HRESULT <*@4*>;
+END IInternetBindInfo;
+
+INTERFACE IInternetBindInfoEx* ["a3e015b7-a82c-4dcd-a150-569aeeed36ab"];
+    INHERIT IInternetBindInfo;
+    PROCEDURE GetBindInfoEx(grfBINDF : ADDRESS; pbindinfo : ADDRESS; grfBINDF2 : ADDRESS; pdwReserved : ADDRESS) : HRESULT <*@5*>;
+END IInternetBindInfoEx;
+
+INTERFACE IInternetHostSecurityManager* ["3af280b6-cb3f-11d0-891e-00c04fb6bfc4"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE GetSecurityId(pbSecurityId : ADDRESS; pcbSecurityId : ADDRESS; dwReserved : ADRCARD) : HRESULT <*@3*>;
+    PROCEDURE ProcessUrlAction(dwAction : DWORD; pPolicy : ADDRESS; cbPolicy : DWORD; pContext : ADDRESS; cbContext : DWORD; dwFlags : DWORD; dwReserved : DWORD) : HRESULT <*@4*>;
+    PROCEDURE QueryCustomPolicy(guidKey : ADDRESS; ppPolicy : ADDRESS; pcbPolicy : ADDRESS; pContext : ADDRESS; cbContext : DWORD; dwReserved : DWORD) : HRESULT <*@5*>;
+END IInternetHostSecurityManager;
+
+INTERFACE IInternetPriority* ["79eac9eb-baf9-11ce-8c82-00aa004ba90b"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE SetPriority(nPriority : INTEGER32) : HRESULT <*@3*>;
+    PROCEDURE GetPriority(pnPriority : ADDRESS) : HRESULT <*@4*>;
+END IInternetPriority;
+
+INTERFACE IInternetProtocol* ["79eac9e4-baf9-11ce-8c82-00aa004ba90b"];
+    INHERIT IInternetProtocolRoot;
+    PROCEDURE Read(pv : ADDRESS; cb : DWORD; pcbRead : ADDRESS) : HRESULT <*@9*>;
+    PROCEDURE Seek(dlibMove : INTEGER64; dwOrigin : DWORD; plibNewPosition : ADDRESS) : HRESULT <*@10*>;
+    PROCEDURE LockRequest(dwOptions : DWORD) : HRESULT <*@11*>;
+    PROCEDURE UnlockRequest() : HRESULT <*@12*>;
+END IInternetProtocol;
+
+INTERFACE IInternetProtocolEx* ["c7a98e66-1010-492c-a1c8-c809e1f75905"];
+    INHERIT IInternetProtocol;
+    PROCEDURE StartEx(pUri : ADDRESS; pOIProtSink : ADDRESS; pOIBindInfo : ADDRESS; grfPI : DWORD; dwReserved : Foundation.HANDLE_PTR) : HRESULT <*@13*>;
+END IInternetProtocolEx;
+
+INTERFACE IInternetProtocolInfo* ["79eac9ec-baf9-11ce-8c82-00aa004ba90b"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE ParseUrl(pwzUrl : PWSTR; ParseAction : INTEGER32; dwParseFlags : DWORD; pwzResult : PWSTR; cchResult : DWORD; pcchResult : ADDRESS; dwReserved : DWORD) : HRESULT <*@3*>;
+    PROCEDURE CombineUrl(pwzBaseUrl : PWSTR; pwzRelativeUrl : PWSTR; dwCombineFlags : DWORD; pwzResult : PWSTR; cchResult : DWORD; pcchResult : ADDRESS; dwReserved : DWORD) : HRESULT <*@4*>;
+    PROCEDURE CompareUrl(pwzUrl1 : PWSTR; pwzUrl2 : PWSTR; dwCompareFlags : DWORD) : HRESULT <*@5*>;
+    PROCEDURE QueryInfo(pwzUrl : PWSTR; OueryOption : INTEGER32; dwQueryFlags : DWORD; pBuffer : ADDRESS; cbBuffer : DWORD; pcbBuf : ADDRESS; dwReserved : DWORD) : HRESULT <*@6*>;
+END IInternetProtocolInfo;
+
+INTERFACE IInternetProtocolRoot* ["79eac9e3-baf9-11ce-8c82-00aa004ba90b"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE Start(szUrl : PWSTR; pOIProtSink : ADDRESS; pOIBindInfo : ADDRESS; grfPI : DWORD; dwReserved : Foundation.HANDLE_PTR) : HRESULT <*@3*>;
+    PROCEDURE Continue(pProtocolData : ADDRESS) : HRESULT <*@4*>;
+    PROCEDURE Abort(hrReason : HRESULT; dwOptions : DWORD) : HRESULT <*@5*>;
+    PROCEDURE Terminate(dwOptions : DWORD) : HRESULT <*@6*>;
+    PROCEDURE Suspend() : HRESULT <*@7*>;
+    PROCEDURE Resume() : HRESULT <*@8*>;
+END IInternetProtocolRoot;
+
+INTERFACE IInternetProtocolSink* ["79eac9e5-baf9-11ce-8c82-00aa004ba90b"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE Switch(pProtocolData : ADDRESS) : HRESULT <*@3*>;
+    PROCEDURE ReportProgress(ulStatusCode : DWORD; szStatusText : PWSTR) : HRESULT <*@4*>;
+    PROCEDURE ReportData(grfBSCF : DWORD; ulProgress : DWORD; ulProgressMax : DWORD) : HRESULT <*@5*>;
+    PROCEDURE ReportResult(hrResult : HRESULT; dwError : DWORD; szResult : PWSTR) : HRESULT <*@6*>;
+END IInternetProtocolSink;
+
+INTERFACE IInternetProtocolSinkStackable* ["79eac9f0-baf9-11ce-8c82-00aa004ba90b"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE SwitchSink(pOIProtSink : ADDRESS) : HRESULT <*@3*>;
+    PROCEDURE CommitSwitch() : HRESULT <*@4*>;
+    PROCEDURE RollbackSwitch() : HRESULT <*@5*>;
+END IInternetProtocolSinkStackable;
+
+INTERFACE IInternetSecurityManager* ["79eac9ee-baf9-11ce-8c82-00aa004ba90b"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE SetSecuritySite(pSite : ADDRESS) : HRESULT <*@3*>;
+    PROCEDURE GetSecuritySite(ppSite : ADDRESS) : HRESULT <*@4*>;
+    PROCEDURE MapUrlToZone(pwszUrl : PWSTR; pdwZone : ADDRESS; dwFlags : DWORD) : HRESULT <*@5*>;
+    PROCEDURE GetSecurityId(pwszUrl : PWSTR; pbSecurityId : ADDRESS; pcbSecurityId : ADDRESS; dwReserved : ADRCARD) : HRESULT <*@6*>;
+    PROCEDURE ProcessUrlAction(pwszUrl : PWSTR; dwAction : DWORD; pPolicy : ADDRESS; cbPolicy : DWORD; pContext : ADDRESS; cbContext : DWORD; dwFlags : DWORD; dwReserved : DWORD) : HRESULT <*@7*>;
+    PROCEDURE QueryCustomPolicy(pwszUrl : PWSTR; guidKey : ADDRESS; ppPolicy : ADDRESS; pcbPolicy : ADDRESS; pContext : ADDRESS; cbContext : DWORD; dwReserved : DWORD) : HRESULT <*@8*>;
+    PROCEDURE SetZoneMapping(dwZone : DWORD; lpszPattern : PWSTR; dwFlags : DWORD) : HRESULT <*@9*>;
+    PROCEDURE GetZoneMappings(dwZone : DWORD; ppenumString : ADDRESS; dwFlags : DWORD) : HRESULT <*@10*>;
+END IInternetSecurityManager;
+
+INTERFACE IInternetSecurityManagerEx* ["f164edf1-cc7c-4f0d-9a94-34222625c393"];
+    INHERIT IInternetSecurityManager;
+    PROCEDURE ProcessUrlActionEx(pwszUrl : PWSTR; dwAction : DWORD; pPolicy : ADDRESS; cbPolicy : DWORD; pContext : ADDRESS; cbContext : DWORD; dwFlags : DWORD; dwReserved : DWORD; pdwOutFlags : ADDRESS) : HRESULT <*@11*>;
+END IInternetSecurityManagerEx;
+
+INTERFACE IInternetSecurityManagerEx2* ["f1e50292-a795-4117-8e09-2b560a72ac60"];
+    INHERIT IInternetSecurityManagerEx;
+    PROCEDURE MapUrlToZoneEx2(pUri : ADDRESS; pdwZone : ADDRESS; dwFlags : DWORD; ppwszMappedUrl : ADDRESS; pdwOutFlags : ADDRESS) : HRESULT <*@12*>;
+    PROCEDURE ProcessUrlActionEx2(pUri : ADDRESS; dwAction : DWORD; pPolicy : ADDRESS; cbPolicy : DWORD; pContext : ADDRESS; cbContext : DWORD; dwFlags : DWORD; dwReserved : ADRCARD; pdwOutFlags : ADDRESS) : HRESULT <*@13*>;
+    PROCEDURE GetSecurityIdEx2(pUri : ADDRESS; pbSecurityId : ADDRESS; pcbSecurityId : ADDRESS; dwReserved : ADRCARD) : HRESULT <*@14*>;
+    PROCEDURE QueryCustomPolicyEx2(pUri : ADDRESS; guidKey : ADDRESS; ppPolicy : ADDRESS; pcbPolicy : ADDRESS; pContext : ADDRESS; cbContext : DWORD; dwReserved : ADRCARD) : HRESULT <*@15*>;
+END IInternetSecurityManagerEx2;
+
+INTERFACE IInternetSecurityMgrSite* ["79eac9ed-baf9-11ce-8c82-00aa004ba90b"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE GetWindow(phwnd : ADDRESS) : HRESULT <*@3*>;
+    PROCEDURE EnableModeless(fEnable : BOOL) : HRESULT <*@4*>;
+END IInternetSecurityMgrSite;
+
+INTERFACE IInternetSession* ["79eac9e7-baf9-11ce-8c82-00aa004ba90b"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE RegisterNameSpace(pCF : ADDRESS; rclsid : ADDRESS; pwzProtocol : PWSTR; cPatterns : DWORD; ppwzPatterns : ADDRESS; dwReserved : DWORD) : HRESULT <*@3*>;
+    PROCEDURE UnregisterNameSpace(pCF : ADDRESS; pszProtocol : PWSTR) : HRESULT <*@4*>;
+    PROCEDURE RegisterMimeFilter(pCF : ADDRESS; rclsid : ADDRESS; pwzType : PWSTR) : HRESULT <*@5*>;
+    PROCEDURE UnregisterMimeFilter(pCF : ADDRESS; pwzType : PWSTR) : HRESULT <*@6*>;
+    PROCEDURE CreateBinding(pBC : ADDRESS; szUrl : PWSTR; pUnkOuter : ADDRESS; ppUnk : ADDRESS; ppOInetProt : ADDRESS; dwOption : DWORD) : HRESULT <*@7*>;
+    PROCEDURE SetSessionOption(dwOption : DWORD; pBuffer : ADDRESS; dwBufferLength : DWORD; dwReserved : DWORD) : HRESULT <*@8*>;
+    PROCEDURE GetSessionOption(dwOption : DWORD; pBuffer : ADDRESS; pdwBufferLength : ADDRESS; dwReserved : DWORD) : HRESULT <*@9*>;
+END IInternetSession;
+
+INTERFACE IInternetThreadSwitch* ["79eac9e8-baf9-11ce-8c82-00aa004ba90b"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE Prepare() : HRESULT <*@3*>;
+    PROCEDURE Continue() : HRESULT <*@4*>;
+END IInternetThreadSwitch;
+
+INTERFACE IInternetZoneManager* ["79eac9ef-baf9-11ce-8c82-00aa004ba90b"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE GetZoneAttributes(dwZone : DWORD; pZoneAttributes : ADDRESS) : HRESULT <*@3*>;
+    PROCEDURE SetZoneAttributes(dwZone : DWORD; pZoneAttributes : ADDRESS) : HRESULT <*@4*>;
+    PROCEDURE GetZoneCustomPolicy(dwZone : DWORD; guidKey : ADDRESS; ppPolicy : ADDRESS; pcbPolicy : ADDRESS; urlZoneReg : INTEGER32) : HRESULT <*@5*>;
+    PROCEDURE SetZoneCustomPolicy(dwZone : DWORD; guidKey : ADDRESS; pPolicy : ADDRESS; cbPolicy : DWORD; urlZoneReg : INTEGER32) : HRESULT <*@6*>;
+    PROCEDURE GetZoneActionPolicy(dwZone : DWORD; dwAction : DWORD; pPolicy : ADDRESS; cbPolicy : DWORD; urlZoneReg : INTEGER32) : HRESULT <*@7*>;
+    PROCEDURE SetZoneActionPolicy(dwZone : DWORD; dwAction : DWORD; pPolicy : ADDRESS; cbPolicy : DWORD; urlZoneReg : INTEGER32) : HRESULT <*@8*>;
+    PROCEDURE PromptAction(dwAction : DWORD; hwndParent : HWND; pwszUrl : PWSTR; pwszText : PWSTR; dwPromptFlags : DWORD) : HRESULT <*@9*>;
+    PROCEDURE LogAction(dwAction : DWORD; pwszUrl : PWSTR; pwszText : PWSTR; dwLogFlags : DWORD) : HRESULT <*@10*>;
+    PROCEDURE CreateZoneEnumerator(pdwEnum : ADDRESS; pdwCount : ADDRESS; dwFlags : DWORD) : HRESULT <*@11*>;
+    PROCEDURE GetZoneAt(dwEnum : DWORD; dwIndex : DWORD; pdwZone : ADDRESS) : HRESULT <*@12*>;
+    PROCEDURE DestroyZoneEnumerator(dwEnum : DWORD) : HRESULT <*@13*>;
+    PROCEDURE CopyTemplatePoliciesToZone(dwTemplate : DWORD; dwZone : DWORD; dwReserved : DWORD) : HRESULT <*@14*>;
+END IInternetZoneManager;
+
+INTERFACE IInternetZoneManagerEx* ["a4c23339-8e06-431e-9bf4-7e711c085648"];
+    INHERIT IInternetZoneManager;
+    PROCEDURE GetZoneActionPolicyEx(dwZone : DWORD; dwAction : DWORD; pPolicy : ADDRESS; cbPolicy : DWORD; urlZoneReg : INTEGER32; dwFlags : DWORD) : HRESULT <*@15*>;
+    PROCEDURE SetZoneActionPolicyEx(dwZone : DWORD; dwAction : DWORD; pPolicy : ADDRESS; cbPolicy : DWORD; urlZoneReg : INTEGER32; dwFlags : DWORD) : HRESULT <*@16*>;
+END IInternetZoneManagerEx;
+
+INTERFACE IInternetZoneManagerEx2* ["edc17559-dd5d-4846-8eef-8becba5a4abf"];
+    INHERIT IInternetZoneManagerEx;
+    PROCEDURE GetZoneAttributesEx(dwZone : DWORD; pZoneAttributes : ADDRESS; dwFlags : DWORD) : HRESULT <*@17*>;
+    PROCEDURE GetZoneSecurityState(dwZoneIndex : DWORD; fRespectPolicy : BOOL; pdwState : ADDRESS; pfPolicyEncountered : ADDRESS) : HRESULT <*@18*>;
+    PROCEDURE GetIESecurityState(fRespectPolicy : BOOL; pdwState : ADDRESS; pfPolicyEncountered : ADDRESS; fNoCache : BOOL) : HRESULT <*@19*>;
+    PROCEDURE FixUnsecureSettings() : HRESULT <*@20*>;
+END IInternetZoneManagerEx2;
+
+INTERFACE IMonikerProp* ["a5ca5f7f-1847-4d87-9c5b-918509f7511d"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE PutProperty(mkp : INTEGER32; val : PWSTR) : HRESULT <*@3*>;
+END IMonikerProp;
+
+INTERFACE IPersistMoniker* ["79eac9c9-baf9-11ce-8c82-00aa004ba90b"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE GetClassID(pClassID : ADDRESS) : HRESULT <*@3*>;
+    PROCEDURE IsDirty() : HRESULT <*@4*>;
+    PROCEDURE Load(fFullyAvailable : BOOL; pimkName : ADDRESS; pibc : ADDRESS; grfMode : DWORD) : HRESULT <*@5*>;
+    PROCEDURE Save(pimkName : ADDRESS; pbc : ADDRESS; fRemember : BOOL) : HRESULT <*@6*>;
+    PROCEDURE SaveCompleted(pimkName : ADDRESS; pibc : ADDRESS) : HRESULT <*@7*>;
+    PROCEDURE GetCurMoniker(ppimkName : ADDRESS) : HRESULT <*@8*>;
+END IPersistMoniker;
+
+INTERFACE ISoftDistExt* ["b15b8dc1-c7e1-11d0-8680-00aa00bdcb71"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE ProcessSoftDist(szCDFURL : PWSTR; pSoftDistElement : ADDRESS; lpsdi : ADDRESS) : HRESULT <*@3*>;
+    PROCEDURE GetFirstCodeBase(szCodeBase : ADDRESS; dwMaxSize : ADDRESS) : HRESULT <*@4*>;
+    PROCEDURE GetNextCodeBase(szCodeBase : ADDRESS; dwMaxSize : ADDRESS) : HRESULT <*@5*>;
+    PROCEDURE AsyncInstallDistributionUnit(pbc : ADDRESS; pvReserved : ADDRESS; flags : DWORD; lpcbh : ADDRESS) : HRESULT <*@6*>;
+END ISoftDistExt;
+
+INTERFACE IUriBuilderFactory* ["e982ce48-0b96-440c-bc37-0c869b27a29e"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE CreateIUriBuilder(dwFlags : DWORD; dwReserved : ADRCARD; ppIUriBuilder : ADDRESS) : HRESULT <*@3*>;
+    PROCEDURE CreateInitializedIUriBuilder(dwFlags : DWORD; dwReserved : ADRCARD; ppIUriBuilder : ADDRESS) : HRESULT <*@4*>;
+END IUriBuilderFactory;
+
+INTERFACE IUriContainer* ["a158a630-ed6f-45fb-b987-f68676f57752"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE GetIUri(ppIUri : ADDRESS) : HRESULT <*@3*>;
+END IUriContainer;
+
+INTERFACE IWinInetCacheHints* ["dd1ec3b3-8391-4fdb-a9e6-347c3caaa7dd"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE SetCacheExtension(pwzExt : PWSTR; pszCacheFile : ADDRESS; pcbCacheFile : ADDRESS; pdwWinInetError : ADDRESS; pdwReserved : ADDRESS) : HRESULT <*@3*>;
+END IWinInetCacheHints;
+
+INTERFACE IWinInetCacheHints2* ["7857aeac-d31f-49bf-884e-dd46df36780a"];
+    INHERIT IWinInetCacheHints;
+    PROCEDURE SetCacheExtension2(pwzExt : PWSTR; pwzCacheFile : PWSTR; pcchCacheFile : ADDRESS; pdwWinInetError : ADDRESS; pdwReserved : ADDRESS) : HRESULT <*@4*>;
+END IWinInetCacheHints2;
+
+INTERFACE IWinInetFileStream* ["f134c4b7-b1f8-4e75-b886-74b90943becb"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE SetHandleForUnlock(hWinInetLockHandle : ADRCARD; dwReserved : ADRCARD) : HRESULT <*@3*>;
+    PROCEDURE SetDeleteFile(dwReserved : ADRCARD) : HRESULT <*@4*>;
+END IWinInetFileStream;
+
+INTERFACE IWinInetHttpInfo* ["79eac9d8-bafa-11ce-8c82-00aa004ba90b"];
+    INHERIT IWinInetInfo;
+    PROCEDURE QueryInfo(dwOption : DWORD; pBuffer : ADDRESS; pcbBuf : ADDRESS; pdwFlags : ADDRESS; pdwReserved : ADDRESS) : HRESULT <*@4*>;
+END IWinInetHttpInfo;
+
+INTERFACE IWinInetHttpTimeouts* ["f286fa56-c1fd-4270-8e67-b3eb790a81e8"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE GetRequestTimeouts(pdwConnectTimeout : ADDRESS; pdwSendTimeout : ADDRESS; pdwReceiveTimeout : ADDRESS) : HRESULT <*@3*>;
+END IWinInetHttpTimeouts;
+
+INTERFACE IWinInetInfo* ["79eac9d6-bafa-11ce-8c82-00aa004ba90b"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE QueryOption(dwOption : DWORD; pBuffer : ADDRESS; pcbBuf : ADDRESS) : HRESULT <*@3*>;
+END IWinInetInfo;
+
+INTERFACE IWindowForBindingUI* ["79eac9d5-bafa-11ce-8c82-00aa004ba90b"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE GetWindow(rguidReason : ADDRESS; phwnd : ADDRESS) : HRESULT <*@3*>;
+END IWindowForBindingUI;
+
+INTERFACE IWrappedProtocol* ["53c84785-8425-4dc5-971b-e58d9c19f9b6"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE GetWrapperCode(pnCode : ADDRESS; dwReserved : ADRCARD) : HRESULT <*@3*>;
+END IWrappedProtocol;
+
+INTERFACE IZoneIdentifier* ["cd45f185-1b21-48e2-967b-ead743a8914e"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE GetId(pdwZone : ADDRESS) : HRESULT <*@3*>;
+    PROCEDURE SetId(dwZone : DWORD) : HRESULT <*@4*>;
+    PROCEDURE Remove() : HRESULT <*@5*>;
+END IZoneIdentifier;
+
+INTERFACE IZoneIdentifier2* ["eb5e760c-09ef-45c0-b510-70830ce31e6a"];
+    INHERIT IZoneIdentifier;
+    PROCEDURE GetLastWriterPackageFamilyName(packageFamilyName : ADDRESS) : HRESULT <*@6*>;
+    PROCEDURE SetLastWriterPackageFamilyName(packageFamilyName : PWSTR) : HRESULT <*@7*>;
+    PROCEDURE RemoveLastWriterPackageFamilyName() : HRESULT <*@8*>;
+    PROCEDURE GetAppZoneId(zone : ADDRESS) : HRESULT <*@9*>;
+    PROCEDURE SetAppZoneId(zone : DWORD) : HRESULT <*@10*>;
+    PROCEDURE RemoveAppZoneId() : HRESULT <*@11*>;
+END IZoneIdentifier2;
 
 PROCEDURE CoGetClassObjectFromURL["CoGetClassObjectFromURL" EXTERNAL FROM "urlmon.dll"](rCLASSID : POINTER TO GUID; szCODE : PWSTR; dwFileVersionMS : DWORD; dwFileVersionLS : DWORD; szTYPE : PWSTR; pBindCtx : ADDRESS; dwClsContext : DWORD; pvReserved : ADDRESS; riid : POINTER TO GUID; ppv : ADDRESS) : HRESULT;
 PROCEDURE CoInternetCombineIUri["CoInternetCombineIUri" EXTERNAL FROM "urlmon.dll"](pBaseUri : ADDRESS; pRelativeUri : ADDRESS; dwCombineFlags : DWORD; ppCombinedUri : ADDRESS; dwReserved : ADRCARD) : HRESULT;
@@ -856,5 +1165,5 @@ PROCEDURE UrlMkGetSessionOption["UrlMkGetSessionOption" EXTERNAL FROM "urlmon.dl
 PROCEDURE UrlMkSetSessionOption["UrlMkSetSessionOption" EXTERNAL FROM "urlmon.dll"](dwOption : DWORD; pBuffer : ADDRESS; dwBufferLength : DWORD; dwReserved : DWORD) : HRESULT;
 PROCEDURE WriteHitLogging["WriteHitLogging" EXTERNAL FROM "urlmon.dll"](lpLogginginfo : POINTER TO HIT_LOGGING_INFO) : BOOL;
 
-(* types-out summary: 13 types emitted; 675 consts emitted; 73 procedures emitted *)
+(* types-out summary: 60 types emitted; 675 consts emitted; 73 procedures emitted *)
 END System_Com_Urlmon.

@@ -126,10 +126,10 @@ TYPE
     END;
     DRM_CLIENT_VERSION_INFO = RECORD
         uStructVersion : DWORD;
-        dwVersion : ADDRESS;
-        wszHierarchy : ADDRESS;
-        wszProductId : ADDRESS;
-        wszProductDescription : ADDRESS;
+        dwVersion : ARRAY [0..3] OF DWORD;
+        wszHierarchy : ARRAY [0..255] OF CHAR;
+        wszProductId : ARRAY [0..255] OF CHAR;
+        wszProductDescription : ARRAY [0..255] OF CHAR;
     END;
     DRM_LICENSE_ACQ_DATA = RECORD
         uVersion : DWORD;

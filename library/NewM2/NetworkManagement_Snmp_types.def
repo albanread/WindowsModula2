@@ -206,10 +206,10 @@ TYPE
         value : ADDRESS;
     END;
     smiVENDORINFO = RECORD
-        vendorName : ADDRESS;
-        vendorContact : ADDRESS;
-        vendorVersionId : ADDRESS;
-        vendorVersionDate : ADDRESS;
+        vendorName : ARRAY [0..63] OF BYTE;
+        vendorContact : ARRAY [0..63] OF BYTE;
+        vendorVersionId : ARRAY [0..31] OF BYTE;
+        vendorVersionDate : ARRAY [0..31] OF BYTE;
         vendorEnterprise : DWORD;
     END;
 

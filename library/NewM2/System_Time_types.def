@@ -19,21 +19,21 @@ CONST
 TYPE
     DYNAMIC_TIME_ZONE_INFORMATION = RECORD
         Bias : INTEGER32;
-        StandardName : ADDRESS;
+        StandardName : ARRAY [0..31] OF CHAR;
         StandardDate : Foundation.SYSTEMTIME;
         StandardBias : INTEGER32;
-        DaylightName : ADDRESS;
+        DaylightName : ARRAY [0..31] OF CHAR;
         DaylightDate : Foundation.SYSTEMTIME;
         DaylightBias : INTEGER32;
-        TimeZoneKeyName : ADDRESS;
+        TimeZoneKeyName : ARRAY [0..127] OF CHAR;
         DynamicDaylightTimeDisabled : BOOLEAN;
     END;
     TIME_ZONE_INFORMATION = RECORD
         Bias : INTEGER32;
-        StandardName : ADDRESS;
+        StandardName : ARRAY [0..31] OF CHAR;
         StandardDate : Foundation.SYSTEMTIME;
         StandardBias : INTEGER32;
-        DaylightName : ADDRESS;
+        DaylightName : ARRAY [0..31] OF CHAR;
         DaylightDate : Foundation.SYSTEMTIME;
         DaylightBias : INTEGER32;
     END;

@@ -1963,8 +1963,8 @@ CONST
 
 TYPE
     BSSID_INFO = RECORD
-        BSSID : ADDRESS;
-        PMKID : ADDRESS;
+        BSSID : ARRAY [0..5] OF BYTE;
+        PMKID : ARRAY [0..15] OF BYTE;
     END;
     GEN_GET_NETCARD_TIME = RECORD
         ReadTime : QWORD;
@@ -1975,16 +1975,16 @@ TYPE
     END;
     IF_COUNTED_STRING_LH = RECORD
         Length : WORD;
-        String : ADDRESS;
+        String : ARRAY [0..256] OF CHAR;
     END;
     IF_PHYSICAL_ADDRESS_LH = RECORD
         Length : WORD;
-        Address : ADDRESS;
+        Address : ARRAY [0..31] OF BYTE;
     END;
     NDIS_802_11_AI_REQFI = RECORD
         Capabilities : WORD;
         ListenInterval : WORD;
-        CurrentAPAddress : ADDRESS;
+        CurrentAPAddress : ARRAY [0..5] OF BYTE;
     END;
     NDIS_802_11_AI_RESFI = RECORD
         Capabilities : WORD;
@@ -2008,27 +2008,27 @@ TYPE
     END;
     NDIS_802_11_AUTHENTICATION_EVENT = RECORD
         Status : NDIS_802_11_STATUS_INDICATION;
-        Request : ADDRESS;
+        Request : ARRAY [0..15] OF BYTE;
     END;
     NDIS_802_11_AUTHENTICATION_REQUEST = RECORD
         Length : DWORD;
-        Bssid : ADDRESS;
+        Bssid : ARRAY [0..7] OF BYTE;
         Flags : DWORD;
     END;
     NDIS_802_11_BSSID_LIST = RECORD
         NumberOfItems : DWORD;
-        Bssid : ADDRESS;
+        Bssid : ARRAY [0..103] OF BYTE;
     END;
     NDIS_802_11_BSSID_LIST_EX = RECORD
         NumberOfItems : DWORD;
-        Bssid : ADDRESS;
+        Bssid : ARRAY [0..119] OF BYTE;
     END;
     NDIS_802_11_CAPABILITY = RECORD
         Length : DWORD;
         Version : DWORD;
         NoOfPMKIDs : DWORD;
         NoOfAuthEncryptPairsSupported : DWORD;
-        AuthenticationEncryptionSupported : ADDRESS;
+        AuthenticationEncryptionSupported : ARRAY [0..7] OF BYTE;
     END;
     NDIS_802_11_CONFIGURATION = RECORD
         Length : DWORD;
@@ -2044,7 +2044,7 @@ TYPE
         DwellTime : DWORD;
     END;
     NDIS_802_11_FIXED_IEs = RECORD
-        Timestamp : ADDRESS;
+        Timestamp : ARRAY [0..7] OF BYTE;
         BeaconInterval : WORD;
         Capabilities : WORD;
     END;
@@ -2052,36 +2052,36 @@ TYPE
         Length : DWORD;
         KeyIndex : DWORD;
         KeyLength : DWORD;
-        BSSID : ADDRESS;
+        BSSID : ARRAY [0..11] OF BYTE;
         KeyRSC : QWORD;
-        KeyMaterial : ADDRESS;
+        KeyMaterial : ARRAY [0..7] OF BYTE;
     END;
     NDIS_802_11_NETWORK_TYPE_LIST = RECORD
         NumberOfItems : DWORD;
-        NetworkType : ADDRESS;
+        NetworkType : ARRAY [0..3] OF BYTE;
     END;
     NDIS_802_11_NON_BCAST_SSID_LIST = RECORD
         NumberOfItems : DWORD;
-        Non_Bcast_Ssid : ADDRESS;
+        Non_Bcast_Ssid : ARRAY [0..35] OF BYTE;
     END;
     NDIS_802_11_PMKID = RECORD
         Length : DWORD;
         BSSIDInfoCount : DWORD;
-        BSSIDInfo : ADDRESS;
+        BSSIDInfo : ARRAY [0..23] OF BYTE;
     END;
     NDIS_802_11_PMKID_CANDIDATE_LIST = RECORD
         Version : DWORD;
         NumCandidates : DWORD;
-        CandidateList : ADDRESS;
+        CandidateList : ARRAY [0..11] OF BYTE;
     END;
     NDIS_802_11_REMOVE_KEY = RECORD
         Length : DWORD;
         KeyIndex : DWORD;
-        BSSID : ADDRESS;
+        BSSID : ARRAY [0..7] OF BYTE;
     END;
     NDIS_802_11_SSID = RECORD
         SsidLength : DWORD;
-        Ssid : ADDRESS;
+        Ssid : ARRAY [0..31] OF BYTE;
     END;
     NDIS_802_11_STATISTICS = RECORD
         Length : DWORD;
@@ -2121,13 +2121,13 @@ TYPE
     NDIS_802_11_VARIABLE_IEs = RECORD
         ElementID : BYTE;
         Length : BYTE;
-        data : ADDRESS;
+        data : ARRAY [0..0] OF BYTE;
     END;
     NDIS_802_11_WEP = RECORD
         Length : DWORD;
         KeyIndex : DWORD;
         KeyLength : DWORD;
-        KeyMaterial : ADDRESS;
+        KeyMaterial : ARRAY [0..3] OF BYTE;
     END;
     NDIS_CO_DEVICE_PROFILE = RECORD
         DeviceDescription : NDIS_VAR_DATA_DESC;
@@ -2207,7 +2207,7 @@ TYPE
         ifHCOutUcastOctets : QWORD;
         ifHCOutMulticastOctets : QWORD;
         ifHCOutBroadcastOctets : QWORD;
-        CompartmentId : ADDRESS;
+        CompartmentId : NET_IF_COMPARTMENT_ID;
         SupportedStatistics : DWORD;
     END;
     NDIS_INTERRUPT_MODERATION_PARAMETERS = RECORD
@@ -2234,7 +2234,7 @@ TYPE
         Header : NDIS_OBJECT_HEADER;
         Flags : DWORD;
         NumberofAddressFamiliesReturned : DWORD;
-        IpOperationalStatus : ADDRESS;
+        IpOperationalStatus : ARRAY [0..383] OF BYTE;
     END;
     NDIS_IRDA_PACKET_INFO = RECORD
         ExtraBOFs : DWORD;
@@ -2338,7 +2338,7 @@ TYPE
         NumberOfPorts : DWORD;
         OffsetFirstPort : DWORD;
         ElementSize : DWORD;
-        Ports : ADDRESS;
+        Ports : ARRAY [0..63] OF BYTE;
     END;
     NDIS_PORT_AUTHENTICATION_PARAMETERS = RECORD
         Header : NDIS_OBJECT_HEADER;
@@ -2421,13 +2421,13 @@ TYPE
     NDIS_STATISTICS_VALUE = RECORD
         Oid : DWORD;
         DataLength : DWORD;
-        Data : ADDRESS;
+        Data : ARRAY [0..3] OF BYTE;
     END;
     NDIS_STATISTICS_VALUE_EX = RECORD
         Oid : DWORD;
         DataLength : DWORD;
         Length : DWORD;
-        Data : ADDRESS;
+        Data : ARRAY [0..3] OF BYTE;
     END;
     NDIS_TCP_CONNECTION_OFFLOAD = RECORD
         Header : NDIS_OBJECT_HEADER;
@@ -2453,7 +2453,7 @@ TYPE
         Header : NDIS_OBJECT_HEADER;
         Flags : DWORD;
         TimeoutArrayLength : DWORD;
-        TimeoutArray : ADDRESS;
+        TimeoutArray : ARRAY [0..0] OF DWORD;
     END;
     NDIS_TIMESTAMP_CAPABILITIES = RECORD
         Header : NDIS_OBJECT_HEADER;
@@ -2490,46 +2490,46 @@ TYPE
     END;
     NDIS_WLAN_BSSID = RECORD
         Length : DWORD;
-        MacAddress : ADDRESS;
-        Reserved : ADDRESS;
+        MacAddress : ARRAY [0..5] OF BYTE;
+        Reserved : ARRAY [0..1] OF BYTE;
         Ssid : NDIS_802_11_SSID;
         Privacy : DWORD;
         Rssi : INTEGER32;
         NetworkTypeInUse : INTEGER32;
         Configuration : NDIS_802_11_CONFIGURATION;
         InfrastructureMode : INTEGER32;
-        SupportedRates : ADDRESS;
+        SupportedRates : ARRAY [0..7] OF BYTE;
     END;
     NDIS_WLAN_BSSID_EX = RECORD
         Length : DWORD;
-        MacAddress : ADDRESS;
-        Reserved : ADDRESS;
+        MacAddress : ARRAY [0..5] OF BYTE;
+        Reserved : ARRAY [0..1] OF BYTE;
         Ssid : NDIS_802_11_SSID;
         Privacy : DWORD;
         Rssi : INTEGER32;
         NetworkTypeInUse : INTEGER32;
         Configuration : NDIS_802_11_CONFIGURATION;
         InfrastructureMode : INTEGER32;
-        SupportedRates : ADDRESS;
+        SupportedRates : ARRAY [0..15] OF BYTE;
         IELength : DWORD;
-        IEs : ADDRESS;
+        IEs : ARRAY [0..3] OF BYTE;
     END;
     NDIS_WMI_ENUM_ADAPTER = RECORD
         Header : NDIS_OBJECT_HEADER;
         IfIndex : DWORD;
-        NetLuid : ADDRESS;
+        NetLuid : NET_LUID_LH;
         DeviceNameLength : WORD;
-        DeviceName : ADDRESS;
+        DeviceName : ARRAY [0..5] OF BYTE;
     END;
     NDIS_WMI_EVENT_HEADER = RECORD
         Header : NDIS_OBJECT_HEADER;
         IfIndex : DWORD;
-        NetLuid : ADDRESS;
+        NetLuid : NET_LUID_LH;
         RequestId : QWORD;
         PortNumber : DWORD;
         DeviceNameLength : DWORD;
         DeviceNameOffset : DWORD;
-        Padding : ADDRESS;
+        Padding : ARRAY [0..3] OF BYTE;
     END;
     NDIS_WMI_IPSEC_OFFLOAD_V1 = RECORD
         Supported : ADDRESS;
@@ -2539,10 +2539,10 @@ TYPE
     NDIS_WMI_METHOD_HEADER = RECORD
         Header : NDIS_OBJECT_HEADER;
         PortNumber : DWORD;
-        NetLuid : ADDRESS;
+        NetLuid : NET_LUID_LH;
         RequestId : QWORD;
         Timeout : DWORD;
-        Padding : ADDRESS;
+        Padding : ARRAY [0..3] OF BYTE;
     END;
     NDIS_WMI_OFFLOAD = RECORD
         Header : NDIS_OBJECT_HEADER;
@@ -2561,10 +2561,10 @@ TYPE
     NDIS_WMI_SET_HEADER = RECORD
         Header : NDIS_OBJECT_HEADER;
         PortNumber : DWORD;
-        NetLuid : ADDRESS;
+        NetLuid : NET_LUID_LH;
         RequestId : QWORD;
         Timeout : DWORD;
-        Padding : ADDRESS;
+        Padding : ARRAY [0..3] OF BYTE;
     END;
     NDIS_WMI_TCP_CONNECTION_OFFLOAD = RECORD
         Header : NDIS_OBJECT_HEADER;
@@ -2620,38 +2620,42 @@ TYPE
     NETWORK_ADDRESS = RECORD
         AddressLength : WORD;
         AddressType : WORD;
-        Address : ADDRESS;
+        Address : ARRAY [0..1] OF BYTE;
     END;
     NETWORK_ADDRESS_IP = RECORD
         sin_port : WORD;
         IN_ADDR : DWORD;
-        sin_zero : ADDRESS;
+        sin_zero : ARRAY [0..7] OF BYTE;
     END;
     NETWORK_ADDRESS_IP6 = RECORD
         sin6_port : WORD;
         sin6_flowinfo : DWORD;
-        sin6_addr : ADDRESS;
+        sin6_addr : ARRAY [0..7] OF WORD;
         sin6_scope_id : DWORD;
     END;
     NETWORK_ADDRESS_IPX = RECORD
         NetworkAddress : DWORD;
-        NodeAddress : ADDRESS;
+        NodeAddress : ARRAY [0..5] OF BYTE;
         Socket : WORD;
     END;
     NETWORK_ADDRESS_LIST = RECORD
         AddressCount : INTEGER32;
         AddressType : WORD;
-        Address : ADDRESS;
+        Address : ARRAY [0..5] OF BYTE;
     END;
     NET_IF_ALIAS_LH = RECORD
         ifAliasLength : WORD;
         ifAliasOffset : WORD;
+    END;
+    NET_IF_COMPARTMENT_ID = RECORD
+        Value : DWORD;
     END;
     NET_IF_RCV_ADDRESS_LH = RECORD
         ifRcvAddressType : INTEGER32;
         ifRcvAddressLength : WORD;
         ifRcvAddressOffset : WORD;
     END;
+    NET_LUID_LH;
     NET_PHYSICAL_LOCATION_LH = RECORD
         BusNumber : DWORD;
         SlotNumber : DWORD;
@@ -2674,10 +2678,10 @@ TYPE
         DestTunnelAddr : DWORD;
         Flags : WORD;
         NumSAs : INTEGER16;
-        SecAssoc : ADDRESS;
+        SecAssoc : ARRAY [0..131] OF BYTE;
         OffloadHandle : HANDLE;
         KeyLen : DWORD;
-        KeyMat : ADDRESS;
+        KeyMat : ARRAY [0..3] OF BYTE;
     END;
     OFFLOAD_IPSEC_ADD_UDPESP_SA = RECORD
         SrcAddr : DWORD;
@@ -2691,12 +2695,12 @@ TYPE
         DstTunnelAddr : DWORD;
         Flags : WORD;
         NumSAs : INTEGER16;
-        SecAssoc : ADDRESS;
+        SecAssoc : ARRAY [0..131] OF BYTE;
         OffloadHandle : HANDLE;
         EncapTypeEntry : OFFLOAD_IPSEC_UDPESP_ENCAPTYPE_ENTRY;
         EncapTypeEntryOffldHandle : HANDLE;
         KeyLen : DWORD;
-        KeyMat : ADDRESS;
+        KeyMat : ARRAY [0..3] OF BYTE;
     END;
     OFFLOAD_IPSEC_DELETE_SA = RECORD
         OffloadHandle : HANDLE;
@@ -2717,7 +2721,7 @@ TYPE
         Reserved : OFFLOAD_ALGO_INFO;
     END;
     PMKID_CANDIDATE = RECORD
-        BSSID : ADDRESS;
+        BSSID : ARRAY [0..7] OF BYTE;
         Flags : DWORD;
     END;
     TRANSPORT_HEADER_OFFSET = RECORD
@@ -2725,5 +2729,5 @@ TYPE
         HeaderOffset : WORD;
     END;
 
-(* types-out summary: 103 types emitted; 1957 consts emitted *)
+(* types-out summary: 105 types emitted; 1957 consts emitted *)
 END NetworkManagement_Ndis.

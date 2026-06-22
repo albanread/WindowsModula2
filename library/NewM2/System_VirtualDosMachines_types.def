@@ -117,25 +117,25 @@ TYPE
         dwNextAlt : DWORD;
     END;
     IMAGE_NOTE = RECORD
-        Module : ADDRESS;
-        FileName : ADDRESS;
+        Module : ARRAY [0..9] OF BYTE;
+        FileName : ARRAY [0..255] OF BYTE;
         hModule : WORD;
         hTask : WORD;
     END;
     MODULEENTRY = RECORD
         dwSize : DWORD;
-        szModule : ADDRESS;
+        szModule : ARRAY [0..11] OF BYTE;
         hModule : HANDLE;
         wcUsage : WORD;
-        szExePath : ADDRESS;
+        szExePath : ARRAY [0..255] OF BYTE;
         wNext : WORD;
     END;
     SEGMENT_NOTE = RECORD
         Selector1 : WORD;
         Selector2 : WORD;
         Segment : WORD;
-        Module : ADDRESS;
-        FileName : ADDRESS;
+        Module : ARRAY [0..9] OF BYTE;
+        FileName : ARRAY [0..255] OF BYTE;
         Type_ : WORD;
         Length : DWORD;
     END;
@@ -169,7 +169,7 @@ TYPE
         EFlags : DWORD;
         Esp : DWORD;
         SegSs : DWORD;
-        ExtendedRegisters : ADDRESS;
+        ExtendedRegisters : ARRAY [0..511] OF BYTE;
     END;
     VDMCONTEXT_WITHOUT_XSAVE = RECORD
         ContextFlags : DWORD;
@@ -207,8 +207,8 @@ TYPE
         SegNumber : WORD;
         Length : DWORD;
         Type_ : WORD;
-        ModuleName : ADDRESS;
-        FileName : ADDRESS;
+        ModuleName : ARRAY [0..8] OF BYTE;
+        FileName : ARRAY [0..256] OF BYTE;
     END;
 
 (* types-out summary: 9 types emitted; 95 consts emitted *)

@@ -50,8 +50,8 @@ TYPE
     END;
     RM_PROCESS_INFO = RECORD
         Process : RM_UNIQUE_PROCESS;
-        strAppName : ADDRESS;
-        strServiceShortName : ADDRESS;
+        strAppName : ARRAY [0..255] OF CHAR;
+        strServiceShortName : ARRAY [0..63] OF CHAR;
         ApplicationType : INTEGER32;
         AppStatus : DWORD;
         TSSessionId : DWORD;

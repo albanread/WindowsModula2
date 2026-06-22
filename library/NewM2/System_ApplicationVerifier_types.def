@@ -26,7 +26,7 @@ TYPE
     AVRF_BACKTRACE_INFORMATION = RECORD
         Depth : DWORD;
         Index : DWORD;
-        ReturnAddresses : ADDRESS;
+        ReturnAddresses : ARRAY [0..31] OF QWORD;
     END;
     AVRF_HANDLE_OPERATION = RECORD
         Handle : QWORD;

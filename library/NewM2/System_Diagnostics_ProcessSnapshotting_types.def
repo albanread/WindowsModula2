@@ -150,7 +150,7 @@ TYPE
         PeakPagefileUsage : ADRCARD;
         PrivateUsage : ADRCARD;
         ExecuteFlags : DWORD;
-        ImageFileName : ADDRESS;
+        ImageFileName : ARRAY [0..261] OF CHAR;
     END;
     PSS_THREAD_ENTRY = RECORD
         ExitStatus : DWORD;

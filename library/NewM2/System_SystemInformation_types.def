@@ -503,25 +503,30 @@ TYPE
         LineSize : WORD;
         CacheSize : DWORD;
         Type_ : INTEGER32;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..17] OF BYTE;
         GroupCount : WORD;
         Anonymous : ADDRESS;
+    END;
+    GROUP_AFFINITY = RECORD
+        Mask : ADRCARD;
+        Group : WORD;
+        Reserved : ARRAY [0..2] OF WORD;
     END;
     GROUP_AFFINITY32 = RECORD
         Mask : DWORD;
         Group : WORD;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..2] OF WORD;
     END;
     GROUP_AFFINITY64 = RECORD
         Mask : QWORD;
         Group : WORD;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..2] OF WORD;
     END;
     GROUP_RELATIONSHIP = RECORD
         MaximumGroupCount : WORD;
         ActiveGroupCount : WORD;
-        Reserved : ADDRESS;
-        GroupInfo : ADDRESS;
+        Reserved : ARRAY [0..19] OF BYTE;
+        GroupInfo : ARRAY [0..47] OF BYTE;
     END;
     MEMORYSTATUS = RECORD
         dwLength : DWORD;
@@ -546,7 +551,7 @@ TYPE
     END;
     NUMA_NODE_RELATIONSHIP = RECORD
         NodeNumber : DWORD;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..17] OF BYTE;
         GroupCount : WORD;
         Anonymous : ADDRESS;
     END;
@@ -556,7 +561,7 @@ TYPE
         dwMinorVersion : DWORD;
         dwBuildNumber : DWORD;
         dwPlatformId : DWORD;
-        szCSDVersion : ADDRESS;
+        szCSDVersion : ARRAY [0..127] OF BYTE;
     END;
     OSVERSIONINFOEXA = RECORD
         dwOSVersionInfoSize : DWORD;
@@ -564,7 +569,7 @@ TYPE
         dwMinorVersion : DWORD;
         dwBuildNumber : DWORD;
         dwPlatformId : DWORD;
-        szCSDVersion : ADDRESS;
+        szCSDVersion : ARRAY [0..127] OF BYTE;
         wServicePackMajor : WORD;
         wServicePackMinor : WORD;
         wSuiteMask : WORD;
@@ -577,7 +582,7 @@ TYPE
         dwMinorVersion : DWORD;
         dwBuildNumber : DWORD;
         dwPlatformId : DWORD;
-        szCSDVersion : ADDRESS;
+        szCSDVersion : ARRAY [0..127] OF CHAR;
         wServicePackMajor : WORD;
         wServicePackMinor : WORD;
         wSuiteMask : WORD;
@@ -590,20 +595,20 @@ TYPE
         dwMinorVersion : DWORD;
         dwBuildNumber : DWORD;
         dwPlatformId : DWORD;
-        szCSDVersion : ADDRESS;
+        szCSDVersion : ARRAY [0..127] OF CHAR;
     END;
     PROCESSOR_GROUP_INFO = RECORD
         MaximumProcessorCount : BYTE;
         ActiveProcessorCount : BYTE;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..37] OF BYTE;
         ActiveProcessorMask : ADRCARD;
     END;
     PROCESSOR_RELATIONSHIP = RECORD
         Flags : BYTE;
         EfficiencyClass : BYTE;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..19] OF BYTE;
         GroupCount : WORD;
-        GroupMask : ADDRESS;
+        GroupMask : ARRAY [0..15] OF BYTE;
     END;
     SYSTEM_CPU_SET_INFORMATION = RECORD
         Size : DWORD;
@@ -707,5 +712,5 @@ PROCEDURE VerSetConditionMask["VerSetConditionMask" EXTERNAL FROM "KERNEL32.dll"
 PROCEDURE VerifyVersionInfoA["VerifyVersionInfoA" EXTERNAL FROM "KERNEL32.dll"](lpVersionInformation : POINTER TO OSVERSIONINFOEXA; dwTypeMask : DWORD; dwlConditionMask : QWORD) : BOOL;
 PROCEDURE VerifyVersionInfoW["VerifyVersionInfoW" EXTERNAL FROM "KERNEL32.dll"](lpVersionInformation : POINTER TO OSVERSIONINFOEXW; dwTypeMask : DWORD; dwlConditionMask : QWORD) : BOOL;
 
-(* types-out summary: 21 types emitted; 484 consts emitted; 64 procedures emitted *)
+(* types-out summary: 22 types emitted; 484 consts emitted; 64 procedures emitted *)
 END System_SystemInformation.

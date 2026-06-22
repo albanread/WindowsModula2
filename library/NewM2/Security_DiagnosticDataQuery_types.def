@@ -89,12 +89,12 @@ TYPE
         reportKey : PWSTR;
     END;
     DIAGNOSTIC_REPORT_PARAMETER = RECORD
-        name : ADDRESS;
-        value : ADDRESS;
+        name : ARRAY [0..128] OF CHAR;
+        value : ARRAY [0..259] OF CHAR;
     END;
     DIAGNOSTIC_REPORT_SIGNATURE = RECORD
-        eventName : ADDRESS;
-        parameters : ADDRESS;
+        eventName : ARRAY [0..64] OF CHAR;
+        parameters : ARRAY [0..7779] OF BYTE;
     END;
     HDIAGNOSTIC_DATA_QUERY_SESSION = RECORD
         Value : ADDRESS;

@@ -238,12 +238,12 @@ TYPE
     CAT_NAMEVALUE = RECORD
         pwszTag : PWSTR;
         fdwFlags : DWORD;
-        Value : ADDRESS;
+        Value : Security_Cryptography.CRYPT_INTEGER_BLOB;
     END;
     CONFIG_CI_PROV_INFO = RECORD
         cbSize : DWORD;
         dwPolicies : DWORD;
-        pPolicies : ADDRESS;
+        pPolicies : POINTER TO Security_Cryptography.CRYPT_INTEGER_BLOB;
         result : CONFIG_CI_PROV_INFO_RESULT;
         dwScenario : DWORD;
         result2 : POINTER TO CONFIG_CI_PROV_INFO_RESULT2;
@@ -265,7 +265,7 @@ TYPE
     END;
     CRYPT_PROVIDER_CERT = RECORD
         cbStruct : DWORD;
-        pCert : ADDRESS;
+        pCert : POINTER TO Security_Cryptography.CERT_CONTEXT;
         fCommercial : BOOL;
         fTrustedRoot : BOOL;
         fSelfSigned : BOOL;
@@ -362,7 +362,7 @@ TYPE
         dwError : DWORD;
         csCounterSigners : DWORD;
         pasCounterSigners : POINTER TO CRYPT_PROVIDER_SGNR;
-        pChainContext : ADDRESS;
+        pChainContext : POINTER TO Security_Cryptography.CERT_CHAIN_CONTEXT;
     END;
     CRYPT_PROVIDER_SIGSTATE = RECORD
         cbStruct : DWORD;
@@ -419,9 +419,9 @@ TYPE
         dwReserved2 : ADRCARD;
         dwPlatform : DWORD;
         dwVersion : DWORD;
-        wszVersion : ADDRESS;
-        wszSignedBy : ADDRESS;
-        pcSignerCertContext : ADDRESS;
+        wszVersion : ARRAY [0..259] OF CHAR;
+        wszSignedBy : ARRAY [0..259] OF CHAR;
+        pcSignerCertContext : POINTER TO Security_Cryptography.CERT_CONTEXT;
         sOSVersionLow : DRIVER_VER_MAJORMINOR;
         sOSVersionHigh : DRIVER_VER_MAJORMINOR;
         dwBuildNumberLow : DWORD;
@@ -448,12 +448,12 @@ TYPE
         version : DWORD;
         signerIndex : DWORD;
         signatureAlgorithm : Security_Cryptography.CRYPT_ALGORITHM_IDENTIFIER;
-        encryptedDigest : ADDRESS;
+        encryptedDigest : Security_Cryptography.CRYPT_INTEGER_BLOB;
     END;
     SEALING_TIMESTAMP_ATTRIBUTE = RECORD
         version : DWORD;
         signerIndex : DWORD;
-        sealTimeStampToken : ADDRESS;
+        sealTimeStampToken : Security_Cryptography.CRYPT_INTEGER_BLOB;
     END;
     SPC_FINANCIAL_CRITERIA = RECORD
         fFinancialInfoAvailable : BOOL;
@@ -461,15 +461,15 @@ TYPE
     END;
     SPC_IMAGE = RECORD
         pImageLink : POINTER TO SPC_LINK;
-        Bitmap : ADDRESS;
-        Metafile : ADDRESS;
-        EnhancedMetafile : ADDRESS;
-        GifFile : ADDRESS;
+        Bitmap : Security_Cryptography.CRYPT_INTEGER_BLOB;
+        Metafile : Security_Cryptography.CRYPT_INTEGER_BLOB;
+        EnhancedMetafile : Security_Cryptography.CRYPT_INTEGER_BLOB;
+        GifFile : Security_Cryptography.CRYPT_INTEGER_BLOB;
     END;
     SPC_INDIRECT_DATA_CONTENT = RECORD
         Data : Security_Cryptography.CRYPT_ATTRIBUTE_TYPE_VALUE;
         DigestAlgorithm : Security_Cryptography.CRYPT_ALGORITHM_IDENTIFIER;
-        Digest : ADDRESS;
+        Digest : Security_Cryptography.CRYPT_INTEGER_BLOB;
     END;
     SPC_LINK = RECORD
         dwLinkChoice : DWORD;
@@ -480,8 +480,8 @@ TYPE
         pFile : POINTER TO SPC_LINK;
     END;
     SPC_SERIALIZED_OBJECT = RECORD
-        ClassId : ADDRESS;
-        SerializedData : ADDRESS;
+        ClassId : ARRAY [0..15] OF BYTE;
+        SerializedData : Security_Cryptography.CRYPT_INTEGER_BLOB;
     END;
     SPC_SIGINFO = RECORD
         dwSipVersion : DWORD;
@@ -531,7 +531,7 @@ TYPE
     WINTRUST_CERT_INFO = RECORD
         cbStruct : DWORD;
         pcwszDisplayName : PWSTR;
-        psCertContext : ADDRESS;
+        psCertContext : POINTER TO Security_Cryptography.CERT_CONTEXT;
         chStores : DWORD;
         pahStores : POINTER TO Security_Cryptography.HCERTSTORE;
         dwFlags : DWORD;
@@ -592,7 +592,7 @@ TYPE
         dwLength : DWORD;
         wRevision : WORD;
         wCertificateType : WORD;
-        bCertificate : ADDRESS;
+        bCertificate : ARRAY [0..3] OF BYTE;
     END;
     WIN_SPUB_TRUSTED_PUBLISHER_DATA = RECORD
         hClientToken : HANDLE;
@@ -632,7 +632,7 @@ TYPE
     END;
     WTD_GENERIC_CHAIN_POLICY_SIGNER_INFO = RECORD
         Anonymous : ADDRESS;
-        pChainContext : ADDRESS;
+        pChainContext : POINTER TO Security_Cryptography.CERT_CHAIN_CONTEXT;
         dwSignerType : DWORD;
         pMsgSignerInfo : POINTER TO Security_Cryptography.CMSG_SIGNER_INFO;
         dwError : DWORD;

@@ -128,8 +128,8 @@ TYPE
         DiskData : DWORD;
     END;
     CDROM_EXCEPTION_PERFORMANCE_DESCRIPTOR = RECORD
-        Lba : ADDRESS;
-        Time : ADDRESS;
+        Lba : ARRAY [0..3] OF BYTE;
+        Time : ARRAY [0..1] OF BYTE;
     END;
     CDROM_EXCLUSIVE_ACCESS = RECORD
         RequestType : INTEGER32;
@@ -137,23 +137,23 @@ TYPE
     END;
     CDROM_EXCLUSIVE_LOCK = RECORD
         Access : CDROM_EXCLUSIVE_ACCESS;
-        CallerName : ADDRESS;
+        CallerName : ARRAY [0..63] OF BYTE;
     END;
     CDROM_EXCLUSIVE_LOCK_STATE = RECORD
         LockState : BOOLEAN;
-        CallerName : ADDRESS;
+        CallerName : ARRAY [0..63] OF BYTE;
     END;
     CDROM_NOMINAL_PERFORMANCE_DESCRIPTOR = RECORD
-        StartLba : ADDRESS;
-        StartPerformance : ADDRESS;
-        EndLba : ADDRESS;
-        EndPerformance : ADDRESS;
+        StartLba : ARRAY [0..3] OF BYTE;
+        StartPerformance : ARRAY [0..3] OF BYTE;
+        EndLba : ARRAY [0..3] OF BYTE;
+        EndPerformance : ARRAY [0..3] OF BYTE;
     END;
     CDROM_PERFORMANCE_HEADER = RECORD
-        DataLength : ADDRESS;
+        DataLength : ARRAY [0..3] OF BYTE;
         _bitfield : BYTE;
-        Reserved2 : ADDRESS;
-        Data : ADDRESS;
+        Reserved2 : ARRAY [0..2] OF BYTE;
+        Data : ARRAY [0..0] OF BYTE;
     END;
     CDROM_PERFORMANCE_REQUEST = RECORD
         RequestType : INTEGER32;
@@ -214,38 +214,38 @@ TYPE
         Track : BYTE;
     END;
     CDROM_TOC = RECORD
-        Length : ADDRESS;
+        Length : ARRAY [0..1] OF BYTE;
         FirstTrack : BYTE;
         LastTrack : BYTE;
-        TrackData : ADDRESS;
+        TrackData : ARRAY [0..799] OF BYTE;
     END;
     CDROM_TOC_ATIP_DATA = RECORD
-        Length : ADDRESS;
+        Length : ARRAY [0..1] OF BYTE;
         Reserved1 : BYTE;
         Reserved2 : BYTE;
-        Descriptors : ADDRESS;
+        Descriptors : ARRAY [0..23] OF BYTE;
     END;
     CDROM_TOC_ATIP_DATA_BLOCK = RECORD
         _bitfield1 : BYTE;
         _bitfield2 : BYTE;
         _bitfield3 : BYTE;
         Reserved7 : BYTE;
-        LeadInMsf : ADDRESS;
+        LeadInMsf : ARRAY [0..2] OF BYTE;
         Reserved8 : BYTE;
-        LeadOutMsf : ADDRESS;
+        LeadOutMsf : ARRAY [0..2] OF BYTE;
         Reserved9 : BYTE;
-        A1Values : ADDRESS;
+        A1Values : ARRAY [0..2] OF BYTE;
         Reserved10 : BYTE;
-        A2Values : ADDRESS;
+        A2Values : ARRAY [0..2] OF BYTE;
         Reserved11 : BYTE;
-        A3Values : ADDRESS;
+        A3Values : ARRAY [0..2] OF BYTE;
         Reserved12 : BYTE;
     END;
     CDROM_TOC_CD_TEXT_DATA = RECORD
-        Length : ADDRESS;
+        Length : ARRAY [0..1] OF BYTE;
         Reserved1 : BYTE;
         Reserved2 : BYTE;
-        Descriptors : ADDRESS;
+        Descriptors : ARRAY [0..23] OF BYTE;
     END;
     CDROM_TOC_CD_TEXT_DATA_BLOCK = RECORD
         PackType : BYTE;
@@ -253,41 +253,41 @@ TYPE
         SequenceNumber : BYTE;
         _bitfield2 : BYTE;
         Anonymous : ADDRESS;
-        CRC : ADDRESS;
+        CRC : ARRAY [0..7] OF BYTE;
     END;
     CDROM_TOC_FULL_TOC_DATA = RECORD
-        Length : ADDRESS;
+        Length : ARRAY [0..1] OF BYTE;
         FirstCompleteSession : BYTE;
         LastCompleteSession : BYTE;
-        Descriptors : ADDRESS;
+        Descriptors : ARRAY [0..10] OF BYTE;
     END;
     CDROM_TOC_FULL_TOC_DATA_BLOCK = RECORD
         SessionNumber : BYTE;
         _bitfield : BYTE;
         Reserved1 : BYTE;
         Point : BYTE;
-        MsfExtra : ADDRESS;
+        MsfExtra : ARRAY [0..2] OF BYTE;
         Zero : BYTE;
-        Msf : ADDRESS;
+        Msf : ARRAY [0..2] OF BYTE;
     END;
     CDROM_TOC_PMA_DATA = RECORD
-        Length : ADDRESS;
+        Length : ARRAY [0..1] OF BYTE;
         Reserved1 : BYTE;
         Reserved2 : BYTE;
-        Descriptors : ADDRESS;
+        Descriptors : ARRAY [0..10] OF BYTE;
     END;
     CDROM_TOC_SESSION_DATA = RECORD
-        Length : ADDRESS;
+        Length : ARRAY [0..1] OF BYTE;
         FirstCompleteSession : BYTE;
         LastCompleteSession : BYTE;
-        TrackData : ADDRESS;
+        TrackData : ARRAY [0..7] OF BYTE;
     END;
     CDROM_WRITE_SPEED_DESCRIPTOR = RECORD
         _bitfield : BYTE;
-        Reserved3 : ADDRESS;
-        EndLba : ADDRESS;
-        ReadSpeed : ADDRESS;
-        WriteSpeed : ADDRESS;
+        Reserved3 : ARRAY [0..2] OF BYTE;
+        EndLba : ARRAY [0..3] OF BYTE;
+        ReadSpeed : ARRAY [0..3] OF BYTE;
+        WriteSpeed : ARRAY [0..3] OF BYTE;
     END;
     CDROM_WRITE_SPEED_REQUEST = RECORD
         RequestType : INTEGER32;
@@ -304,20 +304,20 @@ TYPE
         _bitfield : BYTE;
         TrackNumber : BYTE;
         IndexNumber : BYTE;
-        AbsoluteAddress : ADDRESS;
-        TrackRelativeAddress : ADDRESS;
+        AbsoluteAddress : ARRAY [0..3] OF BYTE;
+        TrackRelativeAddress : ARRAY [0..3] OF BYTE;
     END;
     SUB_Q_HEADER = RECORD
         Reserved : BYTE;
         AudioStatus : BYTE;
-        DataLength : ADDRESS;
+        DataLength : ARRAY [0..1] OF BYTE;
     END;
     SUB_Q_MEDIA_CATALOG_NUMBER = RECORD
         Header : SUB_Q_HEADER;
         FormatCode : BYTE;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..2] OF BYTE;
         _bitfield : BYTE;
-        MediaCatalog : ADDRESS;
+        MediaCatalog : ARRAY [0..14] OF BYTE;
     END;
     SUB_Q_TRACK_ISRC = RECORD
         Header : SUB_Q_HEADER;
@@ -326,17 +326,17 @@ TYPE
         Track : BYTE;
         Reserved1 : BYTE;
         _bitfield : BYTE;
-        TrackIsrc : ADDRESS;
+        TrackIsrc : ARRAY [0..14] OF BYTE;
     END;
     TRACK_DATA = RECORD
         Reserved : BYTE;
         _bitfield : BYTE;
         TrackNumber : BYTE;
         Reserved1 : BYTE;
-        Address : ADDRESS;
+        Address : ARRAY [0..3] OF BYTE;
     END;
     VOLUME_CONTROL = RECORD
-        PortVolume : ADDRESS;
+        PortVolume : ARRAY [0..3] OF BYTE;
     END;
 
 (* types-out summary: 35 types emitted; 119 consts emitted *)

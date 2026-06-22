@@ -540,7 +540,7 @@ TYPE
         Params : POINTER TO DHCPV6CAPI_PARAMS;
     END;
     DHCPV6Prefix = RECORD
-        prefix : ADDRESS;
+        prefix : ARRAY [0..15] OF BYTE;
         prefixLength : DWORD;
         preferredLifeTime : DWORD;
         validLifeTime : DWORD;
@@ -594,7 +594,7 @@ TYPE
         HWType : BYTE;
         IsWildcard : BOOL;
         Length : BYTE;
-        Pattern : ADDRESS;
+        Pattern : ARRAY [0..254] OF BYTE;
     END;
     DHCP_ALL_OPTIONS = RECORD
         Flags : DWORD;

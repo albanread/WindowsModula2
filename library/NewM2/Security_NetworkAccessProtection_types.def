@@ -55,7 +55,7 @@ TYPE
         string : PWSTR;
     END;
     FailureCategoryMapping = RECORD
-        mappingCompliance : ADDRESS;
+        mappingCompliance : ARRAY [0..19] OF BYTE;
     END;
     FixupInfo = RECORD
         state : INTEGER32;
@@ -64,10 +64,10 @@ TYPE
         fixupMsgId : DWORD;
     END;
     Ipv4Address = RECORD
-        addr : ADDRESS;
+        addr : ARRAY [0..3] OF BYTE;
     END;
     Ipv6Address = RECORD
-        addr : ADDRESS;
+        addr : ARRAY [0..15] OF BYTE;
     END;
     IsolationInfo = RECORD
         isolationState : INTEGER32;

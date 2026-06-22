@@ -1844,6 +1844,22 @@ impl<'c, 'g, 's> FuncLower<'c, 'g, 's> {
                 if self.try_vector_lane_write(target, value) {
                     return;
                 }
+                // Whole-aggregate (RECORD / closed ARRAY) lvalue<-lvalue copy of a
+                // LARGE aggregate: memmove by address (Inst::MemCopy) instead of an
+                // SSA by-value load+store — LLVM's SelectionDAG segfaults legalising
+                // a >64K-element by-value aggregate. Small aggregates keep the proven
+                // load/store path (threshold-gated, so existing codegen is unchanged).
+                if let ast::Expr::Designator(src_d) = value
+                    && let Some(tty) = self.ctx.sema.designator_type(self.ctx.mid, target.span)
+                    && is_aggregate_xfer(&self.ctx.sema.types, tty)
+                    && type_byte_size(&self.ctx.sema.types, tty)
+                        .is_some_and(|n| n >= AGGREGATE_MEMCOPY_THRESHOLD)
+                {
+                    let dst = self.eval_lvalue(target);
+                    let src = self.eval_lvalue(src_d);
+                    self.push(Inst::MemCopy { dst, src, ty: tty });
+                    return;
+                }
                 let val = self.eval_expr(value);
                 let ptr = self.eval_lvalue(target);
                 self.push(Inst::Store { ptr, val });
@@ -5573,6 +5589,46 @@ fn is_pointer_like(types: &newm2_sema::TypeArena, ty: newm2_sema::types::TypeId)
     }
 }
 
+/// Whole-aggregate lvalue copies of at least this many bytes are lowered to
+/// `memmove` (Inst::MemCopy) instead of an SSA by-value load/store. Well below
+/// the ~64KB element-count cliff that segfaults LLVM's SelectionDAG, and above
+/// every ordinary small record/array (which keep the proven load/store path).
+const AGGREGATE_MEMCOPY_THRESHOLD: i128 = 1024;
+
+/// A genuine aggregate (RECORD or closed ARRAY) — the operand shape that makes a
+/// `SYSTEM.CAST` a memory reinterpret rather than a scalar/pointer cast. Open
+/// arrays, vectors and sets are deliberately excluded (they have their own paths).
+fn is_aggregate_xfer(types: &newm2_sema::TypeArena, ty: newm2_sema::types::TypeId) -> bool {
+    matches!(types.get(ty), TypeKind::Record(..) | TypeKind::Array { .. })
+}
+
+/// Static byte size of a type, for the whole-aggregate-copy threshold. Returns
+/// None when not statically sizable here (the caller then keeps the default
+/// load/store path). Mirrors codegen's array/record layout sizing.
+fn type_byte_size(types: &newm2_sema::TypeArena, ty: newm2_sema::types::TypeId) -> Option<i128> {
+    match types.get(ty) {
+        TypeKind::Subrange { host, .. } => type_byte_size(types, *host),
+        TypeKind::Array { indices, base } => {
+            let mut count: i128 = 1;
+            for &idx in indices {
+                count = count.checked_mul(types.ordinal_cardinality(idx)?)?;
+            }
+            count.checked_mul(type_byte_size(types, *base)?)
+        }
+        TypeKind::Record(layout) => {
+            let mut sum: i128 = 0;
+            for (_, fty) in layout.flatten_fields() {
+                sum = sum.checked_add(type_byte_size(types, fty)?)?;
+            }
+            Some(sum)
+        }
+        TypeKind::Set { .. } | TypeKind::Builtin(Builtin::Bitset | Builtin::SysBitset) => Some(32),
+        _ if is_pointer_like(types, ty) => Some(8),
+        TypeKind::Enum { .. } => Some(4),
+        _ => scalar_bit_width(types, ty).map(|w| (w as i128 + 7) / 8),
+    }
+}
+
 /// Bit width of a real type (REAL/LONGREAL = 64, REAL32 = 32, REAL16 = 16).
 fn real_bit_width(types: &newm2_sema::TypeArena, ty: newm2_sema::types::TypeId) -> Option<u32> {
     match types.get(ty) {
@@ -5604,6 +5660,17 @@ fn classify_transfer_cast(
     target_ty: newm2_sema::types::TypeId,
     is_cast: bool,
 ) -> Option<CastKind> {
+    // A CAST where one operand is an aggregate (RECORD / closed ARRAY) is a
+    // bit-level memory reinterpret — not a scalar conversion or a pointer cast.
+    // Checked FIRST so a record↔ADDRESS pair routes here too (it would otherwise
+    // mis-route to Int↔Ptr and feed emit_cast a StructValue). Gated on `is_cast`
+    // because VAL is restricted to scalars by sema, so VAL never reaches here.
+    if is_cast
+        && (is_aggregate_xfer(&sema.types, source_ty) || is_aggregate_xfer(&sema.types, target_ty))
+    {
+        return Some(CastKind::MemReinterpret);
+    }
+
     // Pointer-involved transfers: reinterpret rather than convert.
     match (
         is_pointer_like(&sema.types, source_ty),

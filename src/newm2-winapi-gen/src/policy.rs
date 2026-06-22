@@ -31,6 +31,8 @@ pub enum M2Ref {
     CrossNs(String, String),
     /// `POINTER TO <inner>`.
     Pointer(Box<M2Ref>),
+    /// `ARRAY [0..count-1] OF <inner>` — a fixed-size struct array field.
+    Array(Box<M2Ref>, i64),
     /// Opaque fallback — rendered as `ADDRESS`.
     Address,
 }
@@ -44,6 +46,10 @@ impl M2Ref {
                 span: build::sp(),
             }),
             M2Ref::Pointer(inner) => build::pointer(inner.to_type_expr()),
+            M2Ref::Array(inner, count) => build::array(
+                build::subrange(build::int_expr(0), build::int_expr((count - 1).max(0) as u64)),
+                inner.to_type_expr(),
+            ),
             M2Ref::Address => build::named("ADDRESS"),
         }
     }
@@ -59,6 +65,7 @@ impl M2Ref {
                 modules.insert(module.clone());
             }
             M2Ref::Pointer(inner) => inner.collect_imports(win32, modules),
+            M2Ref::Array(inner, _) => inner.collect_imports(win32, modules),
             _ => {}
         }
     }
@@ -173,6 +180,53 @@ pub fn win32_names() -> HashSet<String> {
 /// `available` is the set of module names being generated together (so a
 /// cross-namespace reference can resolve to `Module.Type` instead of ADDRESS);
 /// `current` is the module being emitted (to avoid self-qualified references).
+/// Byte size of a winmd primitive element type name (the raw `T` of a `T[]`
+/// struct field), for recovering a fixed-array length from its byte span. None
+/// for non-primitive (struct/etc.) elements — the caller then emits a byte-exact
+/// blob so the record stays the correct size.
+fn primitive_elem_size(raw: &str) -> Option<i64> {
+    Some(match raw.trim() {
+        "u8" | "i8" | "Foundation.CHAR" => 1, // BYTE / INTEGER8 / ACHAR (narrow)
+        "char" | "u16" | "i16" => 2,          // WCHAR (the dialect's CHAR) / 16-bit ints
+        "u32" | "i32" | "f32" => 4,
+        "u64" | "i64" | "f64" | "usize" | "isize" => 8,
+        "System.Guid" => 16,
+        s if s.ends_with('*') => 8, // any pointer element
+        _ => return None,
+    })
+}
+
+/// Resolve a fixed-size struct array field `Elem[]` whose winmd length was dropped
+/// from the type string, recovering the count from the field's byte `span`. Emits
+/// `ARRAY [0..count-1] OF <elem>` when the element size is known and divides the
+/// span; otherwise a byte-exact `ARRAY [0..span-1] OF BYTE` so the record stays
+/// the correct size. (Struct-field-only — `resolve` still decays C array PARAMS
+/// to ADDRESS, which is correct for a pointer-decayed argument.)
+pub fn resolve_field_array(
+    raw_elem: &str,
+    span_bytes: i64,
+    ctx: &ResolveCtx,
+    index: &CrossIndex,
+    current: &str,
+    warnings: &mut Vec<String>,
+) -> M2Ref {
+    if span_bytes <= 0 {
+        warnings.push(format!("array field '{raw_elem}[]' span {span_bytes} -> ADDRESS"));
+        return M2Ref::Address;
+    }
+    let r = raw_elem.trim();
+    if let Some(esz) = primitive_elem_size(r)
+        && esz > 0
+        && span_bytes % esz == 0
+    {
+        let elem =
+            if r.ends_with('*') { M2Ref::Address } else { resolve_base(r, ctx, index, current, warnings) };
+        return M2Ref::Array(Box::new(elem), span_bytes / esz);
+    }
+    // Unknown / non-divisible element size: a byte-exact blob keeps the struct size.
+    M2Ref::Array(Box::new(M2Ref::Builtin("BYTE".to_string())), span_bytes)
+}
+
 pub fn resolve(
     raw: &str,
     ctx: &ResolveCtx,

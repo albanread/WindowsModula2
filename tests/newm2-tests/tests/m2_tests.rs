@@ -2755,3 +2755,19 @@ fn perf_primes_o2() {
 fn perf_sieve_o2() {
     check_o2("perf-sieve-o2.mod", "10152000\n");
 }
+
+#[test]
+fn t90_277_cast_aggregate() {
+    // SYSTEM.CAST with an aggregate operand (RECORD / closed ARRAY) is a memory
+    // reinterpret — regression for the "undefined ValueId" / StructValue codegen
+    // panics (scalar<->record, record<->ADDRESS, scalar<->array).
+    check("t-90-277-cast-aggregate.mod", "12345\n65\n");
+}
+
+#[test]
+fn t90_278_large_array_copy() {
+    // Whole-aggregate copy of a >64K-element array / large record lowers to
+    // memmove, not a by-value load/store — regression for the LLVM SelectionDAG
+    // segfault on large by-value aggregates.
+    check("t-90-278-large-array-copy.mod", "65\n90\n90\n7\n");
+}

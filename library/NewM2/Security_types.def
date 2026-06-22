@@ -449,12 +449,19 @@ TYPE
         SidStart : DWORD;
     END;
     ACCESS_REASONS = RECORD
-        Data : ADDRESS;
+        Data : ARRAY [0..31] OF DWORD;
     END;
     ACE_HEADER = RECORD
         AceType : BYTE;
         AceFlags : BYTE;
         AceSize : WORD;
+    END;
+    ACL = RECORD
+        AclRevision : BYTE;
+        Sbz1 : BYTE;
+        AclSize : WORD;
+        AceCount : WORD;
+        Sbz2 : WORD;
     END;
     ACL_REVISION_INFORMATION = RECORD
         AclRevision : DWORD;
@@ -521,7 +528,13 @@ TYPE
     PRIVILEGE_SET = RECORD
         PrivilegeCount : DWORD;
         Control : DWORD;
-        Privilege : ADDRESS;
+        Privilege : ARRAY [0..11] OF BYTE;
+    END;
+    PSECURITY_DESCRIPTOR = RECORD
+        Value : ADDRESS;
+    END;
+    PSID = RECORD
+        Value : ADDRESS;
     END;
     QUOTA_LIMITS = RECORD
         PagedPoolLimit : ADRCARD;
@@ -534,9 +547,14 @@ TYPE
     SAFER_LEVEL_HANDLE = RECORD
         Value : ADDRESS;
     END;
+    SECURITY_ATTRIBUTES = RECORD
+        nLength : DWORD;
+        lpSecurityDescriptor : ADDRESS;
+        bInheritHandle : BOOL;
+    END;
     SECURITY_CAPABILITIES = RECORD
-        AppContainerSid : ADDRESS;
-        Capabilities : ADDRESS;
+        AppContainerSid : PSID;
+        Capabilities : POINTER TO SID_AND_ATTRIBUTES;
         CapabilityCount : DWORD;
         Reserved : DWORD;
     END;
@@ -544,10 +562,10 @@ TYPE
         Revision : BYTE;
         Sbz1 : BYTE;
         Control : WORD;
-        Owner : ADDRESS;
-        Group : ADDRESS;
-        Sacl : ADDRESS;
-        Dacl : ADDRESS;
+        Owner : PSID;
+        Group : PSID;
+        Sacl : POINTER TO ACL;
+        Dacl : POINTER TO ACL;
     END;
     SECURITY_DESCRIPTOR_RELATIVE = RECORD
         Revision : BYTE;
@@ -577,7 +595,7 @@ TYPE
         SeSecurityDescriptor : POINTER TO SE_SECURITY_DESCRIPTOR;
         DesiredAccess : DWORD;
         PreviouslyGrantedAccess : DWORD;
-        PrincipalSelfSid : ADDRESS;
+        PrincipalSelfSid : PSID;
         GenericMapping : POINTER TO GENERIC_MAPPING;
         ObjectTypeListCount : DWORD;
         ObjectTypeList : POINTER TO OBJECT_TYPE_LIST;
@@ -591,16 +609,26 @@ TYPE
     SE_SECURITY_DESCRIPTOR = RECORD
         Size : DWORD;
         Flags : DWORD;
-        SecurityDescriptor : ADDRESS;
+        SecurityDescriptor : PSECURITY_DESCRIPTOR;
     END;
     SE_SID;
+    SID = RECORD
+        Revision : BYTE;
+        SubAuthorityCount : BYTE;
+        IdentifierAuthority : SID_IDENTIFIER_AUTHORITY;
+        SubAuthority : ARRAY [0..0] OF DWORD;
+    END;
+    SID_AND_ATTRIBUTES = RECORD
+        Sid : PSID;
+        Attributes : DWORD;
+    END;
     SID_AND_ATTRIBUTES_HASH = RECORD
         SidCount : DWORD;
-        SidAttr : ADDRESS;
-        Hash : ADDRESS;
+        SidAttr : POINTER TO SID_AND_ATTRIBUTES;
+        Hash : ARRAY [0..31] OF ADRCARD;
     END;
     SID_IDENTIFIER_AUTHORITY = RECORD
-        Value : ADDRESS;
+        Value : ARRAY [0..5] OF BYTE;
     END;
     SYSTEM_ACCESS_FILTER_ACE = RECORD
         Header : ACE_HEADER;
@@ -689,16 +717,16 @@ TYPE
         MandatoryPolicy : TOKEN_MANDATORY_POLICY;
         Flags : DWORD;
         AppContainerNumber : DWORD;
-        PackageSid : ADDRESS;
+        PackageSid : PSID;
         CapabilitiesHash : POINTER TO SID_AND_ATTRIBUTES_HASH;
-        TrustLevelSid : ADDRESS;
+        TrustLevelSid : PSID;
         SecurityAttributes : ADDRESS;
     END;
     TOKEN_APPCONTAINER_INFORMATION = RECORD
-        TokenAppContainer : ADDRESS;
+        TokenAppContainer : PSID;
     END;
     TOKEN_AUDIT_POLICY = RECORD
-        PerUserPolicy : ADDRESS;
+        PerUserPolicy : ARRAY [0..30] OF BYTE;
     END;
     TOKEN_CONTROL = RECORD
         TokenId : Foundation.LUID;
@@ -707,7 +735,7 @@ TYPE
         TokenSource : TOKEN_SOURCE;
     END;
     TOKEN_DEFAULT_DACL = RECORD
-        DefaultDacl : ADDRESS;
+        DefaultDacl : POINTER TO ACL;
     END;
     TOKEN_DEVICE_CLAIMS = RECORD
         DeviceClaims : ADDRESS;
@@ -717,15 +745,15 @@ TYPE
     END;
     TOKEN_GROUPS = RECORD
         GroupCount : DWORD;
-        Groups : ADDRESS;
+        Groups : ARRAY [0..15] OF BYTE;
     END;
     TOKEN_GROUPS_AND_PRIVILEGES = RECORD
         SidCount : DWORD;
         SidLength : DWORD;
-        Sids : ADDRESS;
+        Sids : POINTER TO SID_AND_ATTRIBUTES;
         RestrictedSidCount : DWORD;
         RestrictedSidLength : DWORD;
-        RestrictedSids : ADDRESS;
+        RestrictedSids : POINTER TO SID_AND_ATTRIBUTES;
         PrivilegeCount : DWORD;
         PrivilegeLength : DWORD;
         Privileges : POINTER TO LUID_AND_ATTRIBUTES;
@@ -735,7 +763,7 @@ TYPE
         LinkedToken : HANDLE;
     END;
     TOKEN_MANDATORY_LABEL = RECORD
-        Label : ADDRESS;
+        Label : SID_AND_ATTRIBUTES;
     END;
     TOKEN_MANDATORY_POLICY = RECORD
         Policy : DWORD;
@@ -744,17 +772,17 @@ TYPE
         OriginatingLogonSession : Foundation.LUID;
     END;
     TOKEN_OWNER = RECORD
-        Owner : ADDRESS;
+        Owner : PSID;
     END;
     TOKEN_PRIMARY_GROUP = RECORD
-        PrimaryGroup : ADDRESS;
+        PrimaryGroup : PSID;
     END;
     TOKEN_PRIVILEGES = RECORD
         PrivilegeCount : DWORD;
-        Privileges : ADDRESS;
+        Privileges : ARRAY [0..11] OF BYTE;
     END;
     TOKEN_SOURCE = RECORD
-        SourceName : ADDRESS;
+        SourceName : ARRAY [0..7] OF BYTE;
         SourceIdentifier : Foundation.LUID;
     END;
     TOKEN_STATISTICS = RECORD
@@ -770,120 +798,120 @@ TYPE
         ModifiedId : Foundation.LUID;
     END;
     TOKEN_USER = RECORD
-        User : ADDRESS;
+        User : SID_AND_ATTRIBUTES;
     END;
     TOKEN_USER_CLAIMS = RECORD
         UserClaims : ADDRESS;
     END;
 
-PROCEDURE AccessCheck["AccessCheck" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : ADDRESS; ClientToken : HANDLE; DesiredAccess : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; PrivilegeSet : POINTER TO PRIVILEGE_SET; PrivilegeSetLength : POINTER TO DWORD; GrantedAccess : POINTER TO DWORD; AccessStatus : POINTER TO BOOL) : BOOL;
-PROCEDURE AccessCheckAndAuditAlarmA["AccessCheckAndAuditAlarmA" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PSTR; HandleId : ADDRESS; ObjectTypeName : PSTR; ObjectName : PSTR; SecurityDescriptor : ADDRESS; DesiredAccess : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; ObjectCreation : BOOL; GrantedAccess : POINTER TO DWORD; AccessStatus : POINTER TO BOOL; pfGenerateOnClose : POINTER TO BOOL) : BOOL;
-PROCEDURE AccessCheckAndAuditAlarmW["AccessCheckAndAuditAlarmW" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PWSTR; HandleId : ADDRESS; ObjectTypeName : PWSTR; ObjectName : PWSTR; SecurityDescriptor : ADDRESS; DesiredAccess : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; ObjectCreation : BOOL; GrantedAccess : POINTER TO DWORD; AccessStatus : POINTER TO BOOL; pfGenerateOnClose : POINTER TO BOOL) : BOOL;
-PROCEDURE AccessCheckByType["AccessCheckByType" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : ADDRESS; PrincipalSelfSid : ADDRESS; ClientToken : HANDLE; DesiredAccess : DWORD; ObjectTypeList : POINTER TO OBJECT_TYPE_LIST; ObjectTypeListLength : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; PrivilegeSet : POINTER TO PRIVILEGE_SET; PrivilegeSetLength : POINTER TO DWORD; GrantedAccess : POINTER TO DWORD; AccessStatus : POINTER TO BOOL) : BOOL;
-PROCEDURE AccessCheckByTypeAndAuditAlarmA["AccessCheckByTypeAndAuditAlarmA" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PSTR; HandleId : ADDRESS; ObjectTypeName : PSTR; ObjectName : PSTR; SecurityDescriptor : ADDRESS; PrincipalSelfSid : ADDRESS; DesiredAccess : DWORD; AuditType : INTEGER32; Flags : DWORD; ObjectTypeList : POINTER TO OBJECT_TYPE_LIST; ObjectTypeListLength : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; ObjectCreation : BOOL; GrantedAccess : POINTER TO DWORD; AccessStatus : POINTER TO BOOL; pfGenerateOnClose : POINTER TO BOOL) : BOOL;
-PROCEDURE AccessCheckByTypeAndAuditAlarmW["AccessCheckByTypeAndAuditAlarmW" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PWSTR; HandleId : ADDRESS; ObjectTypeName : PWSTR; ObjectName : PWSTR; SecurityDescriptor : ADDRESS; PrincipalSelfSid : ADDRESS; DesiredAccess : DWORD; AuditType : INTEGER32; Flags : DWORD; ObjectTypeList : POINTER TO OBJECT_TYPE_LIST; ObjectTypeListLength : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; ObjectCreation : BOOL; GrantedAccess : POINTER TO DWORD; AccessStatus : POINTER TO BOOL; pfGenerateOnClose : POINTER TO BOOL) : BOOL;
-PROCEDURE AccessCheckByTypeResultList["AccessCheckByTypeResultList" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : ADDRESS; PrincipalSelfSid : ADDRESS; ClientToken : HANDLE; DesiredAccess : DWORD; ObjectTypeList : POINTER TO OBJECT_TYPE_LIST; ObjectTypeListLength : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; PrivilegeSet : POINTER TO PRIVILEGE_SET; PrivilegeSetLength : POINTER TO DWORD; GrantedAccessList : POINTER TO DWORD; AccessStatusList : POINTER TO DWORD) : BOOL;
-PROCEDURE AccessCheckByTypeResultListAndAuditAlarmA["AccessCheckByTypeResultListAndAuditAlarmA" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PSTR; HandleId : ADDRESS; ObjectTypeName : PSTR; ObjectName : PSTR; SecurityDescriptor : ADDRESS; PrincipalSelfSid : ADDRESS; DesiredAccess : DWORD; AuditType : INTEGER32; Flags : DWORD; ObjectTypeList : POINTER TO OBJECT_TYPE_LIST; ObjectTypeListLength : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; ObjectCreation : BOOL; GrantedAccess : POINTER TO DWORD; AccessStatusList : POINTER TO DWORD; pfGenerateOnClose : POINTER TO BOOL) : BOOL;
-PROCEDURE AccessCheckByTypeResultListAndAuditAlarmByHandleA["AccessCheckByTypeResultListAndAuditAlarmByHandleA" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PSTR; HandleId : ADDRESS; ClientToken : HANDLE; ObjectTypeName : PSTR; ObjectName : PSTR; SecurityDescriptor : ADDRESS; PrincipalSelfSid : ADDRESS; DesiredAccess : DWORD; AuditType : INTEGER32; Flags : DWORD; ObjectTypeList : POINTER TO OBJECT_TYPE_LIST; ObjectTypeListLength : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; ObjectCreation : BOOL; GrantedAccess : POINTER TO DWORD; AccessStatusList : POINTER TO DWORD; pfGenerateOnClose : POINTER TO BOOL) : BOOL;
-PROCEDURE AccessCheckByTypeResultListAndAuditAlarmByHandleW["AccessCheckByTypeResultListAndAuditAlarmByHandleW" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PWSTR; HandleId : ADDRESS; ClientToken : HANDLE; ObjectTypeName : PWSTR; ObjectName : PWSTR; SecurityDescriptor : ADDRESS; PrincipalSelfSid : ADDRESS; DesiredAccess : DWORD; AuditType : INTEGER32; Flags : DWORD; ObjectTypeList : POINTER TO OBJECT_TYPE_LIST; ObjectTypeListLength : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; ObjectCreation : BOOL; GrantedAccessList : POINTER TO DWORD; AccessStatusList : POINTER TO DWORD; pfGenerateOnClose : POINTER TO BOOL) : BOOL;
-PROCEDURE AccessCheckByTypeResultListAndAuditAlarmW["AccessCheckByTypeResultListAndAuditAlarmW" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PWSTR; HandleId : ADDRESS; ObjectTypeName : PWSTR; ObjectName : PWSTR; SecurityDescriptor : ADDRESS; PrincipalSelfSid : ADDRESS; DesiredAccess : DWORD; AuditType : INTEGER32; Flags : DWORD; ObjectTypeList : POINTER TO OBJECT_TYPE_LIST; ObjectTypeListLength : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; ObjectCreation : BOOL; GrantedAccessList : POINTER TO DWORD; AccessStatusList : POINTER TO DWORD; pfGenerateOnClose : POINTER TO BOOL) : BOOL;
-PROCEDURE AddAccessAllowedAce["AddAccessAllowedAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; dwAceRevision : DWORD; AccessMask : DWORD; pSid : ADDRESS) : BOOL;
-PROCEDURE AddAccessAllowedAceEx["AddAccessAllowedAceEx" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; dwAceRevision : DWORD; AceFlags : DWORD; AccessMask : DWORD; pSid : ADDRESS) : BOOL;
-PROCEDURE AddAccessAllowedObjectAce["AddAccessAllowedObjectAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; dwAceRevision : DWORD; AceFlags : DWORD; AccessMask : DWORD; ObjectTypeGuid : POINTER TO GUID; InheritedObjectTypeGuid : POINTER TO GUID; pSid : ADDRESS) : BOOL;
-PROCEDURE AddAccessDeniedAce["AddAccessDeniedAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; dwAceRevision : DWORD; AccessMask : DWORD; pSid : ADDRESS) : BOOL;
-PROCEDURE AddAccessDeniedAceEx["AddAccessDeniedAceEx" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; dwAceRevision : DWORD; AceFlags : DWORD; AccessMask : DWORD; pSid : ADDRESS) : BOOL;
-PROCEDURE AddAccessDeniedObjectAce["AddAccessDeniedObjectAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; dwAceRevision : DWORD; AceFlags : DWORD; AccessMask : DWORD; ObjectTypeGuid : POINTER TO GUID; InheritedObjectTypeGuid : POINTER TO GUID; pSid : ADDRESS) : BOOL;
-PROCEDURE AddAce["AddAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; dwAceRevision : DWORD; dwStartingAceIndex : DWORD; pAceList : ADDRESS; nAceListLength : DWORD) : BOOL;
-PROCEDURE AddAuditAccessAce["AddAuditAccessAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; dwAceRevision : DWORD; dwAccessMask : DWORD; pSid : ADDRESS; bAuditSuccess : BOOL; bAuditFailure : BOOL) : BOOL;
-PROCEDURE AddAuditAccessAceEx["AddAuditAccessAceEx" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; dwAceRevision : DWORD; AceFlags : DWORD; dwAccessMask : DWORD; pSid : ADDRESS; bAuditSuccess : BOOL; bAuditFailure : BOOL) : BOOL;
-PROCEDURE AddAuditAccessObjectAce["AddAuditAccessObjectAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; dwAceRevision : DWORD; AceFlags : DWORD; AccessMask : DWORD; ObjectTypeGuid : POINTER TO GUID; InheritedObjectTypeGuid : POINTER TO GUID; pSid : ADDRESS; bAuditSuccess : BOOL; bAuditFailure : BOOL) : BOOL;
-PROCEDURE AddConditionalAce["AddConditionalAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; dwAceRevision : DWORD; AceFlags : DWORD; AceType : BYTE; AccessMask : DWORD; pSid : ADDRESS; ConditionStr : PWSTR; ReturnLength : POINTER TO DWORD) : BOOL;
-PROCEDURE AddMandatoryAce["AddMandatoryAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; dwAceRevision : DWORD; AceFlags : DWORD; MandatoryPolicy : DWORD; pLabelSid : ADDRESS) : BOOL;
-PROCEDURE AddResourceAttributeAce["AddResourceAttributeAce" EXTERNAL FROM "KERNEL32.dll"](pAcl : ADDRESS; dwAceRevision : DWORD; AceFlags : DWORD; AccessMask : DWORD; pSid : ADDRESS; pAttributeInfo : POINTER TO CLAIM_SECURITY_ATTRIBUTES_INFORMATION; pReturnLength : POINTER TO DWORD) : BOOL;
-PROCEDURE AddScopedPolicyIDAce["AddScopedPolicyIDAce" EXTERNAL FROM "KERNEL32.dll"](pAcl : ADDRESS; dwAceRevision : DWORD; AceFlags : DWORD; AccessMask : DWORD; pSid : ADDRESS) : BOOL;
+PROCEDURE AccessCheck["AccessCheck" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : PSECURITY_DESCRIPTOR; ClientToken : HANDLE; DesiredAccess : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; PrivilegeSet : POINTER TO PRIVILEGE_SET; PrivilegeSetLength : POINTER TO DWORD; GrantedAccess : POINTER TO DWORD; AccessStatus : POINTER TO BOOL) : BOOL;
+PROCEDURE AccessCheckAndAuditAlarmA["AccessCheckAndAuditAlarmA" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PSTR; HandleId : ADDRESS; ObjectTypeName : PSTR; ObjectName : PSTR; SecurityDescriptor : PSECURITY_DESCRIPTOR; DesiredAccess : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; ObjectCreation : BOOL; GrantedAccess : POINTER TO DWORD; AccessStatus : POINTER TO BOOL; pfGenerateOnClose : POINTER TO BOOL) : BOOL;
+PROCEDURE AccessCheckAndAuditAlarmW["AccessCheckAndAuditAlarmW" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PWSTR; HandleId : ADDRESS; ObjectTypeName : PWSTR; ObjectName : PWSTR; SecurityDescriptor : PSECURITY_DESCRIPTOR; DesiredAccess : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; ObjectCreation : BOOL; GrantedAccess : POINTER TO DWORD; AccessStatus : POINTER TO BOOL; pfGenerateOnClose : POINTER TO BOOL) : BOOL;
+PROCEDURE AccessCheckByType["AccessCheckByType" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : PSECURITY_DESCRIPTOR; PrincipalSelfSid : PSID; ClientToken : HANDLE; DesiredAccess : DWORD; ObjectTypeList : POINTER TO OBJECT_TYPE_LIST; ObjectTypeListLength : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; PrivilegeSet : POINTER TO PRIVILEGE_SET; PrivilegeSetLength : POINTER TO DWORD; GrantedAccess : POINTER TO DWORD; AccessStatus : POINTER TO BOOL) : BOOL;
+PROCEDURE AccessCheckByTypeAndAuditAlarmA["AccessCheckByTypeAndAuditAlarmA" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PSTR; HandleId : ADDRESS; ObjectTypeName : PSTR; ObjectName : PSTR; SecurityDescriptor : PSECURITY_DESCRIPTOR; PrincipalSelfSid : PSID; DesiredAccess : DWORD; AuditType : INTEGER32; Flags : DWORD; ObjectTypeList : POINTER TO OBJECT_TYPE_LIST; ObjectTypeListLength : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; ObjectCreation : BOOL; GrantedAccess : POINTER TO DWORD; AccessStatus : POINTER TO BOOL; pfGenerateOnClose : POINTER TO BOOL) : BOOL;
+PROCEDURE AccessCheckByTypeAndAuditAlarmW["AccessCheckByTypeAndAuditAlarmW" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PWSTR; HandleId : ADDRESS; ObjectTypeName : PWSTR; ObjectName : PWSTR; SecurityDescriptor : PSECURITY_DESCRIPTOR; PrincipalSelfSid : PSID; DesiredAccess : DWORD; AuditType : INTEGER32; Flags : DWORD; ObjectTypeList : POINTER TO OBJECT_TYPE_LIST; ObjectTypeListLength : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; ObjectCreation : BOOL; GrantedAccess : POINTER TO DWORD; AccessStatus : POINTER TO BOOL; pfGenerateOnClose : POINTER TO BOOL) : BOOL;
+PROCEDURE AccessCheckByTypeResultList["AccessCheckByTypeResultList" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : PSECURITY_DESCRIPTOR; PrincipalSelfSid : PSID; ClientToken : HANDLE; DesiredAccess : DWORD; ObjectTypeList : POINTER TO OBJECT_TYPE_LIST; ObjectTypeListLength : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; PrivilegeSet : POINTER TO PRIVILEGE_SET; PrivilegeSetLength : POINTER TO DWORD; GrantedAccessList : POINTER TO DWORD; AccessStatusList : POINTER TO DWORD) : BOOL;
+PROCEDURE AccessCheckByTypeResultListAndAuditAlarmA["AccessCheckByTypeResultListAndAuditAlarmA" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PSTR; HandleId : ADDRESS; ObjectTypeName : PSTR; ObjectName : PSTR; SecurityDescriptor : PSECURITY_DESCRIPTOR; PrincipalSelfSid : PSID; DesiredAccess : DWORD; AuditType : INTEGER32; Flags : DWORD; ObjectTypeList : POINTER TO OBJECT_TYPE_LIST; ObjectTypeListLength : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; ObjectCreation : BOOL; GrantedAccess : POINTER TO DWORD; AccessStatusList : POINTER TO DWORD; pfGenerateOnClose : POINTER TO BOOL) : BOOL;
+PROCEDURE AccessCheckByTypeResultListAndAuditAlarmByHandleA["AccessCheckByTypeResultListAndAuditAlarmByHandleA" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PSTR; HandleId : ADDRESS; ClientToken : HANDLE; ObjectTypeName : PSTR; ObjectName : PSTR; SecurityDescriptor : PSECURITY_DESCRIPTOR; PrincipalSelfSid : PSID; DesiredAccess : DWORD; AuditType : INTEGER32; Flags : DWORD; ObjectTypeList : POINTER TO OBJECT_TYPE_LIST; ObjectTypeListLength : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; ObjectCreation : BOOL; GrantedAccess : POINTER TO DWORD; AccessStatusList : POINTER TO DWORD; pfGenerateOnClose : POINTER TO BOOL) : BOOL;
+PROCEDURE AccessCheckByTypeResultListAndAuditAlarmByHandleW["AccessCheckByTypeResultListAndAuditAlarmByHandleW" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PWSTR; HandleId : ADDRESS; ClientToken : HANDLE; ObjectTypeName : PWSTR; ObjectName : PWSTR; SecurityDescriptor : PSECURITY_DESCRIPTOR; PrincipalSelfSid : PSID; DesiredAccess : DWORD; AuditType : INTEGER32; Flags : DWORD; ObjectTypeList : POINTER TO OBJECT_TYPE_LIST; ObjectTypeListLength : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; ObjectCreation : BOOL; GrantedAccessList : POINTER TO DWORD; AccessStatusList : POINTER TO DWORD; pfGenerateOnClose : POINTER TO BOOL) : BOOL;
+PROCEDURE AccessCheckByTypeResultListAndAuditAlarmW["AccessCheckByTypeResultListAndAuditAlarmW" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PWSTR; HandleId : ADDRESS; ObjectTypeName : PWSTR; ObjectName : PWSTR; SecurityDescriptor : PSECURITY_DESCRIPTOR; PrincipalSelfSid : PSID; DesiredAccess : DWORD; AuditType : INTEGER32; Flags : DWORD; ObjectTypeList : POINTER TO OBJECT_TYPE_LIST; ObjectTypeListLength : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; ObjectCreation : BOOL; GrantedAccessList : POINTER TO DWORD; AccessStatusList : POINTER TO DWORD; pfGenerateOnClose : POINTER TO BOOL) : BOOL;
+PROCEDURE AddAccessAllowedAce["AddAccessAllowedAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; dwAceRevision : DWORD; AccessMask : DWORD; pSid : PSID) : BOOL;
+PROCEDURE AddAccessAllowedAceEx["AddAccessAllowedAceEx" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; dwAceRevision : DWORD; AceFlags : DWORD; AccessMask : DWORD; pSid : PSID) : BOOL;
+PROCEDURE AddAccessAllowedObjectAce["AddAccessAllowedObjectAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; dwAceRevision : DWORD; AceFlags : DWORD; AccessMask : DWORD; ObjectTypeGuid : POINTER TO GUID; InheritedObjectTypeGuid : POINTER TO GUID; pSid : PSID) : BOOL;
+PROCEDURE AddAccessDeniedAce["AddAccessDeniedAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; dwAceRevision : DWORD; AccessMask : DWORD; pSid : PSID) : BOOL;
+PROCEDURE AddAccessDeniedAceEx["AddAccessDeniedAceEx" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; dwAceRevision : DWORD; AceFlags : DWORD; AccessMask : DWORD; pSid : PSID) : BOOL;
+PROCEDURE AddAccessDeniedObjectAce["AddAccessDeniedObjectAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; dwAceRevision : DWORD; AceFlags : DWORD; AccessMask : DWORD; ObjectTypeGuid : POINTER TO GUID; InheritedObjectTypeGuid : POINTER TO GUID; pSid : PSID) : BOOL;
+PROCEDURE AddAce["AddAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; dwAceRevision : DWORD; dwStartingAceIndex : DWORD; pAceList : ADDRESS; nAceListLength : DWORD) : BOOL;
+PROCEDURE AddAuditAccessAce["AddAuditAccessAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; dwAceRevision : DWORD; dwAccessMask : DWORD; pSid : PSID; bAuditSuccess : BOOL; bAuditFailure : BOOL) : BOOL;
+PROCEDURE AddAuditAccessAceEx["AddAuditAccessAceEx" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; dwAceRevision : DWORD; AceFlags : DWORD; dwAccessMask : DWORD; pSid : PSID; bAuditSuccess : BOOL; bAuditFailure : BOOL) : BOOL;
+PROCEDURE AddAuditAccessObjectAce["AddAuditAccessObjectAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; dwAceRevision : DWORD; AceFlags : DWORD; AccessMask : DWORD; ObjectTypeGuid : POINTER TO GUID; InheritedObjectTypeGuid : POINTER TO GUID; pSid : PSID; bAuditSuccess : BOOL; bAuditFailure : BOOL) : BOOL;
+PROCEDURE AddConditionalAce["AddConditionalAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; dwAceRevision : DWORD; AceFlags : DWORD; AceType : BYTE; AccessMask : DWORD; pSid : PSID; ConditionStr : PWSTR; ReturnLength : POINTER TO DWORD) : BOOL;
+PROCEDURE AddMandatoryAce["AddMandatoryAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; dwAceRevision : DWORD; AceFlags : DWORD; MandatoryPolicy : DWORD; pLabelSid : PSID) : BOOL;
+PROCEDURE AddResourceAttributeAce["AddResourceAttributeAce" EXTERNAL FROM "KERNEL32.dll"](pAcl : POINTER TO ACL; dwAceRevision : DWORD; AceFlags : DWORD; AccessMask : DWORD; pSid : PSID; pAttributeInfo : POINTER TO CLAIM_SECURITY_ATTRIBUTES_INFORMATION; pReturnLength : POINTER TO DWORD) : BOOL;
+PROCEDURE AddScopedPolicyIDAce["AddScopedPolicyIDAce" EXTERNAL FROM "KERNEL32.dll"](pAcl : POINTER TO ACL; dwAceRevision : DWORD; AceFlags : DWORD; AccessMask : DWORD; pSid : PSID) : BOOL;
 PROCEDURE AdjustTokenGroups["AdjustTokenGroups" EXTERNAL FROM "ADVAPI32.dll"](TokenHandle : HANDLE; ResetToDefault : BOOL; NewState : POINTER TO TOKEN_GROUPS; BufferLength : DWORD; PreviousState : POINTER TO TOKEN_GROUPS; ReturnLength : POINTER TO DWORD) : BOOL;
 PROCEDURE AdjustTokenPrivileges["AdjustTokenPrivileges" EXTERNAL FROM "ADVAPI32.dll"](TokenHandle : HANDLE; DisableAllPrivileges : BOOL; NewState : POINTER TO TOKEN_PRIVILEGES; BufferLength : DWORD; PreviousState : POINTER TO TOKEN_PRIVILEGES; ReturnLength : POINTER TO DWORD) : BOOL;
-PROCEDURE AllocateAndInitializeSid["AllocateAndInitializeSid" EXTERNAL FROM "ADVAPI32.dll"](pIdentifierAuthority : POINTER TO SID_IDENTIFIER_AUTHORITY; nSubAuthorityCount : BYTE; nSubAuthority0 : DWORD; nSubAuthority1 : DWORD; nSubAuthority2 : DWORD; nSubAuthority3 : DWORD; nSubAuthority4 : DWORD; nSubAuthority5 : DWORD; nSubAuthority6 : DWORD; nSubAuthority7 : DWORD; pSid : ADDRESS) : BOOL;
+PROCEDURE AllocateAndInitializeSid["AllocateAndInitializeSid" EXTERNAL FROM "ADVAPI32.dll"](pIdentifierAuthority : POINTER TO SID_IDENTIFIER_AUTHORITY; nSubAuthorityCount : BYTE; nSubAuthority0 : DWORD; nSubAuthority1 : DWORD; nSubAuthority2 : DWORD; nSubAuthority3 : DWORD; nSubAuthority4 : DWORD; nSubAuthority5 : DWORD; nSubAuthority6 : DWORD; nSubAuthority7 : DWORD; pSid : POINTER TO PSID) : BOOL;
 PROCEDURE AllocateLocallyUniqueId["AllocateLocallyUniqueId" EXTERNAL FROM "ADVAPI32.dll"](Luid : POINTER TO Foundation.LUID) : BOOL;
 PROCEDURE AreAllAccessesGranted["AreAllAccessesGranted" EXTERNAL FROM "ADVAPI32.dll"](GrantedAccess : DWORD; DesiredAccess : DWORD) : BOOL;
 PROCEDURE AreAnyAccessesGranted["AreAnyAccessesGranted" EXTERNAL FROM "ADVAPI32.dll"](GrantedAccess : DWORD; DesiredAccess : DWORD) : BOOL;
-PROCEDURE CheckTokenCapability["CheckTokenCapability" EXTERNAL FROM "KERNEL32.dll"](TokenHandle : HANDLE; CapabilitySidToCheck : ADDRESS; HasCapability : POINTER TO BOOL) : BOOL;
-PROCEDURE CheckTokenMembership["CheckTokenMembership" EXTERNAL FROM "ADVAPI32.dll"](TokenHandle : HANDLE; SidToCheck : ADDRESS; IsMember : POINTER TO BOOL) : BOOL;
-PROCEDURE CheckTokenMembershipEx["CheckTokenMembershipEx" EXTERNAL FROM "KERNEL32.dll"](TokenHandle : HANDLE; SidToCheck : ADDRESS; Flags : DWORD; IsMember : POINTER TO BOOL) : BOOL;
-PROCEDURE ConvertToAutoInheritPrivateObjectSecurity["ConvertToAutoInheritPrivateObjectSecurity" EXTERNAL FROM "ADVAPI32.dll"](ParentDescriptor : ADDRESS; CurrentSecurityDescriptor : ADDRESS; NewSecurityDescriptor : ADDRESS; ObjectType : POINTER TO GUID; IsDirectoryObject : BOOLEAN; GenericMapping : POINTER TO GENERIC_MAPPING) : BOOL;
-PROCEDURE CopySid["CopySid" EXTERNAL FROM "ADVAPI32.dll"](nDestinationSidLength : DWORD; pDestinationSid : ADDRESS; pSourceSid : ADDRESS) : BOOL;
-PROCEDURE CreatePrivateObjectSecurity["CreatePrivateObjectSecurity" EXTERNAL FROM "ADVAPI32.dll"](ParentDescriptor : ADDRESS; CreatorDescriptor : ADDRESS; NewDescriptor : ADDRESS; IsDirectoryObject : BOOL; Token : HANDLE; GenericMapping : POINTER TO GENERIC_MAPPING) : BOOL;
-PROCEDURE CreatePrivateObjectSecurityEx["CreatePrivateObjectSecurityEx" EXTERNAL FROM "ADVAPI32.dll"](ParentDescriptor : ADDRESS; CreatorDescriptor : ADDRESS; NewDescriptor : ADDRESS; ObjectType : POINTER TO GUID; IsContainerObject : BOOL; AutoInheritFlags : DWORD; Token : HANDLE; GenericMapping : POINTER TO GENERIC_MAPPING) : BOOL;
-PROCEDURE CreatePrivateObjectSecurityWithMultipleInheritance["CreatePrivateObjectSecurityWithMultipleInheritance" EXTERNAL FROM "ADVAPI32.dll"](ParentDescriptor : ADDRESS; CreatorDescriptor : ADDRESS; NewDescriptor : ADDRESS; ObjectTypes : POINTER TO POINTER TO GUID; GuidCount : DWORD; IsContainerObject : BOOL; AutoInheritFlags : DWORD; Token : HANDLE; GenericMapping : POINTER TO GENERIC_MAPPING) : BOOL;
-PROCEDURE CreateRestrictedToken["CreateRestrictedToken" EXTERNAL FROM "ADVAPI32.dll"](ExistingTokenHandle : HANDLE; Flags : DWORD; DisableSidCount : DWORD; SidsToDisable : ADDRESS; DeletePrivilegeCount : DWORD; PrivilegesToDelete : POINTER TO LUID_AND_ATTRIBUTES; RestrictedSidCount : DWORD; SidsToRestrict : ADDRESS; NewTokenHandle : POINTER TO HANDLE) : BOOL;
-PROCEDURE CreateWellKnownSid["CreateWellKnownSid" EXTERNAL FROM "ADVAPI32.dll"](WellKnownSidType : INTEGER32; DomainSid : ADDRESS; pSid : ADDRESS; cbSid : POINTER TO DWORD) : BOOL;
-PROCEDURE DeleteAce["DeleteAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; dwAceIndex : DWORD) : BOOL;
-PROCEDURE DeriveCapabilitySidsFromName["DeriveCapabilitySidsFromName" EXTERNAL FROM "api-ms-win-security-base-l1-2-2.dll"](CapName : PWSTR; CapabilityGroupSids : ADDRESS; CapabilityGroupSidCount : POINTER TO DWORD; CapabilitySids : ADDRESS; CapabilitySidCount : POINTER TO DWORD) : BOOL;
-PROCEDURE DestroyPrivateObjectSecurity["DestroyPrivateObjectSecurity" EXTERNAL FROM "ADVAPI32.dll"](ObjectDescriptor : ADDRESS) : BOOL;
+PROCEDURE CheckTokenCapability["CheckTokenCapability" EXTERNAL FROM "KERNEL32.dll"](TokenHandle : HANDLE; CapabilitySidToCheck : PSID; HasCapability : POINTER TO BOOL) : BOOL;
+PROCEDURE CheckTokenMembership["CheckTokenMembership" EXTERNAL FROM "ADVAPI32.dll"](TokenHandle : HANDLE; SidToCheck : PSID; IsMember : POINTER TO BOOL) : BOOL;
+PROCEDURE CheckTokenMembershipEx["CheckTokenMembershipEx" EXTERNAL FROM "KERNEL32.dll"](TokenHandle : HANDLE; SidToCheck : PSID; Flags : DWORD; IsMember : POINTER TO BOOL) : BOOL;
+PROCEDURE ConvertToAutoInheritPrivateObjectSecurity["ConvertToAutoInheritPrivateObjectSecurity" EXTERNAL FROM "ADVAPI32.dll"](ParentDescriptor : PSECURITY_DESCRIPTOR; CurrentSecurityDescriptor : PSECURITY_DESCRIPTOR; NewSecurityDescriptor : POINTER TO PSECURITY_DESCRIPTOR; ObjectType : POINTER TO GUID; IsDirectoryObject : BOOLEAN; GenericMapping : POINTER TO GENERIC_MAPPING) : BOOL;
+PROCEDURE CopySid["CopySid" EXTERNAL FROM "ADVAPI32.dll"](nDestinationSidLength : DWORD; pDestinationSid : PSID; pSourceSid : PSID) : BOOL;
+PROCEDURE CreatePrivateObjectSecurity["CreatePrivateObjectSecurity" EXTERNAL FROM "ADVAPI32.dll"](ParentDescriptor : PSECURITY_DESCRIPTOR; CreatorDescriptor : PSECURITY_DESCRIPTOR; NewDescriptor : POINTER TO PSECURITY_DESCRIPTOR; IsDirectoryObject : BOOL; Token : HANDLE; GenericMapping : POINTER TO GENERIC_MAPPING) : BOOL;
+PROCEDURE CreatePrivateObjectSecurityEx["CreatePrivateObjectSecurityEx" EXTERNAL FROM "ADVAPI32.dll"](ParentDescriptor : PSECURITY_DESCRIPTOR; CreatorDescriptor : PSECURITY_DESCRIPTOR; NewDescriptor : POINTER TO PSECURITY_DESCRIPTOR; ObjectType : POINTER TO GUID; IsContainerObject : BOOL; AutoInheritFlags : DWORD; Token : HANDLE; GenericMapping : POINTER TO GENERIC_MAPPING) : BOOL;
+PROCEDURE CreatePrivateObjectSecurityWithMultipleInheritance["CreatePrivateObjectSecurityWithMultipleInheritance" EXTERNAL FROM "ADVAPI32.dll"](ParentDescriptor : PSECURITY_DESCRIPTOR; CreatorDescriptor : PSECURITY_DESCRIPTOR; NewDescriptor : POINTER TO PSECURITY_DESCRIPTOR; ObjectTypes : POINTER TO POINTER TO GUID; GuidCount : DWORD; IsContainerObject : BOOL; AutoInheritFlags : DWORD; Token : HANDLE; GenericMapping : POINTER TO GENERIC_MAPPING) : BOOL;
+PROCEDURE CreateRestrictedToken["CreateRestrictedToken" EXTERNAL FROM "ADVAPI32.dll"](ExistingTokenHandle : HANDLE; Flags : DWORD; DisableSidCount : DWORD; SidsToDisable : POINTER TO SID_AND_ATTRIBUTES; DeletePrivilegeCount : DWORD; PrivilegesToDelete : POINTER TO LUID_AND_ATTRIBUTES; RestrictedSidCount : DWORD; SidsToRestrict : POINTER TO SID_AND_ATTRIBUTES; NewTokenHandle : POINTER TO HANDLE) : BOOL;
+PROCEDURE CreateWellKnownSid["CreateWellKnownSid" EXTERNAL FROM "ADVAPI32.dll"](WellKnownSidType : INTEGER32; DomainSid : PSID; pSid : PSID; cbSid : POINTER TO DWORD) : BOOL;
+PROCEDURE DeleteAce["DeleteAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; dwAceIndex : DWORD) : BOOL;
+PROCEDURE DeriveCapabilitySidsFromName["DeriveCapabilitySidsFromName" EXTERNAL FROM "api-ms-win-security-base-l1-2-2.dll"](CapName : PWSTR; CapabilityGroupSids : POINTER TO POINTER TO PSID; CapabilityGroupSidCount : POINTER TO DWORD; CapabilitySids : POINTER TO POINTER TO PSID; CapabilitySidCount : POINTER TO DWORD) : BOOL;
+PROCEDURE DestroyPrivateObjectSecurity["DestroyPrivateObjectSecurity" EXTERNAL FROM "ADVAPI32.dll"](ObjectDescriptor : POINTER TO PSECURITY_DESCRIPTOR) : BOOL;
 PROCEDURE DuplicateToken["DuplicateToken" EXTERNAL FROM "ADVAPI32.dll"](ExistingTokenHandle : HANDLE; ImpersonationLevel : INTEGER32; DuplicateTokenHandle : POINTER TO HANDLE) : BOOL;
-PROCEDURE DuplicateTokenEx["DuplicateTokenEx" EXTERNAL FROM "ADVAPI32.dll"](hExistingToken : HANDLE; dwDesiredAccess : DWORD; lpTokenAttributes : ADDRESS; ImpersonationLevel : INTEGER32; TokenType : INTEGER32; phNewToken : POINTER TO HANDLE) : BOOL;
-PROCEDURE EqualDomainSid["EqualDomainSid" EXTERNAL FROM "ADVAPI32.dll"](pSid1 : ADDRESS; pSid2 : ADDRESS; pfEqual : POINTER TO BOOL) : BOOL;
-PROCEDURE EqualPrefixSid["EqualPrefixSid" EXTERNAL FROM "ADVAPI32.dll"](pSid1 : ADDRESS; pSid2 : ADDRESS) : BOOL;
-PROCEDURE EqualSid["EqualSid" EXTERNAL FROM "ADVAPI32.dll"](pSid1 : ADDRESS; pSid2 : ADDRESS) : BOOL;
-PROCEDURE FindFirstFreeAce["FindFirstFreeAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; pAce : ADDRESS) : BOOL;
-PROCEDURE FreeSid["FreeSid" EXTERNAL FROM "ADVAPI32.dll"](pSid : ADDRESS) : ADDRESS;
-PROCEDURE GetAce["GetAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; dwAceIndex : DWORD; pAce : ADDRESS) : BOOL;
-PROCEDURE GetAclInformation["GetAclInformation" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; pAclInformation : ADDRESS; nAclInformationLength : DWORD; dwAclInformationClass : INTEGER32) : BOOL;
-PROCEDURE GetAppContainerAce["GetAppContainerAce" EXTERNAL FROM "KERNEL32.dll"](Acl : ADDRESS; StartingAceIndex : DWORD; AppContainerAce : ADDRESS; AppContainerAceIndex : POINTER TO DWORD) : BOOL;
+PROCEDURE DuplicateTokenEx["DuplicateTokenEx" EXTERNAL FROM "ADVAPI32.dll"](hExistingToken : HANDLE; dwDesiredAccess : DWORD; lpTokenAttributes : POINTER TO SECURITY_ATTRIBUTES; ImpersonationLevel : INTEGER32; TokenType : INTEGER32; phNewToken : POINTER TO HANDLE) : BOOL;
+PROCEDURE EqualDomainSid["EqualDomainSid" EXTERNAL FROM "ADVAPI32.dll"](pSid1 : PSID; pSid2 : PSID; pfEqual : POINTER TO BOOL) : BOOL;
+PROCEDURE EqualPrefixSid["EqualPrefixSid" EXTERNAL FROM "ADVAPI32.dll"](pSid1 : PSID; pSid2 : PSID) : BOOL;
+PROCEDURE EqualSid["EqualSid" EXTERNAL FROM "ADVAPI32.dll"](pSid1 : PSID; pSid2 : PSID) : BOOL;
+PROCEDURE FindFirstFreeAce["FindFirstFreeAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; pAce : ADDRESS) : BOOL;
+PROCEDURE FreeSid["FreeSid" EXTERNAL FROM "ADVAPI32.dll"](pSid : PSID) : ADDRESS;
+PROCEDURE GetAce["GetAce" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; dwAceIndex : DWORD; pAce : ADDRESS) : BOOL;
+PROCEDURE GetAclInformation["GetAclInformation" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; pAclInformation : ADDRESS; nAclInformationLength : DWORD; dwAclInformationClass : INTEGER32) : BOOL;
+PROCEDURE GetAppContainerAce["GetAppContainerAce" EXTERNAL FROM "KERNEL32.dll"](Acl : POINTER TO ACL; StartingAceIndex : DWORD; AppContainerAce : ADDRESS; AppContainerAceIndex : POINTER TO DWORD) : BOOL;
 PROCEDURE GetCachedSigningLevel["GetCachedSigningLevel" EXTERNAL FROM "KERNEL32.dll"](File : HANDLE; Flags : POINTER TO DWORD; SigningLevel : POINTER TO DWORD; Thumbprint : POINTER TO BYTE; ThumbprintSize : POINTER TO DWORD; ThumbprintAlgorithm : POINTER TO DWORD) : BOOL;
-PROCEDURE GetFileSecurityA["GetFileSecurityA" EXTERNAL FROM "ADVAPI32.dll"](lpFileName : PSTR; RequestedInformation : DWORD; pSecurityDescriptor : ADDRESS; nLength : DWORD; lpnLengthNeeded : POINTER TO DWORD) : BOOL;
-PROCEDURE GetFileSecurityW["GetFileSecurityW" EXTERNAL FROM "ADVAPI32.dll"](lpFileName : PWSTR; RequestedInformation : DWORD; pSecurityDescriptor : ADDRESS; nLength : DWORD; lpnLengthNeeded : POINTER TO DWORD) : BOOL;
-PROCEDURE GetKernelObjectSecurity["GetKernelObjectSecurity" EXTERNAL FROM "ADVAPI32.dll"](Handle : HANDLE; RequestedInformation : DWORD; pSecurityDescriptor : ADDRESS; nLength : DWORD; lpnLengthNeeded : POINTER TO DWORD) : BOOL;
-PROCEDURE GetLengthSid["GetLengthSid" EXTERNAL FROM "ADVAPI32.dll"](pSid : ADDRESS) : DWORD;
-PROCEDURE GetPrivateObjectSecurity["GetPrivateObjectSecurity" EXTERNAL FROM "ADVAPI32.dll"](ObjectDescriptor : ADDRESS; SecurityInformation : DWORD; ResultantDescriptor : ADDRESS; DescriptorLength : DWORD; ReturnLength : POINTER TO DWORD) : BOOL;
-PROCEDURE GetSecurityDescriptorControl["GetSecurityDescriptorControl" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : ADDRESS; pControl : POINTER TO WORD; lpdwRevision : POINTER TO DWORD) : BOOL;
-PROCEDURE GetSecurityDescriptorDacl["GetSecurityDescriptorDacl" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : ADDRESS; lpbDaclPresent : POINTER TO BOOL; pDacl : ADDRESS; lpbDaclDefaulted : POINTER TO BOOL) : BOOL;
-PROCEDURE GetSecurityDescriptorGroup["GetSecurityDescriptorGroup" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : ADDRESS; pGroup : ADDRESS; lpbGroupDefaulted : POINTER TO BOOL) : BOOL;
-PROCEDURE GetSecurityDescriptorLength["GetSecurityDescriptorLength" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : ADDRESS) : DWORD;
-PROCEDURE GetSecurityDescriptorOwner["GetSecurityDescriptorOwner" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : ADDRESS; pOwner : ADDRESS; lpbOwnerDefaulted : POINTER TO BOOL) : BOOL;
-PROCEDURE GetSecurityDescriptorRMControl["GetSecurityDescriptorRMControl" EXTERNAL FROM "ADVAPI32.dll"](SecurityDescriptor : ADDRESS; RMControl : POINTER TO BYTE) : DWORD;
-PROCEDURE GetSecurityDescriptorSacl["GetSecurityDescriptorSacl" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : ADDRESS; lpbSaclPresent : POINTER TO BOOL; pSacl : ADDRESS; lpbSaclDefaulted : POINTER TO BOOL) : BOOL;
-PROCEDURE GetSidIdentifierAuthority["GetSidIdentifierAuthority" EXTERNAL FROM "ADVAPI32.dll"](pSid : ADDRESS) : POINTER TO SID_IDENTIFIER_AUTHORITY;
+PROCEDURE GetFileSecurityA["GetFileSecurityA" EXTERNAL FROM "ADVAPI32.dll"](lpFileName : PSTR; RequestedInformation : DWORD; pSecurityDescriptor : PSECURITY_DESCRIPTOR; nLength : DWORD; lpnLengthNeeded : POINTER TO DWORD) : BOOL;
+PROCEDURE GetFileSecurityW["GetFileSecurityW" EXTERNAL FROM "ADVAPI32.dll"](lpFileName : PWSTR; RequestedInformation : DWORD; pSecurityDescriptor : PSECURITY_DESCRIPTOR; nLength : DWORD; lpnLengthNeeded : POINTER TO DWORD) : BOOL;
+PROCEDURE GetKernelObjectSecurity["GetKernelObjectSecurity" EXTERNAL FROM "ADVAPI32.dll"](Handle : HANDLE; RequestedInformation : DWORD; pSecurityDescriptor : PSECURITY_DESCRIPTOR; nLength : DWORD; lpnLengthNeeded : POINTER TO DWORD) : BOOL;
+PROCEDURE GetLengthSid["GetLengthSid" EXTERNAL FROM "ADVAPI32.dll"](pSid : PSID) : DWORD;
+PROCEDURE GetPrivateObjectSecurity["GetPrivateObjectSecurity" EXTERNAL FROM "ADVAPI32.dll"](ObjectDescriptor : PSECURITY_DESCRIPTOR; SecurityInformation : DWORD; ResultantDescriptor : PSECURITY_DESCRIPTOR; DescriptorLength : DWORD; ReturnLength : POINTER TO DWORD) : BOOL;
+PROCEDURE GetSecurityDescriptorControl["GetSecurityDescriptorControl" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : PSECURITY_DESCRIPTOR; pControl : POINTER TO WORD; lpdwRevision : POINTER TO DWORD) : BOOL;
+PROCEDURE GetSecurityDescriptorDacl["GetSecurityDescriptorDacl" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : PSECURITY_DESCRIPTOR; lpbDaclPresent : POINTER TO BOOL; pDacl : POINTER TO POINTER TO ACL; lpbDaclDefaulted : POINTER TO BOOL) : BOOL;
+PROCEDURE GetSecurityDescriptorGroup["GetSecurityDescriptorGroup" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : PSECURITY_DESCRIPTOR; pGroup : POINTER TO PSID; lpbGroupDefaulted : POINTER TO BOOL) : BOOL;
+PROCEDURE GetSecurityDescriptorLength["GetSecurityDescriptorLength" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : PSECURITY_DESCRIPTOR) : DWORD;
+PROCEDURE GetSecurityDescriptorOwner["GetSecurityDescriptorOwner" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : PSECURITY_DESCRIPTOR; pOwner : POINTER TO PSID; lpbOwnerDefaulted : POINTER TO BOOL) : BOOL;
+PROCEDURE GetSecurityDescriptorRMControl["GetSecurityDescriptorRMControl" EXTERNAL FROM "ADVAPI32.dll"](SecurityDescriptor : PSECURITY_DESCRIPTOR; RMControl : POINTER TO BYTE) : DWORD;
+PROCEDURE GetSecurityDescriptorSacl["GetSecurityDescriptorSacl" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : PSECURITY_DESCRIPTOR; lpbSaclPresent : POINTER TO BOOL; pSacl : POINTER TO POINTER TO ACL; lpbSaclDefaulted : POINTER TO BOOL) : BOOL;
+PROCEDURE GetSidIdentifierAuthority["GetSidIdentifierAuthority" EXTERNAL FROM "ADVAPI32.dll"](pSid : PSID) : POINTER TO SID_IDENTIFIER_AUTHORITY;
 PROCEDURE GetSidLengthRequired["GetSidLengthRequired" EXTERNAL FROM "ADVAPI32.dll"](nSubAuthorityCount : BYTE) : DWORD;
-PROCEDURE GetSidSubAuthority["GetSidSubAuthority" EXTERNAL FROM "ADVAPI32.dll"](pSid : ADDRESS; nSubAuthority : DWORD) : POINTER TO DWORD;
-PROCEDURE GetSidSubAuthorityCount["GetSidSubAuthorityCount" EXTERNAL FROM "ADVAPI32.dll"](pSid : ADDRESS) : POINTER TO BYTE;
+PROCEDURE GetSidSubAuthority["GetSidSubAuthority" EXTERNAL FROM "ADVAPI32.dll"](pSid : PSID; nSubAuthority : DWORD) : POINTER TO DWORD;
+PROCEDURE GetSidSubAuthorityCount["GetSidSubAuthorityCount" EXTERNAL FROM "ADVAPI32.dll"](pSid : PSID) : POINTER TO BYTE;
 PROCEDURE GetTokenInformation["GetTokenInformation" EXTERNAL FROM "ADVAPI32.dll"](TokenHandle : HANDLE; TokenInformationClass : INTEGER32; TokenInformation : ADDRESS; TokenInformationLength : DWORD; ReturnLength : POINTER TO DWORD) : BOOL;
-PROCEDURE GetUserObjectSecurity["GetUserObjectSecurity" EXTERNAL FROM "USER32.dll"](hObj : HANDLE; pSIRequested : POINTER TO DWORD; pSID : ADDRESS; nLength : DWORD; lpnLengthNeeded : POINTER TO DWORD) : BOOL;
-PROCEDURE GetWindowsAccountDomainSid["GetWindowsAccountDomainSid" EXTERNAL FROM "ADVAPI32.dll"](pSid : ADDRESS; pDomainSid : ADDRESS; cbDomainSid : POINTER TO DWORD) : BOOL;
+PROCEDURE GetUserObjectSecurity["GetUserObjectSecurity" EXTERNAL FROM "USER32.dll"](hObj : HANDLE; pSIRequested : POINTER TO DWORD; pSID : PSECURITY_DESCRIPTOR; nLength : DWORD; lpnLengthNeeded : POINTER TO DWORD) : BOOL;
+PROCEDURE GetWindowsAccountDomainSid["GetWindowsAccountDomainSid" EXTERNAL FROM "ADVAPI32.dll"](pSid : PSID; pDomainSid : PSID; cbDomainSid : POINTER TO DWORD) : BOOL;
 PROCEDURE ImpersonateAnonymousToken["ImpersonateAnonymousToken" EXTERNAL FROM "ADVAPI32.dll"](ThreadHandle : HANDLE) : BOOL;
 PROCEDURE ImpersonateLoggedOnUser["ImpersonateLoggedOnUser" EXTERNAL FROM "ADVAPI32.dll"](hToken : HANDLE) : BOOL;
 PROCEDURE ImpersonateSelf["ImpersonateSelf" EXTERNAL FROM "ADVAPI32.dll"](ImpersonationLevel : INTEGER32) : BOOL;
-PROCEDURE InitializeAcl["InitializeAcl" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; nAclLength : DWORD; dwAclRevision : DWORD) : BOOL;
-PROCEDURE InitializeSecurityDescriptor["InitializeSecurityDescriptor" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : ADDRESS; dwRevision : DWORD) : BOOL;
-PROCEDURE InitializeSid["InitializeSid" EXTERNAL FROM "ADVAPI32.dll"](Sid : ADDRESS; pIdentifierAuthority : POINTER TO SID_IDENTIFIER_AUTHORITY; nSubAuthorityCount : BYTE) : BOOL;
+PROCEDURE InitializeAcl["InitializeAcl" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; nAclLength : DWORD; dwAclRevision : DWORD) : BOOL;
+PROCEDURE InitializeSecurityDescriptor["InitializeSecurityDescriptor" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : PSECURITY_DESCRIPTOR; dwRevision : DWORD) : BOOL;
+PROCEDURE InitializeSid["InitializeSid" EXTERNAL FROM "ADVAPI32.dll"](Sid : PSID; pIdentifierAuthority : POINTER TO SID_IDENTIFIER_AUTHORITY; nSubAuthorityCount : BYTE) : BOOL;
 PROCEDURE IsTokenRestricted["IsTokenRestricted" EXTERNAL FROM "ADVAPI32.dll"](TokenHandle : HANDLE) : BOOL;
-PROCEDURE IsValidAcl["IsValidAcl" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS) : BOOL;
-PROCEDURE IsValidSecurityDescriptor["IsValidSecurityDescriptor" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : ADDRESS) : BOOL;
-PROCEDURE IsValidSid["IsValidSid" EXTERNAL FROM "ADVAPI32.dll"](pSid : ADDRESS) : BOOL;
-PROCEDURE IsWellKnownSid["IsWellKnownSid" EXTERNAL FROM "ADVAPI32.dll"](pSid : ADDRESS; WellKnownSidType : INTEGER32) : BOOL;
+PROCEDURE IsValidAcl["IsValidAcl" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL) : BOOL;
+PROCEDURE IsValidSecurityDescriptor["IsValidSecurityDescriptor" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : PSECURITY_DESCRIPTOR) : BOOL;
+PROCEDURE IsValidSid["IsValidSid" EXTERNAL FROM "ADVAPI32.dll"](pSid : PSID) : BOOL;
+PROCEDURE IsWellKnownSid["IsWellKnownSid" EXTERNAL FROM "ADVAPI32.dll"](pSid : PSID; WellKnownSidType : INTEGER32) : BOOL;
 PROCEDURE LogonUserA["LogonUserA" EXTERNAL FROM "ADVAPI32.dll"](lpszUsername : PSTR; lpszDomain : PSTR; lpszPassword : PSTR; dwLogonType : DWORD; dwLogonProvider : DWORD; phToken : POINTER TO HANDLE) : BOOL;
-PROCEDURE LogonUserExA["LogonUserExA" EXTERNAL FROM "ADVAPI32.dll"](lpszUsername : PSTR; lpszDomain : PSTR; lpszPassword : PSTR; dwLogonType : DWORD; dwLogonProvider : DWORD; phToken : POINTER TO HANDLE; ppLogonSid : ADDRESS; ppProfileBuffer : ADDRESS; pdwProfileLength : POINTER TO DWORD; pQuotaLimits : POINTER TO QUOTA_LIMITS) : BOOL;
-PROCEDURE LogonUserExW["LogonUserExW" EXTERNAL FROM "ADVAPI32.dll"](lpszUsername : PWSTR; lpszDomain : PWSTR; lpszPassword : PWSTR; dwLogonType : DWORD; dwLogonProvider : DWORD; phToken : POINTER TO HANDLE; ppLogonSid : ADDRESS; ppProfileBuffer : ADDRESS; pdwProfileLength : POINTER TO DWORD; pQuotaLimits : POINTER TO QUOTA_LIMITS) : BOOL;
+PROCEDURE LogonUserExA["LogonUserExA" EXTERNAL FROM "ADVAPI32.dll"](lpszUsername : PSTR; lpszDomain : PSTR; lpszPassword : PSTR; dwLogonType : DWORD; dwLogonProvider : DWORD; phToken : POINTER TO HANDLE; ppLogonSid : POINTER TO PSID; ppProfileBuffer : ADDRESS; pdwProfileLength : POINTER TO DWORD; pQuotaLimits : POINTER TO QUOTA_LIMITS) : BOOL;
+PROCEDURE LogonUserExW["LogonUserExW" EXTERNAL FROM "ADVAPI32.dll"](lpszUsername : PWSTR; lpszDomain : PWSTR; lpszPassword : PWSTR; dwLogonType : DWORD; dwLogonProvider : DWORD; phToken : POINTER TO HANDLE; ppLogonSid : POINTER TO PSID; ppProfileBuffer : ADDRESS; pdwProfileLength : POINTER TO DWORD; pQuotaLimits : POINTER TO QUOTA_LIMITS) : BOOL;
 PROCEDURE LogonUserW["LogonUserW" EXTERNAL FROM "ADVAPI32.dll"](lpszUsername : PWSTR; lpszDomain : PWSTR; lpszPassword : PWSTR; dwLogonType : DWORD; dwLogonProvider : DWORD; phToken : POINTER TO HANDLE) : BOOL;
-PROCEDURE LookupAccountNameA["LookupAccountNameA" EXTERNAL FROM "ADVAPI32.dll"](lpSystemName : PSTR; lpAccountName : PSTR; Sid : ADDRESS; cbSid : POINTER TO DWORD; ReferencedDomainName : PSTR; cchReferencedDomainName : POINTER TO DWORD; peUse : POINTER TO INTEGER32) : BOOL;
-PROCEDURE LookupAccountNameW["LookupAccountNameW" EXTERNAL FROM "ADVAPI32.dll"](lpSystemName : PWSTR; lpAccountName : PWSTR; Sid : ADDRESS; cbSid : POINTER TO DWORD; ReferencedDomainName : PWSTR; cchReferencedDomainName : POINTER TO DWORD; peUse : POINTER TO INTEGER32) : BOOL;
-PROCEDURE LookupAccountSidA["LookupAccountSidA" EXTERNAL FROM "ADVAPI32.dll"](lpSystemName : PSTR; Sid : ADDRESS; Name : PSTR; cchName : POINTER TO DWORD; ReferencedDomainName : PSTR; cchReferencedDomainName : POINTER TO DWORD; peUse : POINTER TO INTEGER32) : BOOL;
-PROCEDURE LookupAccountSidW["LookupAccountSidW" EXTERNAL FROM "ADVAPI32.dll"](lpSystemName : PWSTR; Sid : ADDRESS; Name : PWSTR; cchName : POINTER TO DWORD; ReferencedDomainName : PWSTR; cchReferencedDomainName : POINTER TO DWORD; peUse : POINTER TO INTEGER32) : BOOL;
+PROCEDURE LookupAccountNameA["LookupAccountNameA" EXTERNAL FROM "ADVAPI32.dll"](lpSystemName : PSTR; lpAccountName : PSTR; Sid : PSID; cbSid : POINTER TO DWORD; ReferencedDomainName : PSTR; cchReferencedDomainName : POINTER TO DWORD; peUse : POINTER TO INTEGER32) : BOOL;
+PROCEDURE LookupAccountNameW["LookupAccountNameW" EXTERNAL FROM "ADVAPI32.dll"](lpSystemName : PWSTR; lpAccountName : PWSTR; Sid : PSID; cbSid : POINTER TO DWORD; ReferencedDomainName : PWSTR; cchReferencedDomainName : POINTER TO DWORD; peUse : POINTER TO INTEGER32) : BOOL;
+PROCEDURE LookupAccountSidA["LookupAccountSidA" EXTERNAL FROM "ADVAPI32.dll"](lpSystemName : PSTR; Sid : PSID; Name : PSTR; cchName : POINTER TO DWORD; ReferencedDomainName : PSTR; cchReferencedDomainName : POINTER TO DWORD; peUse : POINTER TO INTEGER32) : BOOL;
+PROCEDURE LookupAccountSidW["LookupAccountSidW" EXTERNAL FROM "ADVAPI32.dll"](lpSystemName : PWSTR; Sid : PSID; Name : PWSTR; cchName : POINTER TO DWORD; ReferencedDomainName : PWSTR; cchReferencedDomainName : POINTER TO DWORD; peUse : POINTER TO INTEGER32) : BOOL;
 PROCEDURE LookupPrivilegeDisplayNameA["LookupPrivilegeDisplayNameA" EXTERNAL FROM "ADVAPI32.dll"](lpSystemName : PSTR; lpName : PSTR; lpDisplayName : PSTR; cchDisplayName : POINTER TO DWORD; lpLanguageId : POINTER TO DWORD) : BOOL;
 PROCEDURE LookupPrivilegeDisplayNameW["LookupPrivilegeDisplayNameW" EXTERNAL FROM "ADVAPI32.dll"](lpSystemName : PWSTR; lpName : PWSTR; lpDisplayName : PWSTR; cchDisplayName : POINTER TO DWORD; lpLanguageId : POINTER TO DWORD) : BOOL;
 PROCEDURE LookupPrivilegeNameA["LookupPrivilegeNameA" EXTERNAL FROM "ADVAPI32.dll"](lpSystemName : PSTR; lpLuid : POINTER TO Foundation.LUID; lpName : PSTR; cchName : POINTER TO DWORD) : BOOL;
 PROCEDURE LookupPrivilegeNameW["LookupPrivilegeNameW" EXTERNAL FROM "ADVAPI32.dll"](lpSystemName : PWSTR; lpLuid : POINTER TO Foundation.LUID; lpName : PWSTR; cchName : POINTER TO DWORD) : BOOL;
 PROCEDURE LookupPrivilegeValueA["LookupPrivilegeValueA" EXTERNAL FROM "ADVAPI32.dll"](lpSystemName : PSTR; lpName : PSTR; lpLuid : POINTER TO Foundation.LUID) : BOOL;
 PROCEDURE LookupPrivilegeValueW["LookupPrivilegeValueW" EXTERNAL FROM "ADVAPI32.dll"](lpSystemName : PWSTR; lpName : PWSTR; lpLuid : POINTER TO Foundation.LUID) : BOOL;
-PROCEDURE MakeAbsoluteSD["MakeAbsoluteSD" EXTERNAL FROM "ADVAPI32.dll"](pSelfRelativeSecurityDescriptor : ADDRESS; pAbsoluteSecurityDescriptor : ADDRESS; lpdwAbsoluteSecurityDescriptorSize : POINTER TO DWORD; pDacl : ADDRESS; lpdwDaclSize : POINTER TO DWORD; pSacl : ADDRESS; lpdwSaclSize : POINTER TO DWORD; pOwner : ADDRESS; lpdwOwnerSize : POINTER TO DWORD; pPrimaryGroup : ADDRESS; lpdwPrimaryGroupSize : POINTER TO DWORD) : BOOL;
-PROCEDURE MakeSelfRelativeSD["MakeSelfRelativeSD" EXTERNAL FROM "ADVAPI32.dll"](pAbsoluteSecurityDescriptor : ADDRESS; pSelfRelativeSecurityDescriptor : ADDRESS; lpdwBufferLength : POINTER TO DWORD) : BOOL;
+PROCEDURE MakeAbsoluteSD["MakeAbsoluteSD" EXTERNAL FROM "ADVAPI32.dll"](pSelfRelativeSecurityDescriptor : PSECURITY_DESCRIPTOR; pAbsoluteSecurityDescriptor : PSECURITY_DESCRIPTOR; lpdwAbsoluteSecurityDescriptorSize : POINTER TO DWORD; pDacl : POINTER TO ACL; lpdwDaclSize : POINTER TO DWORD; pSacl : POINTER TO ACL; lpdwSaclSize : POINTER TO DWORD; pOwner : PSID; lpdwOwnerSize : POINTER TO DWORD; pPrimaryGroup : PSID; lpdwPrimaryGroupSize : POINTER TO DWORD) : BOOL;
+PROCEDURE MakeSelfRelativeSD["MakeSelfRelativeSD" EXTERNAL FROM "ADVAPI32.dll"](pAbsoluteSecurityDescriptor : PSECURITY_DESCRIPTOR; pSelfRelativeSecurityDescriptor : PSECURITY_DESCRIPTOR; lpdwBufferLength : POINTER TO DWORD) : BOOL;
 PROCEDURE MapGenericMask["MapGenericMask" EXTERNAL FROM "ADVAPI32.dll"](GenericMapping : POINTER TO DWORD; arg1 : POINTER TO GENERIC_MAPPING);
 PROCEDURE ObjectCloseAuditAlarmA["ObjectCloseAuditAlarmA" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PSTR; HandleId : ADDRESS; GenerateOnClose : BOOL) : BOOL;
 PROCEDURE ObjectCloseAuditAlarmW["ObjectCloseAuditAlarmW" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PWSTR; HandleId : ADDRESS; GenerateOnClose : BOOL) : BOOL;
 PROCEDURE ObjectDeleteAuditAlarmA["ObjectDeleteAuditAlarmA" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PSTR; HandleId : ADDRESS; GenerateOnClose : BOOL) : BOOL;
 PROCEDURE ObjectDeleteAuditAlarmW["ObjectDeleteAuditAlarmW" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PWSTR; HandleId : ADDRESS; GenerateOnClose : BOOL) : BOOL;
-PROCEDURE ObjectOpenAuditAlarmA["ObjectOpenAuditAlarmA" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PSTR; HandleId : ADDRESS; ObjectTypeName : PSTR; ObjectName : PSTR; pSecurityDescriptor : ADDRESS; ClientToken : HANDLE; DesiredAccess : DWORD; GrantedAccess : DWORD; Privileges : POINTER TO PRIVILEGE_SET; ObjectCreation : BOOL; AccessGranted : BOOL; GenerateOnClose : POINTER TO BOOL) : BOOL;
-PROCEDURE ObjectOpenAuditAlarmW["ObjectOpenAuditAlarmW" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PWSTR; HandleId : ADDRESS; ObjectTypeName : PWSTR; ObjectName : PWSTR; pSecurityDescriptor : ADDRESS; ClientToken : HANDLE; DesiredAccess : DWORD; GrantedAccess : DWORD; Privileges : POINTER TO PRIVILEGE_SET; ObjectCreation : BOOL; AccessGranted : BOOL; GenerateOnClose : POINTER TO BOOL) : BOOL;
+PROCEDURE ObjectOpenAuditAlarmA["ObjectOpenAuditAlarmA" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PSTR; HandleId : ADDRESS; ObjectTypeName : PSTR; ObjectName : PSTR; pSecurityDescriptor : PSECURITY_DESCRIPTOR; ClientToken : HANDLE; DesiredAccess : DWORD; GrantedAccess : DWORD; Privileges : POINTER TO PRIVILEGE_SET; ObjectCreation : BOOL; AccessGranted : BOOL; GenerateOnClose : POINTER TO BOOL) : BOOL;
+PROCEDURE ObjectOpenAuditAlarmW["ObjectOpenAuditAlarmW" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PWSTR; HandleId : ADDRESS; ObjectTypeName : PWSTR; ObjectName : PWSTR; pSecurityDescriptor : PSECURITY_DESCRIPTOR; ClientToken : HANDLE; DesiredAccess : DWORD; GrantedAccess : DWORD; Privileges : POINTER TO PRIVILEGE_SET; ObjectCreation : BOOL; AccessGranted : BOOL; GenerateOnClose : POINTER TO BOOL) : BOOL;
 PROCEDURE ObjectPrivilegeAuditAlarmA["ObjectPrivilegeAuditAlarmA" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PSTR; HandleId : ADDRESS; ClientToken : HANDLE; DesiredAccess : DWORD; Privileges : POINTER TO PRIVILEGE_SET; AccessGranted : BOOL) : BOOL;
 PROCEDURE ObjectPrivilegeAuditAlarmW["ObjectPrivilegeAuditAlarmW" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PWSTR; HandleId : ADDRESS; ClientToken : HANDLE; DesiredAccess : DWORD; Privileges : POINTER TO PRIVILEGE_SET; AccessGranted : BOOL) : BOOL;
 PROCEDURE PrivilegeCheck["PrivilegeCheck" EXTERNAL FROM "ADVAPI32.dll"](ClientToken : HANDLE; RequiredPrivileges : POINTER TO PRIVILEGE_SET; pfResult : POINTER TO BOOL) : BOOL;
@@ -891,24 +919,24 @@ PROCEDURE PrivilegedServiceAuditAlarmA["PrivilegedServiceAuditAlarmA" EXTERNAL F
 PROCEDURE PrivilegedServiceAuditAlarmW["PrivilegedServiceAuditAlarmW" EXTERNAL FROM "ADVAPI32.dll"](SubsystemName : PWSTR; ServiceName : PWSTR; ClientToken : HANDLE; Privileges : POINTER TO PRIVILEGE_SET; AccessGranted : BOOL) : BOOL;
 PROCEDURE QuerySecurityAccessMask["QuerySecurityAccessMask" EXTERNAL FROM "ADVAPI32.dll"](DesiredAccess : DWORD; arg1 : POINTER TO DWORD);
 PROCEDURE RevertToSelf["RevertToSelf" EXTERNAL FROM "ADVAPI32.dll"]() : BOOL;
-PROCEDURE RtlConvertSidToUnicodeString["RtlConvertSidToUnicodeString" EXTERNAL FROM "ntdll.dll"](UnicodeString : POINTER TO Foundation.UNICODE_STRING; Sid : ADDRESS; AllocateDestinationString : BOOLEAN) : NTSTATUS;
-PROCEDURE RtlNormalizeSecurityDescriptor["RtlNormalizeSecurityDescriptor" EXTERNAL FROM "ntdll.dll"](SecurityDescriptor : ADDRESS; SecurityDescriptorLength : DWORD; NewSecurityDescriptor : ADDRESS; NewSecurityDescriptorLength : POINTER TO DWORD; CheckOnly : BOOLEAN) : BOOLEAN;
-PROCEDURE SetAclInformation["SetAclInformation" EXTERNAL FROM "ADVAPI32.dll"](pAcl : ADDRESS; pAclInformation : ADDRESS; nAclInformationLength : DWORD; dwAclInformationClass : INTEGER32) : BOOL;
+PROCEDURE RtlConvertSidToUnicodeString["RtlConvertSidToUnicodeString" EXTERNAL FROM "ntdll.dll"](UnicodeString : POINTER TO Foundation.UNICODE_STRING; Sid : PSID; AllocateDestinationString : BOOLEAN) : NTSTATUS;
+PROCEDURE RtlNormalizeSecurityDescriptor["RtlNormalizeSecurityDescriptor" EXTERNAL FROM "ntdll.dll"](SecurityDescriptor : POINTER TO PSECURITY_DESCRIPTOR; SecurityDescriptorLength : DWORD; NewSecurityDescriptor : POINTER TO PSECURITY_DESCRIPTOR; NewSecurityDescriptorLength : POINTER TO DWORD; CheckOnly : BOOLEAN) : BOOLEAN;
+PROCEDURE SetAclInformation["SetAclInformation" EXTERNAL FROM "ADVAPI32.dll"](pAcl : POINTER TO ACL; pAclInformation : ADDRESS; nAclInformationLength : DWORD; dwAclInformationClass : INTEGER32) : BOOL;
 PROCEDURE SetCachedSigningLevel["SetCachedSigningLevel" EXTERNAL FROM "KERNEL32.dll"](SourceFiles : POINTER TO HANDLE; SourceFileCount : DWORD; Flags : DWORD; TargetFile : HANDLE) : BOOL;
-PROCEDURE SetFileSecurityA["SetFileSecurityA" EXTERNAL FROM "ADVAPI32.dll"](lpFileName : PSTR; SecurityInformation : DWORD; pSecurityDescriptor : ADDRESS) : BOOL;
-PROCEDURE SetFileSecurityW["SetFileSecurityW" EXTERNAL FROM "ADVAPI32.dll"](lpFileName : PWSTR; SecurityInformation : DWORD; pSecurityDescriptor : ADDRESS) : BOOL;
-PROCEDURE SetKernelObjectSecurity["SetKernelObjectSecurity" EXTERNAL FROM "ADVAPI32.dll"](Handle : HANDLE; SecurityInformation : DWORD; SecurityDescriptor : ADDRESS) : BOOL;
-PROCEDURE SetPrivateObjectSecurity["SetPrivateObjectSecurity" EXTERNAL FROM "ADVAPI32.dll"](SecurityInformation : DWORD; ModificationDescriptor : ADDRESS; ObjectsSecurityDescriptor : ADDRESS; GenericMapping : POINTER TO GENERIC_MAPPING; Token : HANDLE) : BOOL;
-PROCEDURE SetPrivateObjectSecurityEx["SetPrivateObjectSecurityEx" EXTERNAL FROM "ADVAPI32.dll"](SecurityInformation : DWORD; ModificationDescriptor : ADDRESS; ObjectsSecurityDescriptor : ADDRESS; AutoInheritFlags : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; Token : HANDLE) : BOOL;
+PROCEDURE SetFileSecurityA["SetFileSecurityA" EXTERNAL FROM "ADVAPI32.dll"](lpFileName : PSTR; SecurityInformation : DWORD; pSecurityDescriptor : PSECURITY_DESCRIPTOR) : BOOL;
+PROCEDURE SetFileSecurityW["SetFileSecurityW" EXTERNAL FROM "ADVAPI32.dll"](lpFileName : PWSTR; SecurityInformation : DWORD; pSecurityDescriptor : PSECURITY_DESCRIPTOR) : BOOL;
+PROCEDURE SetKernelObjectSecurity["SetKernelObjectSecurity" EXTERNAL FROM "ADVAPI32.dll"](Handle : HANDLE; SecurityInformation : DWORD; SecurityDescriptor : PSECURITY_DESCRIPTOR) : BOOL;
+PROCEDURE SetPrivateObjectSecurity["SetPrivateObjectSecurity" EXTERNAL FROM "ADVAPI32.dll"](SecurityInformation : DWORD; ModificationDescriptor : PSECURITY_DESCRIPTOR; ObjectsSecurityDescriptor : POINTER TO PSECURITY_DESCRIPTOR; GenericMapping : POINTER TO GENERIC_MAPPING; Token : HANDLE) : BOOL;
+PROCEDURE SetPrivateObjectSecurityEx["SetPrivateObjectSecurityEx" EXTERNAL FROM "ADVAPI32.dll"](SecurityInformation : DWORD; ModificationDescriptor : PSECURITY_DESCRIPTOR; ObjectsSecurityDescriptor : POINTER TO PSECURITY_DESCRIPTOR; AutoInheritFlags : DWORD; GenericMapping : POINTER TO GENERIC_MAPPING; Token : HANDLE) : BOOL;
 PROCEDURE SetSecurityAccessMask["SetSecurityAccessMask" EXTERNAL FROM "ADVAPI32.dll"](DesiredAccess : DWORD; arg1 : POINTER TO DWORD);
-PROCEDURE SetSecurityDescriptorControl["SetSecurityDescriptorControl" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : ADDRESS; ControlBitsOfInterest : WORD; ControlBitsToSet : WORD) : BOOL;
-PROCEDURE SetSecurityDescriptorDacl["SetSecurityDescriptorDacl" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : ADDRESS; bDaclPresent : BOOL; pDacl : ADDRESS; bDaclDefaulted : BOOL) : BOOL;
-PROCEDURE SetSecurityDescriptorGroup["SetSecurityDescriptorGroup" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : ADDRESS; pGroup : ADDRESS; bGroupDefaulted : BOOL) : BOOL;
-PROCEDURE SetSecurityDescriptorOwner["SetSecurityDescriptorOwner" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : ADDRESS; pOwner : ADDRESS; bOwnerDefaulted : BOOL) : BOOL;
-PROCEDURE SetSecurityDescriptorRMControl["SetSecurityDescriptorRMControl" EXTERNAL FROM "ADVAPI32.dll"](SecurityDescriptor : ADDRESS; RMControl : POINTER TO BYTE) : DWORD;
-PROCEDURE SetSecurityDescriptorSacl["SetSecurityDescriptorSacl" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : ADDRESS; bSaclPresent : BOOL; pSacl : ADDRESS; bSaclDefaulted : BOOL) : BOOL;
+PROCEDURE SetSecurityDescriptorControl["SetSecurityDescriptorControl" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : PSECURITY_DESCRIPTOR; ControlBitsOfInterest : WORD; ControlBitsToSet : WORD) : BOOL;
+PROCEDURE SetSecurityDescriptorDacl["SetSecurityDescriptorDacl" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : PSECURITY_DESCRIPTOR; bDaclPresent : BOOL; pDacl : POINTER TO ACL; bDaclDefaulted : BOOL) : BOOL;
+PROCEDURE SetSecurityDescriptorGroup["SetSecurityDescriptorGroup" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : PSECURITY_DESCRIPTOR; pGroup : PSID; bGroupDefaulted : BOOL) : BOOL;
+PROCEDURE SetSecurityDescriptorOwner["SetSecurityDescriptorOwner" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : PSECURITY_DESCRIPTOR; pOwner : PSID; bOwnerDefaulted : BOOL) : BOOL;
+PROCEDURE SetSecurityDescriptorRMControl["SetSecurityDescriptorRMControl" EXTERNAL FROM "ADVAPI32.dll"](SecurityDescriptor : PSECURITY_DESCRIPTOR; RMControl : POINTER TO BYTE) : DWORD;
+PROCEDURE SetSecurityDescriptorSacl["SetSecurityDescriptorSacl" EXTERNAL FROM "ADVAPI32.dll"](pSecurityDescriptor : PSECURITY_DESCRIPTOR; bSaclPresent : BOOL; pSacl : POINTER TO ACL; bSaclDefaulted : BOOL) : BOOL;
 PROCEDURE SetTokenInformation["SetTokenInformation" EXTERNAL FROM "ADVAPI32.dll"](TokenHandle : HANDLE; TokenInformationClass : INTEGER32; TokenInformation : ADDRESS; TokenInformationLength : DWORD) : BOOL;
-PROCEDURE SetUserObjectSecurity["SetUserObjectSecurity" EXTERNAL FROM "USER32.dll"](hObj : HANDLE; pSIRequested : POINTER TO DWORD; pSID : ADDRESS) : BOOL;
+PROCEDURE SetUserObjectSecurity["SetUserObjectSecurity" EXTERNAL FROM "USER32.dll"](hObj : HANDLE; pSIRequested : POINTER TO DWORD; pSID : PSECURITY_DESCRIPTOR) : BOOL;
 
-(* types-out summary: 70 types emitted; 390 consts emitted; 133 procedures emitted *)
+(* types-out summary: 76 types emitted; 390 consts emitted; 133 procedures emitted *)
 END Security.

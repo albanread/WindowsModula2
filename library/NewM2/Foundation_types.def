@@ -10501,10 +10501,13 @@ CONST
 
 TYPE
     APP_LOCAL_DEVICE_ID = RECORD
-        value : ADDRESS;
+        value : ARRAY [0..31] OF BYTE;
     END;
     BSTR = RECORD
         Value : POINTER TO CHAR;
+    END;
+    CHAR = RECORD
+        Value : INTEGER8;
     END;
     COLORREF = RECORD
         Value : DWORD;
@@ -10629,5 +10632,5 @@ PROCEDURE SysReleaseString["SysReleaseString" EXTERNAL FROM "OLEAUT32.dll"](arg0
 PROCEDURE SysStringByteLen["SysStringByteLen" EXTERNAL FROM "OLEAUT32.dll"](arg0 : BSTR) : DWORD;
 PROCEDURE SysStringLen["SysStringLen" EXTERNAL FROM "OLEAUT32.dll"](arg0 : BSTR) : DWORD;
 
-(* types-out summary: 26 types emitted; 10495 consts emitted; 22 procedures emitted *)
+(* types-out summary: 27 types emitted; 10495 consts emitted; 22 procedures emitted *)
 END Foundation.

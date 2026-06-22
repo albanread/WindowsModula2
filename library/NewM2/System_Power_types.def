@@ -480,7 +480,7 @@ TYPE
         Milliseconds : WORD;
         TimeZone : INTEGER16;
         DayLight : BYTE;
-        Reserved1 : ADDRESS;
+        Reserved1 : ARRAY [0..2] OF BYTE;
     END;
     ACPI_TIME_AND_ALARM_CAPABILITIES = RECORD
         AcWakeSupported : BOOLEAN;
@@ -504,7 +504,7 @@ TYPE
     END;
     BATTERY_CHARGER_STATUS = RECORD
         Type_ : INTEGER32;
-        VaData : ADDRESS;
+        VaData : ARRAY [0..0] OF DWORD;
     END;
     BATTERY_CHARGING_SOURCE = RECORD
         Type_ : INTEGER32;
@@ -517,8 +517,8 @@ TYPE
     BATTERY_INFORMATION = RECORD
         Capabilities : DWORD;
         Technology : BYTE;
-        Reserved : ADDRESS;
-        Chemistry : ADDRESS;
+        Reserved : ARRAY [0..2] OF BYTE;
+        Chemistry : ARRAY [0..3] OF BYTE;
         DesignedCapacity : DWORD;
         FullChargedCapacity : DWORD;
         DefaultAlert1 : DWORD;
@@ -543,7 +543,7 @@ TYPE
     BATTERY_SET_INFORMATION = RECORD
         BatteryTag : DWORD;
         InformationLevel : INTEGER32;
-        Buffer : ADDRESS;
+        Buffer : ARRAY [0..3] OF BYTE;
     END;
     BATTERY_STATUS = RECORD
         PowerState : DWORD;
@@ -576,7 +576,7 @@ TYPE
         PD_D1Latency : DWORD;
         PD_D2Latency : DWORD;
         PD_D3Latency : DWORD;
-        PD_PowerStateMapping : ADDRESS;
+        PD_PowerStateMapping : ARRAY [0..27] OF BYTE;
         PD_DeepestSystemWake : INTEGER32;
     END;
     CUSTOMIZED_IO_CAPABILITIES = RECORD
@@ -603,28 +603,28 @@ TYPE
     EMI_CHANNEL_V2 = RECORD
         MeasurementUnit : INTEGER32;
         ChannelNameSize : WORD;
-        ChannelName : ADDRESS;
+        ChannelName : ARRAY [0..0] OF CHAR;
     END;
     EMI_MEASUREMENT_DATA_V2 = RECORD
-        ChannelData : ADDRESS;
+        ChannelData : ARRAY [0..15] OF BYTE;
     END;
     EMI_METADATA_SIZE = RECORD
         MetadataSize : DWORD;
     END;
     EMI_METADATA_V1 = RECORD
         MeasurementUnit : INTEGER32;
-        HardwareOEM : ADDRESS;
-        HardwareModel : ADDRESS;
+        HardwareOEM : ARRAY [0..15] OF CHAR;
+        HardwareModel : ARRAY [0..15] OF CHAR;
         HardwareRevision : WORD;
         MeteredHardwareNameSize : WORD;
-        MeteredHardwareName : ADDRESS;
+        MeteredHardwareName : ARRAY [0..1] OF CHAR;
     END;
     EMI_METADATA_V2 = RECORD
-        HardwareOEM : ADDRESS;
-        HardwareModel : ADDRESS;
+        HardwareOEM : ARRAY [0..15] OF CHAR;
+        HardwareModel : ARRAY [0..15] OF CHAR;
         HardwareRevision : WORD;
         ChannelCount : WORD;
-        Channels : ADDRESS;
+        Channels : ARRAY [0..7] OF BYTE;
     END;
     EMI_VERSION = RECORD
         EmiVersion : WORD;
@@ -647,7 +647,7 @@ TYPE
         SleepButtonDc : POWER_ACTION_POLICY;
         LidCloseAc : POWER_ACTION_POLICY;
         LidCloseDc : POWER_ACTION_POLICY;
-        DischargePolicy : ADDRESS;
+        DischargePolicy : ARRAY [0..95] OF BYTE;
         GlobalFlags : DWORD;
     END;
     HPOWERNOTIFY = RECORD
@@ -665,7 +665,7 @@ TYPE
         DozeS4TimeoutDc : DWORD;
         MinThrottleAc : BYTE;
         MinThrottleDc : BYTE;
-        pad1 : ADDRESS;
+        pad1 : ARRAY [0..1] OF BYTE;
         OverThrottledAc : POWER_ACTION_POLICY;
         OverThrottledDc : POWER_ACTION_POLICY;
     END;
@@ -677,7 +677,7 @@ TYPE
     POWERBROADCAST_SETTING = RECORD
         PowerSetting : GUID;
         DataLength : DWORD;
-        Data : ADDRESS;
+        Data : ARRAY [0..3] OF BYTE;
     END;
     POWER_ACTION_POLICY = RECORD
         Action : INTEGER32;
@@ -694,11 +694,11 @@ TYPE
     POWER_ADAPTER_SET_STATUS_BUFFER = RECORD
         Version : BYTE;
         RecOverride : BOOLEAN;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..1] OF BYTE;
     END;
     POWER_ADAPTER_STATUS = RECORD
         Version : BYTE;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..2] OF BYTE;
         PowerState : POWER_ADAPTER_POWER_STATES;
         PeakPower : DWORD;
         MaxOutputPower : DWORD;
@@ -754,7 +754,7 @@ TYPE
         TotalTransitions : DWORD;
         ResetCount : DWORD;
         StartTime : QWORD;
-        State : ADDRESS;
+        State : ARRAY [0..47] OF BYTE;
     END;
     PPM_IDLE_ACCOUNTING_EX = RECORD
         StateCount : DWORD;
@@ -762,14 +762,14 @@ TYPE
         ResetCount : DWORD;
         AbortCount : DWORD;
         StartTime : QWORD;
-        State : ADDRESS;
+        State : ARRAY [0..415] OF BYTE;
     END;
     PPM_IDLE_STATE_ACCOUNTING = RECORD
         IdleTransitions : DWORD;
         FailedTransitions : DWORD;
         InvalidBucketIndex : DWORD;
         TotalTime : QWORD;
-        IdleTimeBuckets : ADDRESS;
+        IdleTimeBuckets : ARRAY [0..5] OF DWORD;
     END;
     PPM_IDLE_STATE_ACCOUNTING_EX = RECORD
         TotalTime : QWORD;
@@ -779,7 +779,7 @@ TYPE
         MinTimeUs : DWORD;
         MaxTimeUs : DWORD;
         CancelledTransitions : DWORD;
-        IdleTimeBuckets : ADDRESS;
+        IdleTimeBuckets : ARRAY [0..383] OF BYTE;
     END;
     PPM_IDLE_STATE_BUCKET_EX = RECORD
         TotalTimeUs : QWORD;
@@ -827,7 +827,7 @@ TYPE
         TargetState : DWORD;
         OldState : DWORD;
         TargetProcessors : QWORD;
-        State : ADDRESS;
+        State : ARRAY [0..31] OF BYTE;
     END;
     PPM_WMI_IDLE_STATES_EX = RECORD
         Type_ : DWORD;
@@ -835,7 +835,7 @@ TYPE
         TargetState : DWORD;
         OldState : DWORD;
         TargetProcessors : ADDRESS;
-        State : ADDRESS;
+        State : ARRAY [0..31] OF BYTE;
     END;
     PPM_WMI_LEGACY_PERFSTATE = RECORD
         Frequency : DWORD;
@@ -879,7 +879,7 @@ TYPE
         FeedbackHandler : DWORD;
         Reserved1 : DWORD;
         Reserved2 : QWORD;
-        State : ADDRESS;
+        State : ARRAY [0..63] OF BYTE;
     END;
     PPM_WMI_PERF_STATES_EX = RECORD
         Count : DWORD;
@@ -902,7 +902,7 @@ TYPE
         FeedbackHandler : DWORD;
         Reserved1 : DWORD;
         Reserved2 : QWORD;
-        State : ADDRESS;
+        State : ARRAY [0..63] OF BYTE;
     END;
     PROCESSOR_OBJECT_INFO = RECORD
         PhysicalID : DWORD;
@@ -926,10 +926,10 @@ TYPE
     PROCESSOR_POWER_POLICY = RECORD
         Revision : DWORD;
         DynamicThrottle : BYTE;
-        Spare : ADDRESS;
+        Spare : ARRAY [0..2] OF BYTE;
         _bitfield : DWORD;
         PolicyCount : DWORD;
-        Policy : ADDRESS;
+        Policy : ARRAY [0..59] OF BYTE;
     END;
     PROCESSOR_POWER_POLICY_INFO = RECORD
         TimeCheck : DWORD;
@@ -937,7 +937,7 @@ TYPE
         PromoteLimit : DWORD;
         DemotePercent : BYTE;
         PromotePercent : BYTE;
-        Spare : ADDRESS;
+        Spare : ARRAY [0..1] OF BYTE;
         _bitfield : DWORD;
     END;
     RESUME_PERFORMANCE = RECORD
@@ -950,14 +950,14 @@ TYPE
         Guid : GUID;
         PowerCondition : INTEGER32;
         DataLength : DWORD;
-        Data : ADDRESS;
+        Data : ARRAY [0..7] OF BYTE;
     END;
     SYSTEM_BATTERY_STATE = RECORD
         AcOnLine : BOOLEAN;
         BatteryPresent : BOOLEAN;
         Charging : BOOLEAN;
         Discharging : BOOLEAN;
-        Spare1 : ADDRESS;
+        Spare1 : ARRAY [0..2] OF BYTE;
         Tag : BYTE;
         MaxCapacity : DWORD;
         RemainingCapacity : DWORD;
@@ -991,10 +991,10 @@ TYPE
         DiskSpinDown : BOOLEAN;
         HiberFileType : BYTE;
         AoAcConnectivitySupported : BOOLEAN;
-        spare3 : ADDRESS;
+        spare3 : ARRAY [0..5] OF BYTE;
         SystemBatteriesPresent : BOOLEAN;
         BatteriesAreShortTerm : BOOLEAN;
-        BatteryScale : ADDRESS;
+        BatteryScale : ARRAY [0..23] OF BYTE;
         AcOnLineWake : INTEGER32;
         SoftLidWake : INTEGER32;
         RtcWake : INTEGER32;
@@ -1009,7 +1009,7 @@ TYPE
     END;
     SYSTEM_POWER_LEVEL = RECORD
         Enable : BOOLEAN;
-        Spare : ADDRESS;
+        Spare : ARRAY [0..2] OF BYTE;
         BatteryLevel : DWORD;
         PowerPolicy : POWER_ACTION_POLICY;
         MinSystemState : INTEGER32;
@@ -1025,7 +1025,7 @@ TYPE
         IdleTimeout : DWORD;
         IdleSensitivity : BYTE;
         DynamicThrottle : BYTE;
-        Spare2 : ADDRESS;
+        Spare2 : ARRAY [0..1] OF BYTE;
         MinSleep : INTEGER32;
         MaxSleep : INTEGER32;
         ReducedLatencySleep : INTEGER32;
@@ -1033,10 +1033,10 @@ TYPE
         Spare3 : DWORD;
         DozeS4Timeout : DWORD;
         BroadcastCapacityResolution : DWORD;
-        DischargePolicy : ADDRESS;
+        DischargePolicy : ARRAY [0..95] OF BYTE;
         VideoTimeout : DWORD;
         VideoDimDisplay : BOOLEAN;
-        VideoReserved : ADDRESS;
+        VideoReserved : ARRAY [0..2] OF DWORD;
         SpindownTimeout : DWORD;
         OptimizeForPower : BOOLEAN;
         FanThrottleTolerance : BYTE;
@@ -1070,7 +1070,7 @@ TYPE
         PassiveTripPoint : DWORD;
         CriticalTripPoint : DWORD;
         ActiveTripPointCount : BYTE;
-        ActiveTripPoint : ADDRESS;
+        ActiveTripPoint : ARRAY [0..10] OF DWORD;
     END;
     THERMAL_POLICY = RECORD
         Version : DWORD;
@@ -1100,7 +1100,7 @@ TYPE
         ThrottlePolicyDc : BYTE;
         MaxSleepAc : INTEGER32;
         MaxSleepDc : INTEGER32;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..1] OF DWORD;
         VideoTimeoutAc : DWORD;
         VideoTimeoutDc : DWORD;
         SpindownTimeoutAc : DWORD;

@@ -1521,7 +1521,7 @@ TYPE
     END;
     BUSNUMBER_RESOURCE = RECORD
         BusNumber_Header : BUSNUMBER_DES;
-        BusNumber_Data : ADDRESS;
+        BusNumber_Data : ARRAY [0..15] OF BYTE;
     END;
     CABINET_INFO_A = RECORD
         CabinetPath : PSTR;
@@ -1560,7 +1560,7 @@ TYPE
         CD_dnDevInst : DWORD;
         CD_rdResDes : ADRCARD;
         CD_ulFlags : DWORD;
-        CD_szDescription : ADDRESS;
+        CD_szDescription : ARRAY [0..259] OF BYTE;
     END;
     CONFLICT_DETAILS_W = RECORD
         CD_ulSize : DWORD;
@@ -1568,7 +1568,7 @@ TYPE
         CD_dnDevInst : DWORD;
         CD_rdResDes : ADRCARD;
         CD_ulFlags : DWORD;
-        CD_szDescription : ADDRESS;
+        CD_szDescription : ARRAY [0..261] OF CHAR;
     END;
     CONNECTION_DES = RECORD
         COND_Type : DWORD;
@@ -1588,7 +1588,7 @@ TYPE
         CSD_LegacyDataSize : DWORD;
         CSD_Flags : DWORD;
         CSD_ClassGuid : GUID;
-        CSD_Signature : ADDRESS;
+        CSD_Signature : ARRAY [0..7] OF BYTE;
     END;
     CS_RESOURCE = RECORD
         CS_Header : CS_DES;
@@ -1608,7 +1608,7 @@ TYPE
     END;
     DEVPRIVATE_RESOURCE = RECORD
         PRV_Header : DEVPRIVATE_DES;
-        PRV_Data : ADDRESS;
+        PRV_Data : ARRAY [0..11] OF BYTE;
     END;
     DMA_DES = RECORD
         DD_Count : DWORD;
@@ -1623,7 +1623,7 @@ TYPE
     END;
     DMA_RESOURCE = RECORD
         DMA_Header : DMA_DES;
-        DMA_Data : ADDRESS;
+        DMA_Data : ARRAY [0..11] OF BYTE;
     END;
     FILEPATHS_A = RECORD
         Target : PSTR;
@@ -1662,7 +1662,7 @@ TYPE
         DosDate : WORD;
         DosTime : WORD;
         DosAttribs : WORD;
-        FullTargetName : ADDRESS;
+        FullTargetName : ARRAY [0..265] OF BYTE;
     END;
     FILE_IN_CABINET_INFO_W = RECORD
         NameInCabinet : PWSTR;
@@ -1671,7 +1671,7 @@ TYPE
         DosDate : WORD;
         DosTime : WORD;
         DosAttribs : WORD;
-        FullTargetName : ADDRESS;
+        FullTargetName : ARRAY [0..260] OF CHAR;
     END;
     HCMNOTIFICATION = RECORD
         Value : ADDRESS;
@@ -1681,12 +1681,12 @@ TYPE
     END;
     HWPROFILEINFO_A = RECORD
         HWPI_ulHWProfile : DWORD;
-        HWPI_szFriendlyName : ADDRESS;
+        HWPI_szFriendlyName : ARRAY [0..79] OF BYTE;
         HWPI_dwFlags : DWORD;
     END;
     HWPROFILEINFO_W = RECORD
         HWPI_ulHWProfile : DWORD;
-        HWPI_szFriendlyName : ADDRESS;
+        HWPI_szFriendlyName : ARRAY [0..79] OF CHAR;
         HWPI_dwFlags : DWORD;
     END;
     INFCONTEXT = RECORD
@@ -1712,7 +1712,7 @@ TYPE
     END;
     IO_RESOURCE = RECORD
         IO_Header : IO_DES;
-        IO_Data : ADDRESS;
+        IO_Data : ARRAY [0..47] OF BYTE;
     END;
     IRQ_DES_32 = RECORD
         IRQD_Count : DWORD;
@@ -1735,11 +1735,11 @@ TYPE
     END;
     IRQ_RESOURCE_32 = RECORD
         IRQ_Header : IRQ_DES_32;
-        IRQ_Data : ADDRESS;
+        IRQ_Data : ARRAY [0..11] OF BYTE;
     END;
     IRQ_RESOURCE_64 = RECORD
         IRQ_Header : IRQ_DES_64;
-        IRQ_Data : ADDRESS;
+        IRQ_Data : ARRAY [0..15] OF BYTE;
     END;
     MEM_DES = RECORD
         MD_Count : DWORD;
@@ -1767,7 +1767,7 @@ TYPE
     END;
     MEM_LARGE_RESOURCE = RECORD
         MEM_LARGE_Header : MEM_LARGE_DES;
-        MEM_LARGE_Data : ADDRESS;
+        MEM_LARGE_Data : ARRAY [0..39] OF BYTE;
     END;
     MEM_RANGE = RECORD
         MR_Align : QWORD;
@@ -1779,7 +1779,7 @@ TYPE
     END;
     MEM_RESOURCE = RECORD
         MEM_Header : MEM_DES;
-        MEM_Data : ADDRESS;
+        MEM_Data : ARRAY [0..39] OF BYTE;
     END;
     MFCARD_DES = RECORD
         PMF_Count : DWORD;
@@ -1787,7 +1787,7 @@ TYPE
         PMF_Flags : DWORD;
         PMF_ConfigOptions : BYTE;
         PMF_IoResourceIndex : BYTE;
-        PMF_Reserved : ADDRESS;
+        PMF_Reserved : ARRAY [0..1] OF BYTE;
         PMF_ConfigRegisterBase : DWORD;
     END;
     MFCARD_RESOURCE = RECORD
@@ -1798,12 +1798,12 @@ TYPE
         PCD_Type : DWORD;
         PCD_Flags : DWORD;
         PCD_ConfigIndex : BYTE;
-        PCD_Reserved : ADDRESS;
+        PCD_Reserved : ARRAY [0..2] OF BYTE;
         PCD_MemoryCardBase1 : DWORD;
         PCD_MemoryCardBase2 : DWORD;
-        PCD_MemoryCardBase : ADDRESS;
-        PCD_MemoryFlags : ADDRESS;
-        PCD_IoFlags : ADDRESS;
+        PCD_MemoryCardBase : ARRAY [0..1] OF DWORD;
+        PCD_MemoryFlags : ARRAY [0..1] OF WORD;
+        PCD_IoFlags : ARRAY [0..3] OF BYTE;
     END;
     PCCARD_RESOURCE = RECORD
         PcCard_Header : PCCARD_DES;
@@ -1857,25 +1857,25 @@ TYPE
     END;
     SP_BACKUP_QUEUE_PARAMS_V1_A = RECORD
         cbSize : DWORD;
-        FullInfPath : ADDRESS;
+        FullInfPath : ARRAY [0..259] OF BYTE;
         FilenameOffset : INTEGER32;
     END;
     SP_BACKUP_QUEUE_PARAMS_V1_W = RECORD
         cbSize : DWORD;
-        FullInfPath : ADDRESS;
+        FullInfPath : ARRAY [0..259] OF CHAR;
         FilenameOffset : INTEGER32;
     END;
     SP_BACKUP_QUEUE_PARAMS_V2_A = RECORD
         cbSize : DWORD;
-        FullInfPath : ADDRESS;
+        FullInfPath : ARRAY [0..259] OF BYTE;
         FilenameOffset : INTEGER32;
-        ReinstallInstance : ADDRESS;
+        ReinstallInstance : ARRAY [0..259] OF BYTE;
     END;
     SP_BACKUP_QUEUE_PARAMS_V2_W = RECORD
         cbSize : DWORD;
-        FullInfPath : ADDRESS;
+        FullInfPath : ARRAY [0..259] OF CHAR;
         FilenameOffset : INTEGER32;
-        ReinstallInstance : ADDRESS;
+        ReinstallInstance : ARRAY [0..259] OF CHAR;
     END;
     SP_CLASSIMAGELIST_DATA = RECORD
         cbSize : DWORD;
@@ -1899,11 +1899,11 @@ TYPE
     END;
     SP_DEVICE_INTERFACE_DETAIL_DATA_A = RECORD
         cbSize : DWORD;
-        DevicePath : ADDRESS;
+        DevicePath : ARRAY [0..3] OF BYTE;
     END;
     SP_DEVICE_INTERFACE_DETAIL_DATA_W = RECORD
         cbSize : DWORD;
-        DevicePath : ADDRESS;
+        DevicePath : ARRAY [0..1] OF CHAR;
     END;
     SP_DEVINFO_DATA = RECORD
         cbSize : DWORD;
@@ -1915,13 +1915,13 @@ TYPE
         cbSize : DWORD;
         ClassGuid : GUID;
         RemoteMachineHandle : HANDLE;
-        RemoteMachineName : ADDRESS;
+        RemoteMachineName : ARRAY [0..263] OF BYTE;
     END;
     SP_DEVINFO_LIST_DETAIL_DATA_W = RECORD
         cbSize : DWORD;
         ClassGuid : GUID;
         RemoteMachineHandle : HANDLE;
-        RemoteMachineName : ADDRESS;
+        RemoteMachineName : ARRAY [0..263] OF CHAR;
     END;
     SP_DEVINSTALL_PARAMS_A = RECORD
         cbSize : DWORD;
@@ -1933,7 +1933,7 @@ TYPE
         FileQueue : ADDRESS;
         ClassInstallReserved : ADRCARD;
         Reserved : DWORD;
-        DriverPath : ADDRESS;
+        DriverPath : ARRAY [0..259] OF BYTE;
     END;
     SP_DEVINSTALL_PARAMS_W = RECORD
         cbSize : DWORD;
@@ -1945,31 +1945,31 @@ TYPE
         FileQueue : ADDRESS;
         ClassInstallReserved : ADRCARD;
         Reserved : DWORD;
-        DriverPath : ADDRESS;
+        DriverPath : ARRAY [0..261] OF CHAR;
     END;
     SP_DRVINFO_DATA_V1_A = RECORD
         cbSize : DWORD;
         DriverType : DWORD;
         Reserved : ADRCARD;
-        Description : ADDRESS;
-        MfgName : ADDRESS;
-        ProviderName : ADDRESS;
+        Description : ARRAY [0..255] OF BYTE;
+        MfgName : ARRAY [0..255] OF BYTE;
+        ProviderName : ARRAY [0..255] OF BYTE;
     END;
     SP_DRVINFO_DATA_V1_W = RECORD
         cbSize : DWORD;
         DriverType : DWORD;
         Reserved : ADRCARD;
-        Description : ADDRESS;
-        MfgName : ADDRESS;
-        ProviderName : ADDRESS;
+        Description : ARRAY [0..255] OF CHAR;
+        MfgName : ARRAY [0..255] OF CHAR;
+        ProviderName : ARRAY [0..255] OF CHAR;
     END;
     SP_DRVINFO_DATA_V2_A = RECORD
         cbSize : DWORD;
         DriverType : DWORD;
         Reserved : ADRCARD;
-        Description : ADDRESS;
-        MfgName : ADDRESS;
-        ProviderName : ADDRESS;
+        Description : ARRAY [0..255] OF BYTE;
+        MfgName : ARRAY [0..255] OF BYTE;
+        ProviderName : ARRAY [0..255] OF BYTE;
         DriverDate : Foundation.FILETIME;
         DriverVersion : QWORD;
     END;
@@ -1977,9 +1977,9 @@ TYPE
         cbSize : DWORD;
         DriverType : DWORD;
         Reserved : ADRCARD;
-        Description : ADDRESS;
-        MfgName : ADDRESS;
-        ProviderName : ADDRESS;
+        Description : ARRAY [0..255] OF CHAR;
+        MfgName : ARRAY [0..255] OF CHAR;
+        ProviderName : ARRAY [0..255] OF CHAR;
         DriverDate : Foundation.FILETIME;
         DriverVersion : QWORD;
     END;
@@ -1989,10 +1989,10 @@ TYPE
         CompatIDsOffset : DWORD;
         CompatIDsLength : DWORD;
         Reserved : ADRCARD;
-        SectionName : ADDRESS;
-        InfFileName : ADDRESS;
-        DrvDescription : ADDRESS;
-        HardwareID : ADDRESS;
+        SectionName : ARRAY [0..255] OF BYTE;
+        InfFileName : ARRAY [0..259] OF BYTE;
+        DrvDescription : ARRAY [0..255] OF BYTE;
+        HardwareID : ARRAY [0..3] OF BYTE;
     END;
     SP_DRVINFO_DETAIL_DATA_W = RECORD
         cbSize : DWORD;
@@ -2000,10 +2000,10 @@ TYPE
         CompatIDsOffset : DWORD;
         CompatIDsLength : DWORD;
         Reserved : ADRCARD;
-        SectionName : ADDRESS;
-        InfFileName : ADDRESS;
-        DrvDescription : ADDRESS;
-        HardwareID : ADDRESS;
+        SectionName : ARRAY [0..255] OF CHAR;
+        InfFileName : ARRAY [0..259] OF CHAR;
+        DrvDescription : ARRAY [0..255] OF CHAR;
+        HardwareID : ARRAY [0..3] OF CHAR;
     END;
     SP_DRVINSTALL_PARAMS = RECORD
         cbSize : DWORD;
@@ -2048,38 +2048,38 @@ TYPE
     SP_INF_INFORMATION = RECORD
         InfStyle : DWORD;
         InfCount : DWORD;
-        VersionData : ADDRESS;
+        VersionData : ARRAY [0..3] OF BYTE;
     END;
     SP_INF_SIGNER_INFO_V1_A = RECORD
         cbSize : DWORD;
-        CatalogFile : ADDRESS;
-        DigitalSigner : ADDRESS;
-        DigitalSignerVersion : ADDRESS;
+        CatalogFile : ARRAY [0..259] OF BYTE;
+        DigitalSigner : ARRAY [0..259] OF BYTE;
+        DigitalSignerVersion : ARRAY [0..259] OF BYTE;
     END;
     SP_INF_SIGNER_INFO_V1_W = RECORD
         cbSize : DWORD;
-        CatalogFile : ADDRESS;
-        DigitalSigner : ADDRESS;
-        DigitalSignerVersion : ADDRESS;
+        CatalogFile : ARRAY [0..259] OF CHAR;
+        DigitalSigner : ARRAY [0..259] OF CHAR;
+        DigitalSignerVersion : ARRAY [0..259] OF CHAR;
     END;
     SP_INF_SIGNER_INFO_V2_A = RECORD
         cbSize : DWORD;
-        CatalogFile : ADDRESS;
-        DigitalSigner : ADDRESS;
-        DigitalSignerVersion : ADDRESS;
+        CatalogFile : ARRAY [0..259] OF BYTE;
+        DigitalSigner : ARRAY [0..259] OF BYTE;
+        DigitalSignerVersion : ARRAY [0..259] OF BYTE;
         SignerScore : DWORD;
     END;
     SP_INF_SIGNER_INFO_V2_W = RECORD
         cbSize : DWORD;
-        CatalogFile : ADDRESS;
-        DigitalSigner : ADDRESS;
-        DigitalSignerVersion : ADDRESS;
+        CatalogFile : ARRAY [0..259] OF CHAR;
+        DigitalSigner : ARRAY [0..259] OF CHAR;
+        DigitalSignerVersion : ARRAY [0..259] OF CHAR;
         SignerScore : DWORD;
     END;
     SP_INSTALLWIZARD_DATA = RECORD
         ClassInstallHeader : SP_CLASSINSTALL_HEADER;
         Flags : DWORD;
-        DynamicPages : ADDRESS;
+        DynamicPages : ARRAY [0..159] OF BYTE;
         NumDynamicPages : DWORD;
         DynamicPageFlags : DWORD;
         PrivateFlags : DWORD;
@@ -2089,27 +2089,27 @@ TYPE
     SP_NEWDEVICEWIZARD_DATA = RECORD
         ClassInstallHeader : SP_CLASSINSTALL_HEADER;
         Flags : DWORD;
-        DynamicPages : ADDRESS;
+        DynamicPages : ARRAY [0..159] OF BYTE;
         NumDynamicPages : DWORD;
         hwndWizardDlg : HWND;
     END;
     SP_ORIGINAL_FILE_INFO_A = RECORD
         cbSize : DWORD;
-        OriginalInfName : ADDRESS;
-        OriginalCatalogName : ADDRESS;
+        OriginalInfName : ARRAY [0..259] OF BYTE;
+        OriginalCatalogName : ARRAY [0..259] OF BYTE;
     END;
     SP_ORIGINAL_FILE_INFO_W = RECORD
         cbSize : DWORD;
-        OriginalInfName : ADDRESS;
-        OriginalCatalogName : ADDRESS;
+        OriginalInfName : ARRAY [0..259] OF CHAR;
+        OriginalCatalogName : ARRAY [0..259] OF CHAR;
     END;
     SP_POWERMESSAGEWAKE_PARAMS_A = RECORD
         ClassInstallHeader : SP_CLASSINSTALL_HEADER;
-        PowerMessageWake : ADDRESS;
+        PowerMessageWake : ARRAY [0..511] OF BYTE;
     END;
     SP_POWERMESSAGEWAKE_PARAMS_W = RECORD
         ClassInstallHeader : SP_CLASSINSTALL_HEADER;
-        PowerMessageWake : ADDRESS;
+        PowerMessageWake : ARRAY [0..511] OF CHAR;
     END;
     SP_PROPCHANGE_PARAMS = RECORD
         ClassInstallHeader : SP_CLASSINSTALL_HEADER;
@@ -2142,28 +2142,28 @@ TYPE
     END;
     SP_SELECTDEVICE_PARAMS_A = RECORD
         ClassInstallHeader : SP_CLASSINSTALL_HEADER;
-        Title : ADDRESS;
-        Instructions : ADDRESS;
-        ListLabel : ADDRESS;
-        SubTitle : ADDRESS;
-        Reserved : ADDRESS;
+        Title : ARRAY [0..59] OF BYTE;
+        Instructions : ARRAY [0..255] OF BYTE;
+        ListLabel : ARRAY [0..29] OF BYTE;
+        SubTitle : ARRAY [0..255] OF BYTE;
+        Reserved : ARRAY [0..1] OF BYTE;
     END;
     SP_SELECTDEVICE_PARAMS_W = RECORD
         ClassInstallHeader : SP_CLASSINSTALL_HEADER;
-        Title : ADDRESS;
-        Instructions : ADDRESS;
-        ListLabel : ADDRESS;
-        SubTitle : ADDRESS;
+        Title : ARRAY [0..59] OF CHAR;
+        Instructions : ARRAY [0..255] OF CHAR;
+        ListLabel : ARRAY [0..29] OF CHAR;
+        SubTitle : ARRAY [0..255] OF CHAR;
     END;
     SP_TROUBLESHOOTER_PARAMS_A = RECORD
         ClassInstallHeader : SP_CLASSINSTALL_HEADER;
-        ChmFile : ADDRESS;
-        HtmlTroubleShooter : ADDRESS;
+        ChmFile : ARRAY [0..259] OF BYTE;
+        HtmlTroubleShooter : ARRAY [0..259] OF BYTE;
     END;
     SP_TROUBLESHOOTER_PARAMS_W = RECORD
         ClassInstallHeader : SP_CLASSINSTALL_HEADER;
-        ChmFile : ADDRESS;
-        HtmlTroubleShooter : ADDRESS;
+        ChmFile : ARRAY [0..259] OF CHAR;
+        HtmlTroubleShooter : ARRAY [0..259] OF CHAR;
     END;
     SP_UNREMOVEDEVICE_PARAMS = RECORD
         ClassInstallHeader : SP_CLASSINSTALL_HEADER;
@@ -2495,8 +2495,8 @@ PROCEDURE SetupDiGetClassDescriptionA["SetupDiGetClassDescriptionA" EXTERNAL FRO
 PROCEDURE SetupDiGetClassDescriptionExA["SetupDiGetClassDescriptionExA" EXTERNAL FROM "SETUPAPI.dll"](ClassGuid : POINTER TO GUID; ClassDescription : PSTR; ClassDescriptionSize : DWORD; RequiredSize : POINTER TO DWORD; MachineName : PSTR; Reserved : ADDRESS) : BOOL;
 PROCEDURE SetupDiGetClassDescriptionExW["SetupDiGetClassDescriptionExW" EXTERNAL FROM "SETUPAPI.dll"](ClassGuid : POINTER TO GUID; ClassDescription : PWSTR; ClassDescriptionSize : DWORD; RequiredSize : POINTER TO DWORD; MachineName : PWSTR; Reserved : ADDRESS) : BOOL;
 PROCEDURE SetupDiGetClassDescriptionW["SetupDiGetClassDescriptionW" EXTERNAL FROM "SETUPAPI.dll"](ClassGuid : POINTER TO GUID; ClassDescription : PWSTR; ClassDescriptionSize : DWORD; RequiredSize : POINTER TO DWORD) : BOOL;
-PROCEDURE SetupDiGetClassDevPropertySheetsA["SetupDiGetClassDevPropertySheetsA" EXTERNAL FROM "SETUPAPI.dll"](DeviceInfoSet : HDEVINFO; DeviceInfoData : POINTER TO SP_DEVINFO_DATA; PropertySheetHeader : ADDRESS; PropertySheetHeaderPageListSize : DWORD; RequiredSize : POINTER TO DWORD; PropertySheetType : DWORD) : BOOL;
-PROCEDURE SetupDiGetClassDevPropertySheetsW["SetupDiGetClassDevPropertySheetsW" EXTERNAL FROM "SETUPAPI.dll"](DeviceInfoSet : HDEVINFO; DeviceInfoData : POINTER TO SP_DEVINFO_DATA; PropertySheetHeader : ADDRESS; PropertySheetHeaderPageListSize : DWORD; RequiredSize : POINTER TO DWORD; PropertySheetType : DWORD) : BOOL;
+PROCEDURE SetupDiGetClassDevPropertySheetsA["SetupDiGetClassDevPropertySheetsA" EXTERNAL FROM "SETUPAPI.dll"](DeviceInfoSet : HDEVINFO; DeviceInfoData : POINTER TO SP_DEVINFO_DATA; PropertySheetHeader : POINTER TO UI_Controls.PROPSHEETHEADERA_V2; PropertySheetHeaderPageListSize : DWORD; RequiredSize : POINTER TO DWORD; PropertySheetType : DWORD) : BOOL;
+PROCEDURE SetupDiGetClassDevPropertySheetsW["SetupDiGetClassDevPropertySheetsW" EXTERNAL FROM "SETUPAPI.dll"](DeviceInfoSet : HDEVINFO; DeviceInfoData : POINTER TO SP_DEVINFO_DATA; PropertySheetHeader : POINTER TO UI_Controls.PROPSHEETHEADERW_V2; PropertySheetHeaderPageListSize : DWORD; RequiredSize : POINTER TO DWORD; PropertySheetType : DWORD) : BOOL;
 PROCEDURE SetupDiGetClassDevsA["SetupDiGetClassDevsA" EXTERNAL FROM "SETUPAPI.dll"](ClassGuid : POINTER TO GUID; Enumerator : PSTR; hwndParent : HWND; Flags : DWORD) : HDEVINFO;
 PROCEDURE SetupDiGetClassDevsExA["SetupDiGetClassDevsExA" EXTERNAL FROM "SETUPAPI.dll"](ClassGuid : POINTER TO GUID; Enumerator : PSTR; hwndParent : HWND; Flags : DWORD; DeviceInfoSet : HDEVINFO; MachineName : PSTR; Reserved : ADDRESS) : HDEVINFO;
 PROCEDURE SetupDiGetClassDevsExW["SetupDiGetClassDevsExW" EXTERNAL FROM "SETUPAPI.dll"](ClassGuid : POINTER TO GUID; Enumerator : PWSTR; hwndParent : HWND; Flags : DWORD; DeviceInfoSet : HDEVINFO; MachineName : PWSTR; Reserved : ADDRESS) : HDEVINFO;
@@ -2547,7 +2547,7 @@ PROCEDURE SetupDiGetINFClassW["SetupDiGetINFClassW" EXTERNAL FROM "SETUPAPI.dll"
 PROCEDURE SetupDiGetSelectedDevice["SetupDiGetSelectedDevice" EXTERNAL FROM "SETUPAPI.dll"](DeviceInfoSet : HDEVINFO; DeviceInfoData : POINTER TO SP_DEVINFO_DATA) : BOOL;
 PROCEDURE SetupDiGetSelectedDriverA["SetupDiGetSelectedDriverA" EXTERNAL FROM "SETUPAPI.dll"](DeviceInfoSet : HDEVINFO; DeviceInfoData : POINTER TO SP_DEVINFO_DATA; DriverInfoData : POINTER TO SP_DRVINFO_DATA_V2_A) : BOOL;
 PROCEDURE SetupDiGetSelectedDriverW["SetupDiGetSelectedDriverW" EXTERNAL FROM "SETUPAPI.dll"](DeviceInfoSet : HDEVINFO; DeviceInfoData : POINTER TO SP_DEVINFO_DATA; DriverInfoData : POINTER TO SP_DRVINFO_DATA_V2_W) : BOOL;
-PROCEDURE SetupDiGetWizardPage["SetupDiGetWizardPage" EXTERNAL FROM "SETUPAPI.dll"](DeviceInfoSet : HDEVINFO; DeviceInfoData : POINTER TO SP_DEVINFO_DATA; InstallWizardData : POINTER TO SP_INSTALLWIZARD_DATA; PageType : DWORD; Flags : DWORD) : ADDRESS;
+PROCEDURE SetupDiGetWizardPage["SetupDiGetWizardPage" EXTERNAL FROM "SETUPAPI.dll"](DeviceInfoSet : HDEVINFO; DeviceInfoData : POINTER TO SP_DEVINFO_DATA; InstallWizardData : POINTER TO SP_INSTALLWIZARD_DATA; PageType : DWORD; Flags : DWORD) : UI_Controls.HPROPSHEETPAGE;
 PROCEDURE SetupDiInstallClassA["SetupDiInstallClassA" EXTERNAL FROM "SETUPAPI.dll"](hwndParent : HWND; InfFileName : PSTR; Flags : DWORD; FileQueue : ADDRESS) : BOOL;
 PROCEDURE SetupDiInstallClassExA["SetupDiInstallClassExA" EXTERNAL FROM "SETUPAPI.dll"](hwndParent : HWND; InfFileName : PSTR; Flags : DWORD; FileQueue : ADDRESS; InterfaceClassGuid : POINTER TO GUID; Reserved1 : ADDRESS; Reserved2 : ADDRESS) : BOOL;
 PROCEDURE SetupDiInstallClassExW["SetupDiInstallClassExW" EXTERNAL FROM "SETUPAPI.dll"](hwndParent : HWND; InfFileName : PWSTR; Flags : DWORD; FileQueue : ADDRESS; InterfaceClassGuid : POINTER TO GUID; Reserved1 : ADDRESS; Reserved2 : ADDRESS) : BOOL;

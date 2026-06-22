@@ -94,7 +94,7 @@ TYPE
         reserved : WORD;
     END;
     ADAPTER_STATUS = RECORD
-        adapter_address : ADDRESS;
+        adapter_address : ARRAY [0..5] OF BYTE;
         rev_major : BYTE;
         reserved0 : BYTE;
         adapter_type : BYTE;
@@ -126,9 +126,9 @@ TYPE
         length : BYTE;
         access_control : BYTE;
         frame_control : BYTE;
-        destination_addr : ADDRESS;
-        source_addr : ADDRESS;
-        routing_info : ADDRESS;
+        destination_addr : ARRAY [0..5] OF BYTE;
+        source_addr : ARRAY [0..5] OF BYTE;
+        routing_info : ARRAY [0..17] OF BYTE;
     END;
     FIND_NAME_HEADER = RECORD
         node_count : WORD;
@@ -137,10 +137,10 @@ TYPE
     END;
     LANA_ENUM = RECORD
         length : BYTE;
-        lana : ADDRESS;
+        lana : ARRAY [0..254] OF BYTE;
     END;
     NAME_BUFFER = RECORD
-        name : ADDRESS;
+        name : ARRAY [0..15] OF BYTE;
         name_num : BYTE;
         name_flags : BYTE;
     END;
@@ -151,21 +151,21 @@ TYPE
         ncb_num : BYTE;
         ncb_buffer : POINTER TO BYTE;
         ncb_length : WORD;
-        ncb_callname : ADDRESS;
-        ncb_name : ADDRESS;
+        ncb_callname : ARRAY [0..15] OF BYTE;
+        ncb_name : ARRAY [0..15] OF BYTE;
         ncb_rto : BYTE;
         ncb_sto : BYTE;
         ncb_post : ADRINT;
         ncb_lana_num : BYTE;
         ncb_cmd_cplt : BYTE;
-        ncb_reserve : ADDRESS;
+        ncb_reserve : ARRAY [0..13] OF BYTE;
         ncb_event : HANDLE;
     END;
     SESSION_BUFFER = RECORD
         lsn : BYTE;
         state : BYTE;
-        local_name : ADDRESS;
-        remote_name : ADDRESS;
+        local_name : ARRAY [0..15] OF BYTE;
+        remote_name : ARRAY [0..15] OF BYTE;
         rcvs_outstanding : BYTE;
         sends_outstanding : BYTE;
     END;

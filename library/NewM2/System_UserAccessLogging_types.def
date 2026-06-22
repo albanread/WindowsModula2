@@ -9,7 +9,7 @@ TYPE
         RoleGuid : GUID;
         TenantId : GUID;
         Address : Networking_WinSock.SOCKADDR_STORAGE;
-        UserName : ADDRESS;
+        UserName : ARRAY [0..259] OF CHAR;
     END;
 
 PROCEDURE UalInstrument["UalInstrument" EXTERNAL FROM "ualapi.dll"](Data : POINTER TO UAL_DATA_BLOB) : HRESULT;

@@ -414,7 +414,7 @@ TYPE
         Ip6Address : IP6_ADDRESS;
     END;
     DNS_ADDR = RECORD
-        MaxSa : ADDRESS;
+        MaxSa : ARRAY [0..31] OF BYTE;
         Data : ADDRESS;
     END;
     DNS_ADDR_ARRAY = RECORD
@@ -427,7 +427,7 @@ TYPE
         MatchFlag : DWORD;
         Reserved1 : DWORD;
         Reserved2 : DWORD;
-        AddrArray : ADDRESS;
+        AddrArray : ARRAY [0..35] OF BYTE;
     END;
     DNS_APPLICATION_SETTINGS = RECORD
         Version : DWORD;
@@ -435,7 +435,7 @@ TYPE
     END;
     DNS_ATMA_DATA = RECORD
         AddressType : BYTE;
-        Address : ADDRESS;
+        Address : ARRAY [0..19] OF BYTE;
     END;
     DNS_A_DATA = RECORD
         IpAddress : DWORD;
@@ -449,7 +449,7 @@ TYPE
         nEntries : DWORD;
     END;
     DNS_CONNECTION_NAME = RECORD
-        wszName : ADDRESS;
+        wszName : ARRAY [0..64] OF CHAR;
     END;
     DNS_CONNECTION_NAME_LIST = RECORD
         cNames : DWORD;
@@ -498,7 +498,7 @@ TYPE
     END;
     DNS_DHCID_DATA = RECORD
         dwByteCount : DWORD;
-        DHCID : ADDRESS;
+        DHCID : ARRAY [0..3] OF BYTE;
     END;
     DNS_DS_DATA = RECORD
         wKeyTag : WORD;
@@ -506,7 +506,7 @@ TYPE
         chDigestType : BYTE;
         wDigestLength : WORD;
         wPad : WORD;
-        Digest : ADDRESS;
+        Digest : ARRAY [0..1] OF BYTE;
     END;
     DNS_HEADER = RECORD
         Xid : WORD;
@@ -528,7 +528,7 @@ TYPE
         chAlgorithm : BYTE;
         wKeyLength : WORD;
         wPad : WORD;
-        Key : ADDRESS;
+        Key : ARRAY [0..1] OF BYTE;
     END;
     DNS_LOC_DATA = RECORD
         wVersion : WORD;
@@ -541,7 +541,7 @@ TYPE
     END;
     DNS_MESSAGE_BUFFER = RECORD
         MessageHead : DNS_HEADER;
-        MessageBody : ADDRESS;
+        MessageBody : ARRAY [0..1] OF BYTE;
     END;
     DNS_MINFO_DATAA = RECORD
         pNameMailbox : PSTR;
@@ -582,8 +582,8 @@ TYPE
         bFlags : BYTE;
         wIterations : WORD;
         bSaltLength : BYTE;
-        bPad : ADDRESS;
-        pbSalt : ADDRESS;
+        bPad : ARRAY [0..2] OF BYTE;
+        pbSalt : ARRAY [0..1] OF BYTE;
     END;
     DNS_NSEC3_DATA = RECORD
         chAlgorithm : BYTE;
@@ -592,38 +592,38 @@ TYPE
         bSaltLength : BYTE;
         bHashLength : BYTE;
         wTypeBitMapsLength : WORD;
-        chData : ADDRESS;
+        chData : ARRAY [0..1] OF BYTE;
     END;
     DNS_NSEC_DATAA = RECORD
         pNextDomainName : PSTR;
         wTypeBitMapsLength : WORD;
         wPad : WORD;
-        TypeBitMaps : ADDRESS;
+        TypeBitMaps : ARRAY [0..3] OF BYTE;
     END;
     DNS_NSEC_DATAW = RECORD
         pNextDomainName : PWSTR;
         wTypeBitMapsLength : WORD;
         wPad : WORD;
-        TypeBitMaps : ADDRESS;
+        TypeBitMaps : ARRAY [0..3] OF BYTE;
     END;
     DNS_NULL_DATA = RECORD
         dwByteCount : DWORD;
-        Data : ADDRESS;
+        Data : ARRAY [0..3] OF BYTE;
     END;
     DNS_NXT_DATAA = RECORD
         pNameNext : PSTR;
         wNumTypes : WORD;
-        wTypes : ADDRESS;
+        wTypes : ARRAY [0..2] OF WORD;
     END;
     DNS_NXT_DATAW = RECORD
         pNameNext : PWSTR;
         wNumTypes : WORD;
-        wTypes : ADDRESS;
+        wTypes : ARRAY [0..2] OF WORD;
     END;
     DNS_OPT_DATA = RECORD
         wDataLength : WORD;
         wPad : WORD;
-        Data : ADDRESS;
+        Data : ARRAY [0..1] OF BYTE;
     END;
     DNS_PROXY_INFORMATION = RECORD
         version : DWORD;
@@ -637,10 +637,10 @@ TYPE
         pNameHost : PWSTR;
     END;
     DNS_QUERY_CANCEL = RECORD
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..31] OF BYTE;
     END;
     DNS_QUERY_RAW_CANCEL = RECORD
-        reserved : ADDRESS;
+        reserved : ARRAY [0..31] OF BYTE;
     END;
     DNS_QUERY_RAW_REQUEST = RECORD
         version : DWORD;
@@ -789,7 +789,7 @@ TYPE
         wKeyTag : WORD;
         wSignatureLength : WORD;
         pNameSigner : PSTR;
-        Signature : ADDRESS;
+        Signature : ARRAY [0..7] OF BYTE;
     END;
     DNS_SIG_DATAW = RECORD
         wTypeCovered : WORD;
@@ -801,7 +801,7 @@ TYPE
         wKeyTag : WORD;
         wSignatureLength : WORD;
         pNameSigner : PWSTR;
-        Signature : ADDRESS;
+        Signature : ARRAY [0..7] OF BYTE;
     END;
     DNS_SOA_DATAA = RECORD
         pNamePrimaryServer : PSTR;
@@ -847,7 +847,7 @@ TYPE
     END;
     DNS_SVCB_PARAM_ALPN = RECORD
         cIds : WORD;
-        rgIds : ADDRESS;
+        rgIds : ARRAY [0..15] OF BYTE;
     END;
     DNS_SVCB_PARAM_ALPN_ID = RECORD
         cBytes : BYTE;
@@ -855,19 +855,19 @@ TYPE
     END;
     DNS_SVCB_PARAM_IPV4 = RECORD
         cIps : WORD;
-        rgIps : ADDRESS;
+        rgIps : ARRAY [0..0] OF DWORD;
     END;
     DNS_SVCB_PARAM_IPV6 = RECORD
         cIps : WORD;
-        rgIps : ADDRESS;
+        rgIps : ARRAY [0..15] OF BYTE;
     END;
     DNS_SVCB_PARAM_MANDATORY = RECORD
         cMandatoryKeys : WORD;
-        rgwMandatoryKeys : ADDRESS;
+        rgwMandatoryKeys : ARRAY [0..0] OF WORD;
     END;
     DNS_SVCB_PARAM_UNKNOWN = RECORD
         cBytes : WORD;
-        pbSvcParamValue : ADDRESS;
+        pbSvcParamValue : ARRAY [0..1] OF BYTE;
     END;
     DNS_TKEY_DATAA = RECORD
         pNameAlgorithm : PSTR;
@@ -902,8 +902,8 @@ TYPE
         bSelector : BYTE;
         bMatchingType : BYTE;
         bCertificateAssociationDataLength : WORD;
-        bPad : ADDRESS;
-        bCertificateAssociationData : ADDRESS;
+        bPad : ARRAY [0..2] OF BYTE;
+        bCertificateAssociationData : ARRAY [0..0] OF BYTE;
     END;
     DNS_TSIG_DATAA = RECORD
         pNameAlgorithm : PSTR;
@@ -935,15 +935,15 @@ TYPE
     END;
     DNS_TXT_DATAA = RECORD
         dwStringCount : DWORD;
-        pStringArray : ADDRESS;
+        pStringArray : ARRAY [0..7] OF BYTE;
     END;
     DNS_TXT_DATAW = RECORD
         dwStringCount : DWORD;
-        pStringArray : ADDRESS;
+        pStringArray : ARRAY [0..7] OF BYTE;
     END;
     DNS_UNKNOWN_DATA = RECORD
         dwByteCount : DWORD;
-        bData : ADDRESS;
+        bData : ARRAY [0..3] OF BYTE;
     END;
     DNS_WINSR_DATAA = RECORD
         dwMappingFlag : DWORD;
@@ -962,7 +962,7 @@ TYPE
         dwLookupTimeout : DWORD;
         dwCacheTimeout : DWORD;
         cWinsServerCount : DWORD;
-        WinsServers : ADDRESS;
+        WinsServers : ARRAY [0..0] OF DWORD;
     END;
     DNS_WIRE_QUESTION = RECORD
         QuestionType : WORD;
@@ -977,19 +977,19 @@ TYPE
     DNS_WKS_DATA = RECORD
         IpAddress : DWORD;
         chProtocol : BYTE;
-        BitMask : ADDRESS;
+        BitMask : ARRAY [0..2] OF BYTE;
     END;
     IP4_ARRAY = RECORD
         AddrCount : DWORD;
-        AddrArray : ADDRESS;
+        AddrArray : ARRAY [0..0] OF DWORD;
     END;
     IP6_ADDRESS;
     MDNS_QUERY_HANDLE = RECORD
-        nameBuf : ADDRESS;
+        nameBuf : ARRAY [0..255] OF CHAR;
         wType : WORD;
         pSubscription : ADDRESS;
         pWnfCallbackParams : ADDRESS;
-        stateNameData : ADDRESS;
+        stateNameData : ARRAY [0..1] OF DWORD;
     END;
     MDNS_QUERY_REQUEST = RECORD
         Version : DWORD;

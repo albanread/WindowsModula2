@@ -93,7 +93,7 @@ TYPE
         Size : DWORD;
         PortHandle : ADDRESS;
         PortAddress : INTEGER64;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..3] OF WORD;
     END;
     SERENUM_PORT_PARAMETERS = RECORD
         Size : DWORD;
@@ -103,7 +103,7 @@ TYPE
         HardwareHandle : ADDRESS;
         Portion : INTEGER32;
         NumberAxis : WORD;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..4] OF WORD;
     END;
     SERIALCONFIG = RECORD
         Size : DWORD;
@@ -111,7 +111,7 @@ TYPE
         SubType : DWORD;
         ProvOffset : DWORD;
         ProviderSize : DWORD;
-        ProviderData : ADDRESS;
+        ProviderData : ARRAY [0..1] OF CHAR;
     END;
     SERIALPERF_STATS = RECORD
         ReceivedCount : DWORD;
@@ -156,7 +156,7 @@ TYPE
         CurrentRxQueue : DWORD;
         ProvSpec1 : DWORD;
         ProvSpec2 : DWORD;
-        ProvChar : ADDRESS;
+        ProvChar : ARRAY [0..1] OF CHAR;
     END;
     SERIAL_HANDFLOW = RECORD
         ControlHandShake : DWORD;

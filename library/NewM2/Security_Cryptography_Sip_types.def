@@ -78,7 +78,7 @@ TYPE
     SIP_INDIRECT_DATA = RECORD
         Data : Security_Cryptography.CRYPT_ATTRIBUTE_TYPE_VALUE;
         DigestAlgorithm : Security_Cryptography.CRYPT_ALGORITHM_IDENTIFIER;
-        Digest : ADDRESS;
+        Digest : Security_Cryptography.CRYPT_INTEGER_BLOB;
     END;
     SIP_SUBJECTINFO = RECORD
         cbSize : DWORD;

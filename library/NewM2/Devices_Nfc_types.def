@@ -136,7 +136,7 @@ TYPE
     END;
     NFC_DATA_BUFFER = RECORD
         cbBuffer : WORD;
-        pbBuffer : ADDRESS;
+        pbBuffer : ARRAY [0..1] OF BYTE;
     END;
     NFC_LLCP_CONFIG = RECORD
         uMIU : WORD;
@@ -148,15 +148,15 @@ TYPE
     NFC_LLCP_SERVICE_DISCOVER_REQUEST = RECORD
         hRemoteDev : ADRINT;
         NumberOfEntries : DWORD;
-        ServiceNameEntries : ADDRESS;
+        ServiceNameEntries : ARRAY [0..11] OF BYTE;
     END;
     NFC_LLCP_SERVICE_DISCOVER_SAP = RECORD
         NumberOfEntries : DWORD;
-        SAPEntries : ADDRESS;
+        SAPEntries : ARRAY [0..3] OF BYTE;
     END;
     NFC_LLCP_SERVICE_NAME_ENTRY = RECORD
         cbServiceName : DWORD;
-        pbServiceName : ADDRESS;
+        pbServiceName : ARRAY [0..3] OF BYTE;
     END;
     NFC_LLCP_SOCKET_ACCEPT_INFO = RECORD
         hSocket : ADRINT;
@@ -204,7 +204,7 @@ TYPE
     NFC_P2P_PARAM_CONFIG = RECORD
         eP2pMode : INTEGER32;
         cbGeneralBytes : BYTE;
-        pbGeneralBytes : ADDRESS;
+        pbGeneralBytes : ARRAY [0..50] OF BYTE;
     END;
     NFC_REMOTE_DEVICE_DISCONNET = RECORD
         hRemoteDev : ADRINT;
@@ -216,7 +216,7 @@ TYPE
         eRFTech : BYTE;
         eProtocol : BYTE;
         cbUid : BYTE;
-        pbUid : ADDRESS;
+        pbUid : ARRAY [0..16] OF BYTE;
     END;
     NFC_REMOTE_DEV_RECV_INFO = RECORD
         hRemoteDev : ADRINT;
@@ -236,7 +236,7 @@ TYPE
         ucNfcIPTgtMode : BYTE;
         ucNfcCEMode : BYTE;
         ucBailoutConfig : BYTE;
-        ucSystemCode : ADDRESS;
+        ucSystemCode : ARRAY [0..1] OF BYTE;
         ucRequestCode : BYTE;
         ucTimeSlotNumber : BYTE;
         eRfDiscoveryMode : INTEGER32;
@@ -245,7 +245,7 @@ TYPE
         hSecureElement : ADRINT;
         bPowerState : BYTE;
         cbAid : DWORD;
-        pbAid : ADDRESS;
+        pbAid : ARRAY [0..15] OF BYTE;
     END;
     NFC_SE_EMULATION_MODE_INFO = RECORD
         hSecureElement : ADRINT;
@@ -255,7 +255,7 @@ TYPE
         hSecureElement : ADRINT;
         eEventType : INTEGER32;
         cbEventData : DWORD;
-        pbEventData : ADDRESS;
+        pbEventData : ARRAY [0..7] OF BYTE;
     END;
     NFC_SE_INFO = RECORD
         hSecureElement : ADRINT;
@@ -263,7 +263,7 @@ TYPE
     END;
     NFC_SE_LIST = RECORD
         NumberOfEndpoints : DWORD;
-        EndpointList : ADDRESS;
+        EndpointList : ARRAY [0..15] OF BYTE;
     END;
     NFC_SE_PROTO_ROUTING_INFO = RECORD
         hSecureElement : ADRINT;
@@ -272,7 +272,7 @@ TYPE
     END;
     NFC_SE_ROUTING_TABLE = RECORD
         NumberOfEntries : DWORD;
-        TableEntries : ADDRESS;
+        TableEntries : ARRAY [0..15] OF BYTE;
     END;
     NFC_SE_ROUTING_TABLE_ENTRY = RECORD
         eRoutingType : INTEGER32;
@@ -324,7 +324,7 @@ TYPE
     SECURE_ELEMENT_AID_ROUTING_INFO = RECORD
         guidSecureElementId : GUID;
         cbAid : DWORD;
-        pbAid : ADDRESS;
+        pbAid : ARRAY [0..19] OF BYTE;
     END;
     SECURE_ELEMENT_ENDPOINT_INFO = RECORD
         guidSecureElementId : GUID;
@@ -332,13 +332,13 @@ TYPE
     END;
     SECURE_ELEMENT_ENDPOINT_LIST = RECORD
         NumberOfEndpoints : DWORD;
-        EndpointList : ADDRESS;
+        EndpointList : ARRAY [0..15] OF BYTE;
     END;
     SECURE_ELEMENT_EVENT_INFO = RECORD
         guidSecureElementId : GUID;
         eEventType : INTEGER32;
         cbEventData : DWORD;
-        pbEventData : ADDRESS;
+        pbEventData : ARRAY [0..7] OF BYTE;
     END;
     SECURE_ELEMENT_EVENT_SUBSCRIPTION_INFO = RECORD
         guidSecureElementId : GUID;
@@ -352,7 +352,7 @@ TYPE
     SECURE_ELEMENT_HCE_DATA_PACKET = RECORD
         bConnectionId : WORD;
         cbPayload : WORD;
-        pbPayload : ADDRESS;
+        pbPayload : ARRAY [0..1] OF BYTE;
     END;
     SECURE_ELEMENT_NFCC_CAPABILITIES = RECORD
         cbMaxRoutingTableSize : WORD;
@@ -366,7 +366,7 @@ TYPE
     END;
     SECURE_ELEMENT_ROUTING_TABLE = RECORD
         NumberOfEntries : DWORD;
-        TableEntries : ADDRESS;
+        TableEntries : ARRAY [0..15] OF BYTE;
     END;
     SECURE_ELEMENT_ROUTING_TABLE_ENTRY = RECORD
         eRoutingType : INTEGER32;

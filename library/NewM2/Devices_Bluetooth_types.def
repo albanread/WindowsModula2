@@ -915,7 +915,7 @@ TYPE
         fAuthenticated : BOOL;
         stLastSeen : Foundation.SYSTEMTIME;
         stLastUsed : Foundation.SYSTEMTIME;
-        szName : ADDRESS;
+        szName : ARRAY [0..247] OF CHAR;
     END;
     BLUETOOTH_DEVICE_SEARCH_PARAMS = RECORD
         dwSize : DWORD;
@@ -937,32 +937,32 @@ TYPE
     END;
     BLUETOOTH_GATT_VALUE_CHANGED_EVENT_REGISTRATION = RECORD
         NumCharacteristics : WORD;
-        Characteristics : ADDRESS;
+        Characteristics : ARRAY [0..39] OF BYTE;
     END;
     BLUETOOTH_LOCAL_SERVICE_INFO = RECORD
         Enabled : BOOL;
         btAddr : BLUETOOTH_ADDRESS;
-        szName : ADDRESS;
-        szDeviceString : ADDRESS;
+        szName : ARRAY [0..255] OF CHAR;
+        szDeviceString : ARRAY [0..255] OF CHAR;
     END;
     BLUETOOTH_NUMERIC_COMPARISON_INFO = RECORD
         NumericValue : DWORD;
     END;
     BLUETOOTH_OOB_DATA_INFO = RECORD
-        C : ADDRESS;
-        R : ADDRESS;
+        C : ARRAY [0..15] OF BYTE;
+        R : ARRAY [0..15] OF BYTE;
     END;
     BLUETOOTH_PASSKEY_INFO = RECORD
         passkey : DWORD;
     END;
     BLUETOOTH_PIN_INFO = RECORD
-        pin : ADDRESS;
+        pin : ARRAY [0..15] OF BYTE;
         pinLength : BYTE;
     END;
     BLUETOOTH_RADIO_INFO = RECORD
         dwSize : DWORD;
         address : BLUETOOTH_ADDRESS;
-        szName : ADDRESS;
+        szName : ARRAY [0..247] OF CHAR;
         ulClassofDevice : DWORD;
         lmpSubversion : WORD;
         manufacturer : WORD;
@@ -988,7 +988,7 @@ TYPE
         flags : DWORD;
         address : QWORD;
         classOfDevice : DWORD;
-        name : ADDRESS;
+        name : ARRAY [0..251] OF BYTE;
     END;
     BTH_HCI_EVENT_INFO = RECORD
         bthAddress : QWORD;
@@ -1026,7 +1026,7 @@ TYPE
     END;
     BTH_LE_GATT_CHARACTERISTIC_VALUE = RECORD
         DataSize : DWORD;
-        Data : ADDRESS;
+        Data : ARRAY [0..3] OF BYTE;
     END;
     BTH_LE_GATT_DESCRIPTOR = RECORD
         ServiceHandle : WORD;
@@ -1040,7 +1040,7 @@ TYPE
         DescriptorUuid : BTH_LE_UUID;
         Anonymous : ADDRESS;
         DataSize : DWORD;
-        Data : ADDRESS;
+        Data : ARRAY [0..3] OF BYTE;
     END;
     BTH_LE_GATT_SERVICE = RECORD
         ServiceUuid : BTH_LE_UUID;
@@ -1053,11 +1053,11 @@ TYPE
     BTH_PING_REQ = RECORD
         btAddr : QWORD;
         dataLen : BYTE;
-        data : ADDRESS;
+        data : ARRAY [0..46] OF BYTE;
     END;
     BTH_PING_RSP = RECORD
         dataLen : BYTE;
-        data : ADDRESS;
+        data : ARRAY [0..43] OF BYTE;
     END;
     BTH_QUERY_DEVICE = RECORD
         LAP : DWORD;
@@ -1066,9 +1066,9 @@ TYPE
     BTH_QUERY_SERVICE = RECORD
         type_ : DWORD;
         serviceHandle : DWORD;
-        uuids : ADDRESS;
+        uuids : ARRAY [0..191] OF BYTE;
         numRange : DWORD;
-        pRange : ADDRESS;
+        pRange : ARRAY [0..3] OF BYTE;
     END;
     BTH_RADIO_IN_RANGE = RECORD
         deviceInfo : BTH_DEVICE_INFO;
@@ -1078,9 +1078,9 @@ TYPE
         pSdpVersion : POINTER TO DWORD;
         pRecordHandle : POINTER TO HANDLE;
         fCodService : DWORD;
-        Reserved : ADDRESS;
+        Reserved : ARRAY [0..4] OF DWORD;
         ulRecordLength : DWORD;
-        pRecord : ADDRESS;
+        pRecord : ARRAY [0..3] OF BYTE;
     END;
     HANDLE_SDP_TYPE = RECORD
         Value : QWORD;

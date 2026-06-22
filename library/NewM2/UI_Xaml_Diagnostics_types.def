@@ -95,8 +95,70 @@ TYPE
         NumChildren : DWORD;
     END;
 
+INTERFACE IBitmapData* ["d1a34ef2-cad8-4635-a3d2-fcda8d3f3caf"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE CopyBytesTo(sourceOffsetInBytes : DWORD; maxBytesToCopy : DWORD; pvBytes : ADDRESS; numberOfBytesCopied : ADDRESS) : HRESULT <*@3*>;
+    PROCEDURE GetStride(pStride : ADDRESS) : HRESULT <*@4*>;
+    PROCEDURE GetBitmapDescription(pBitmapDescription : ADDRESS) : HRESULT <*@5*>;
+    PROCEDURE GetSourceBitmapDescription(pBitmapDescription : ADDRESS) : HRESULT <*@6*>;
+END IBitmapData;
+
+INTERFACE IVisualTreeService* ["a593b11a-d17f-48bb-8f66-83910731c8a5"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE AdviseVisualTreeChange(pCallback : ADDRESS) : HRESULT <*@3*>;
+    PROCEDURE UnadviseVisualTreeChange(pCallback : ADDRESS) : HRESULT <*@4*>;
+    PROCEDURE GetEnums(pCount : ADDRESS; ppEnums : ADDRESS) : HRESULT <*@5*>;
+    PROCEDURE CreateInstance(typeName : Foundation.BSTR; value : Foundation.BSTR; pInstanceHandle : ADDRESS) : HRESULT <*@6*>;
+    PROCEDURE GetPropertyValuesChain(instanceHandle : QWORD; pSourceCount : ADDRESS; ppPropertySources : ADDRESS; pPropertyCount : ADDRESS; ppPropertyValues : ADDRESS) : HRESULT <*@7*>;
+    PROCEDURE SetProperty(instanceHandle : QWORD; value : QWORD; propertyIndex : DWORD) : HRESULT <*@8*>;
+    PROCEDURE ClearProperty(instanceHandle : QWORD; propertyIndex : DWORD) : HRESULT <*@9*>;
+    PROCEDURE GetCollectionCount(instanceHandle : QWORD; pCollectionSize : ADDRESS) : HRESULT <*@10*>;
+    PROCEDURE GetCollectionElements(instanceHandle : QWORD; startIndex : DWORD; pElementCount : ADDRESS; ppElementValues : ADDRESS) : HRESULT <*@11*>;
+    PROCEDURE AddChild(parent : QWORD; child : QWORD; index : DWORD) : HRESULT <*@12*>;
+    PROCEDURE RemoveChild(parent : QWORD; index : DWORD) : HRESULT <*@13*>;
+    PROCEDURE ClearChildren(parent : QWORD) : HRESULT <*@14*>;
+END IVisualTreeService;
+
+INTERFACE IVisualTreeService2* ["130f5136-ec43-4f61-89c7-9801a36d2e95"];
+    INHERIT IVisualTreeService;
+    PROCEDURE GetPropertyIndex(object : QWORD; propertyName : PWSTR; pPropertyIndex : ADDRESS) : HRESULT <*@15*>;
+    PROCEDURE GetProperty(object : QWORD; propertyIndex : DWORD; pValue : ADDRESS) : HRESULT <*@16*>;
+    PROCEDURE ReplaceResource(resourceDictionary : QWORD; key : QWORD; newValue : QWORD) : HRESULT <*@17*>;
+    PROCEDURE RenderTargetBitmap(handle : QWORD; options : INTEGER32; maxPixelWidth : DWORD; maxPixelHeight : DWORD; ppBitmapData : ADDRESS) : HRESULT <*@18*>;
+END IVisualTreeService2;
+
+INTERFACE IVisualTreeService3* ["0e79c6e0-85a0-4be8-b41a-655cf1fd19bd"];
+    INHERIT IVisualTreeService2;
+    PROCEDURE ResolveResource(resourceContext : QWORD; resourceName : PWSTR; resourceType : INTEGER32; propertyIndex : DWORD) : HRESULT <*@19*>;
+    PROCEDURE GetDictionaryItem(dictionaryHandle : QWORD; resourceName : PWSTR; resourceIsImplicitStyle : BOOL; resourceHandle : ADDRESS) : HRESULT <*@20*>;
+    PROCEDURE AddDictionaryItem(dictionaryHandle : QWORD; resourceKey : QWORD; resourceHandle : QWORD) : HRESULT <*@21*>;
+    PROCEDURE RemoveDictionaryItem(dictionaryHandle : QWORD; resourceKey : QWORD) : HRESULT <*@22*>;
+END IVisualTreeService3;
+
+INTERFACE IVisualTreeServiceCallback* ["aa7a8931-80e4-4fec-8f3b-553f87b4966e"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE OnVisualTreeChange(relation : ParentChildRelation; element : VisualElement; mutationType : INTEGER32) : HRESULT <*@3*>;
+END IVisualTreeServiceCallback;
+
+INTERFACE IVisualTreeServiceCallback2* ["bad9eb88-ae77-4397-b948-5fa2db0a19ea"];
+    INHERIT IVisualTreeServiceCallback;
+    PROCEDURE OnElementStateChanged(element : QWORD; elementState : INTEGER32; context : PWSTR) : HRESULT <*@4*>;
+END IVisualTreeServiceCallback2;
+
+INTERFACE IXamlDiagnostics* ["18c9e2b6-3f43-4116-9f2b-ff935d7770d2"];
+    INHERIT System_Com.IUnknown;
+    PROCEDURE GetDispatcher(ppDispatcher : ADDRESS) : HRESULT <*@3*>;
+    PROCEDURE GetUiLayer(ppLayer : ADDRESS) : HRESULT <*@4*>;
+    PROCEDURE GetApplication(ppApplication : ADDRESS) : HRESULT <*@5*>;
+    PROCEDURE GetIInspectableFromHandle(instanceHandle : QWORD; ppInstance : ADDRESS) : HRESULT <*@6*>;
+    PROCEDURE GetHandleFromIInspectable(pInstance : ADDRESS; pHandle : ADDRESS) : HRESULT <*@7*>;
+    PROCEDURE HitTest(rect : Foundation.RECT; pCount : ADDRESS; ppInstanceHandles : ADDRESS) : HRESULT <*@8*>;
+    PROCEDURE RegisterInstance(pInstance : ADDRESS; pInstanceHandle : ADDRESS) : HRESULT <*@9*>;
+    PROCEDURE GetInitializationData(pInitializationData : ADDRESS) : HRESULT <*@10*>;
+END IXamlDiagnostics;
+
 PROCEDURE InitializeXamlDiagnostic["InitializeXamlDiagnostic" EXTERNAL FROM "Windows.UI.Xaml.dll"](endPointName : PWSTR; pid : DWORD; wszDllXamlDiagnostics : PWSTR; wszTAPDllName : PWSTR; tapClsid : GUID) : HRESULT;
 PROCEDURE InitializeXamlDiagnosticsEx["InitializeXamlDiagnosticsEx" EXTERNAL FROM "Windows.UI.Xaml.dll"](endPointName : PWSTR; pid : DWORD; wszDllXamlDiagnostics : PWSTR; wszTAPDllName : PWSTR; tapClsid : GUID; wszInitializationData : PWSTR) : HRESULT;
 
-(* types-out summary: 8 types emitted; 33 consts emitted; 2 procedures emitted *)
+(* types-out summary: 15 types emitted; 33 consts emitted; 2 procedures emitted *)
 END UI_Xaml_Diagnostics.
