@@ -642,6 +642,11 @@ END RenderSidebar;
    stripped for now. Links are recorded for click navigation. *)
 
 CONST HelpBg = 01E1E22H; HCode = 080D080H; HLink = 050C8FFH;
+      H1Bg = 0123A5AH; H1Fg = 0F2F8FFH;              (* H1: bright text on a deep teal-blue banner *)
+      H2Fg = 060D0FFH; H3Fg = 080D0B8H;              (* H2 bright cyan / H3 soft teal-green *)
+      HBold = 0FFFFFFH;                              (* **bold** inline -> bright white *)
+      HBullet = 070C0FFH; HRule = 0405058H;          (* bullet marker / horizontal rule *)
+      HCodeBg = 0141A18H;                            (* fenced code-block shaded background *)
       HelpTool = 1;                                  (* toolbar rows at the top of the help pane *)
       HBarBg = 0083040H;                             (* help toolbar bar background (teal-ish) *)
       HBtnFg = 0E0F0FFH; HBtnDim = 0607078H;         (* toolbar button: enabled / disabled text *)
@@ -669,10 +674,11 @@ END TopicInfo;
 
 (* render one line's inline content (links + strip **/`) from ln[from..] at
    screen (startCol, scr); records each link span in the gHLink* tables *)
-PROCEDURE DrawInline (VAR ln: ARRAY OF CHAR; from, startCol, scr, vc: CARDINAL; baseFg: Colour);
+PROCEDURE DrawInline (VAR ln: ARRAY OF CHAR; from, startCol, scr, vc: CARDINAL; baseFg, bg: Colour);
   VAR i, oc, j, ti: CARDINAL; one: ARRAY [0..1] OF CHAR; txt, tgt: ARRAY [0..255] OF CHAR;
+      bold, code: BOOLEAN; fg: Colour;
 BEGIN
-  one[1] := 0C; i := from; oc := startCol;
+  one[1] := 0C; i := from; oc := startCol; bold := FALSE; code := FALSE;
   WHILE (i <= HIGH(ln)) AND (ln[i] # 0C) AND (oc < vc) DO
     IF ln[i] = '[' THEN
       j := i + 1; ti := 0;
@@ -684,14 +690,17 @@ BEGIN
         tgt[ti] := 0C;
         IF ln[j] = ')' THEN                          (* a real link: emit txt in HLink, record span *)
           IF gHLinkN < MaxHelpLink THEN gHLinkRow[gHLinkN] := scr; gHLinkC0[gHLinkN] := oc END;
-          ti := 0; WHILE (txt[ti] # 0C) AND (oc < vc) DO one[0] := txt[ti]; Terminal.WriteColAt(oc, scr, HLink, HelpBg, one); INC(oc); INC(ti) END;
+          ti := 0; WHILE (txt[ti] # 0C) AND (oc < vc) DO one[0] := txt[ti]; Terminal.WriteColAt(oc, scr, HLink, bg, one); INC(oc); INC(ti) END;
           IF gHLinkN < MaxHelpLink THEN gHLinkC1[gHLinkN] := oc; SCopy(gHLinkTgt[gHLinkN], tgt); INC(gHLinkN) END;
           i := j + 1
-        ELSE one[0] := '['; Terminal.WriteColAt(oc, scr, baseFg, HelpBg, one); INC(oc); INC(i) END
-      ELSE one[0] := '['; Terminal.WriteColAt(oc, scr, baseFg, HelpBg, one); INC(oc); INC(i) END
-    ELSIF (ln[i] = '*') AND (ln[i+1] = '*') THEN i := i + 2
-    ELSIF ln[i] = '`' THEN INC(i)
-    ELSE one[0] := ln[i]; Terminal.WriteColAt(oc, scr, baseFg, HelpBg, one); INC(oc); INC(i) END
+        ELSE one[0] := '['; Terminal.WriteColAt(oc, scr, baseFg, bg, one); INC(oc); INC(i) END
+      ELSE one[0] := '['; Terminal.WriteColAt(oc, scr, baseFg, bg, one); INC(oc); INC(i) END
+    ELSIF (ln[i] = '*') AND (ln[i+1] = '*') THEN bold := NOT bold; i := i + 2   (* **bold** *)
+    ELSIF ln[i] = '`' THEN code := NOT code; INC(i)                            (* `inline code` *)
+    ELSE
+      IF code THEN fg := HCode ELSIF bold THEN fg := HBold ELSE fg := baseFg END;
+      one[0] := ln[i]; Terminal.WriteColAt(oc, scr, fg, bg, one); INC(oc); INC(i)
+    END
   END
 END DrawInline;
 
@@ -700,17 +709,26 @@ PROCEDURE ProcessMdLine (VAR ln: ARRAY OF CHAR; scr, vc: CARDINAL; VAR codeMode:
 BEGIN
   one[1] := 0C;
   IF (ln[0] = '`') AND (ln[1] = '`') AND (ln[2] = '`') THEN codeMode := NOT codeMode; RETURN END;
-  IF codeMode THEN
-    i := 0; c := 0; WHILE (ln[i] # 0C) AND (c < vc) DO one[0] := ln[i]; Terminal.WriteColAt(c, scr, HCode, HelpBg, one); INC(c); INC(i) END; RETURN
+  IF codeMode THEN                                   (* fenced code: shaded block, indented, code colour *)
+    c := 0; one[0] := ' '; WHILE c < vc DO Terminal.WriteColAt(c, scr, HCode, HCodeBg, one); INC(c) END;
+    i := 0; c := 2; WHILE (ln[i] # 0C) AND (c < vc) DO one[0] := ln[i]; Terminal.WriteColAt(c, scr, HCode, HCodeBg, one); INC(c); INC(i) END;
+    RETURN
   END;
-  IF    (ln[0] = '#') AND (ln[1] = '#') AND (ln[2] = '#') THEN DrawInline(ln, 4, 0, scr, vc, Teal)
-  ELSIF (ln[0] = '#') AND (ln[1] = '#') THEN DrawInline(ln, 3, 0, scr, vc, Aqua)
-  ELSIF (ln[0] = '#') THEN DrawInline(ln, 2, 0, scr, vc, Yellow)
-  ELSIF (ln[0] = '-') AND (ln[1] = '-') AND (ln[2] = '-') THEN
-    c := 0; one[0] := '-'; WHILE c < vc DO Terminal.WriteColAt(c, scr, Gray, HelpBg, one); INC(c) END
-  ELSIF ((ln[0] = '-') AND (ln[1] = ' ')) OR ((ln[0] = '*') AND (ln[1] = ' ')) THEN
-    Terminal.WriteColAt(0, scr, Yellow, HelpBg, "  - "); DrawInline(ln, 2, 4, scr, vc, Silver)
-  ELSE DrawInline(ln, 0, 0, scr, vc, Silver) END
+  IF (ln[0] = '#') AND (ln[1] = '#') AND (ln[2] = '#') THEN          (* H3: indented, soft teal *)
+    DrawInline(ln, 4, 2, scr, vc, H3Fg, HelpBg)
+  ELSIF (ln[0] = '#') AND (ln[1] = '#') THEN                         (* H2: left accent bar + cyan *)
+    one[0] := CHR(0258CH); Terminal.WriteColAt(0, scr, H2Fg, HelpBg, one);   (* ▌ left half-block *)
+    DrawInline(ln, 3, 2, scr, vc, H2Fg, HelpBg)
+  ELSIF (ln[0] = '#') THEN                                           (* H1: full-width banner bar *)
+    c := 0; one[0] := ' '; WHILE c < vc DO Terminal.WriteColAt(c, scr, H1Fg, H1Bg, one); INC(c) END;
+    i := 1; WHILE ln[i] = '#' DO INC(i) END; WHILE ln[i] = ' ' DO INC(i) END;
+    DrawInline(ln, i, 1, scr, vc, H1Fg, H1Bg)
+  ELSIF (ln[0] = '-') AND (ln[1] = '-') AND (ln[2] = '-') THEN       (* horizontal rule *)
+    c := 0; one[0] := CHR(02500H); WHILE c < vc DO Terminal.WriteColAt(c, scr, HRule, HelpBg, one); INC(c) END
+  ELSIF ((ln[0] = '-') AND (ln[1] = ' ')) OR ((ln[0] = '*') AND (ln[1] = ' ')) THEN   (* bullet *)
+    one[0] := CHR(02022H); Terminal.WriteColAt(2, scr, HBullet, HelpBg, one);   (* • bullet *)
+    DrawInline(ln, 2, 4, scr, vc, Silver, HelpBg)
+  ELSE DrawInline(ln, 0, 0, scr, vc, Silver, HelpBg) END
 END ProcessMdLine;
 
 (* draw one toolbar button at row 0 starting at col tc; record its clickable span
