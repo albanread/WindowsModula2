@@ -1571,9 +1571,11 @@ BEGIN
   AppendStr(cmd, pos, '" '); AppendCard(cmd, pos, curRow + 1);
   AppendStr(cmd, pos, " "); AppendCard(cmd, pos, curCol);
   IF NOT DaemonAsk(cmd, gReply) THEN RETURN END;
-  IF (gReply[0] = 'o') AND (gReply[1] = 'k') AND (gReply[2] = 0C) THEN
-    SCopy(gHelp, "_no symbol here — click an identifier_"); gHelpTopic[0] := 0C; gHelpTop := 0; RenderHelp
-  ELSE SetHelpText(gReply) END
+  (* "ok" = no describable symbol at the cursor: do NOTHING — leave the help pane
+     showing whatever it already had, rather than clobbering it with a "nothing" page *)
+  IF NOT ((gReply[0] = 'o') AND (gReply[1] = 'k') AND (gReply[2] = 0C)) THEN
+    SetHelpText(gReply)
+  END
 END DoDescribe;
 
 (* follow a help "go to definition" link: open the file + jump to the line *)
@@ -2353,6 +2355,14 @@ BEGIN
   OpenInTab(Sample); RunBounded(ws, 6);
   SendClick(CAST(HWND, HostOf(edPane)), 114, 168); RunBounded(ws, 12);
   b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap21_describe.png");
+
+  (* NO-SYMBOL CLICK: with help open on a known page (the index), clicking a non-symbol
+     must LEAVE that page shown (this fix) — not clobber it with a "nothing found" page. *)
+  IF NOT gHelpShown THEN ToggleHelp END; RunBounded(ws, 6);
+  SendClick(CAST(HWND, HostOf(helpPane)), 30, 14); RunBounded(ws, 6);      (* Home -> index *)
+  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap21a_help_index.png");
+  SendClick(CAST(HWND, HostOf(edPane)), 120, 600); RunBounded(ws, 12);     (* empty editor area -> no symbol *)
+  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap21b_describe_nosym.png");
 
   (* SELECTED-PANE SCROLL: click the help pane -> the status tag reads [scroll: Help]
      and the wheel now targets the help pane, not the focused editor. *)
