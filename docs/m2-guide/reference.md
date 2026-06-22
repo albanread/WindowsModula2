@@ -16,8 +16,14 @@ and NewM2 extensions. They cannot be used as identifiers.
 | Control flow | `IF` `THEN` `ELSIF` `ELSE` `CASE` `WHILE` `DO` `REPEAT` `UNTIL` `FOR` `BY` `LOOP` `EXIT` `WITH` `RETURN` |
 | Word operators | `AND` `OR` `NOT` `DIV` `MOD` `REM` `IN` |
 | ISO 10514-1 | `EXCEPT` `FINALLY` `RETRY` `GENERIC` `PACKEDSET` |
-| ISO 10514-2 (parsed, deferred) | `ABSTRACT` |
+| Object-oriented (COM) | `ABSTRACT` |
 | NewM2 extensions | `ASM` `BAND` `BOR` `BXOR` `BNOT` `SHL` `SHR` |
+
+**Contextual (soft) keywords.** The object-oriented layer's other words —
+`CLASS` `INTERFACE` `INHERIT` `REVEAL` `OVERRIDE` `GUARD` `AS` (and
+`UNSAFEGUARDED`) — are recognised only in their syntactic position, so they are
+*not* reserved and remain usable as ordinary identifiers. See
+[Objects & classes](objects-and-classes.md).
 
 ## Pervasive identifiers
 
@@ -28,7 +34,8 @@ ordinary **identifiers**, not reserved words (so a local declaration shadows the
 `COMPLEX` / `LONGCOMPLEX`, and the exact-width family `INTEGER8`/`16`/`32`/`64`,
 `CARDINAL8`/`16`/`32`/`64`, `ACHAR`, `UCHAR`.
 
-**Constants** — `TRUE` `FALSE` `NIL`.
+**Constants** — `TRUE` `FALSE` `NIL`, and `EMPTY` (the null object reference — `EMPTY` is to
+objects as `NIL` is to pointers; see [Objects & classes](objects-and-classes.md)).
 
 **Procedures & functions** (registered in `analyze.rs`) — see
 [The standard environment](standard-environment.md) for what each does:
@@ -40,6 +47,7 @@ ordinary **identifiers**, not reserved words (so a local declaration shadows the
 | Inquiry | `HIGH` `SIZE` `TSIZE` `ODD` |
 | Conversion | `ORD` `CHR` `VAL` `CAP` `FLOAT` `LFLOAT` `INT` `TRUNC` `ENTIER` |
 | Arithmetic | `ABS` `MIN` `MAX` |
+| Object RTTI | `ISMEMBER` (and the `GUARD` statement — see [Objects & classes](objects-and-classes.md)) |
 | Program | `HALT` `ASSERT` |
 
 ## The SYSTEM module
