@@ -151,7 +151,10 @@ VAR
   gHelpTop: CARDINAL;                     (* help scroll (rendered-row offset) *)
   gHelpDir: ARRAY [0..511] OF CHAR;       (* help docs folder (relocatable) *)
   gHelpTopic: ARRAY [0..127] OF CHAR;     (* current static topic ("" = dynamic/describe) *)
-  gHelpBack: ARRAY [0..31] OF ARRAY [0..127] OF CHAR; gHelpBackN: CARDINAL;   (* topic back-stack *)
+  gHelpBack: ARRAY [0..31] OF ARRAY [0..127] OF CHAR; gHelpBackN: CARDINAL;   (* topic history (browser-style) *)
+  gHistPos: CARDINAL;                     (* current index in gHelpBack (back/forward) *)
+  gHelpMenuOpen: BOOLEAN;                 (* the Topics dropdown is open *)
+  gTBAct, gTBC0, gTBC1: ARRAY [0..7] OF CARDINAL; gTBN: CARDINAL;   (* help toolbar button spans (row 0) *)
   gHLinkRow, gHLinkC0, gHLinkC1: ARRAY [0..MaxHelpLink-1] OF CARDINAL;        (* link span hit-test *)
   gHLinkTgt: ARRAY [0..MaxHelpLink-1] OF ARRAY [0..255] OF CHAR; gHLinkN: CARDINAL;
   gGotoPending: BOOLEAN; gGotoFile: ARRAY [0..511] OF CHAR; gGotoLine: CARDINAL;   (* deferred go-to-def from a sym: link *)
@@ -639,6 +642,30 @@ END RenderSidebar;
    stripped for now. Links are recorded for click navigation. *)
 
 CONST HelpBg = 01E1E22H; HCode = 080D080H; HLink = 050C8FFH;
+      HelpTool = 1;                                  (* toolbar rows at the top of the help pane *)
+      HBarBg = 0083040H;                             (* help toolbar bar background (teal-ish) *)
+      HBtnFg = 0E0F0FFH; HBtnDim = 0607078H;         (* toolbar button: enabled / disabled text *)
+      HMenuBg = 0203848H; HMenuSel = 0107050H;       (* topics dropdown: bg / hover row *)
+      TBHome = 1; TBBack = 2; TBFwd = 3; TBTopics = 4;   (* toolbar action codes *)
+      TopicCount = 10;                               (* predefined help topics (see TopicInfo) *)
+
+(* the i-th predefined help topic: a friendly label + its .md file stem *)
+PROCEDURE TopicInfo (i: CARDINAL; VAR label, file: ARRAY OF CHAR): BOOLEAN;
+BEGIN
+  CASE i OF
+    0: SCopy(label, "Getting Started");     SCopy(file, "getting-started") |
+    1: SCopy(label, "Lexical Structure");   SCopy(file, "lexical-structure") |
+    2: SCopy(label, "Declarations & Types"); SCopy(file, "declarations-and-types") |
+    3: SCopy(label, "Expressions");         SCopy(file, "expressions-and-operators") |
+    4: SCopy(label, "Statements");          SCopy(file, "statements-and-control-flow") |
+    5: SCopy(label, "Procedures");          SCopy(file, "procedures") |
+    6: SCopy(label, "Modules");             SCopy(file, "modules-and-compilation") |
+    7: SCopy(label, "Memory & Exceptions"); SCopy(file, "memory-and-exceptions") |
+    8: SCopy(label, "Standard Environment"); SCopy(file, "standard-environment") |
+    9: SCopy(label, "Reference");           SCopy(file, "reference")
+  ELSE RETURN FALSE END;
+  RETURN TRUE
+END TopicInfo;
 
 (* render one line's inline content (links + strip **/`) from ln[from..] at
    screen (startCol, scr); records each link span in the gHLink* tables *)
@@ -686,6 +713,57 @@ BEGIN
   ELSE DrawInline(ln, 0, 0, scr, vc, Silver) END
 END ProcessMdLine;
 
+(* draw one toolbar button at row 0 starting at col tc; record its clickable span
+   (enabled only) in gTB*; advance tc past the label + a gap *)
+PROCEDURE TBAdd (VAR tc: CARDINAL; label: ARRAY OF CHAR; act: CARDINAL; enabled: BOOLEAN);
+  VAR fg: Colour; n: CARDINAL;
+BEGIN
+  n := SLen(label);
+  IF enabled THEN fg := HBtnFg ELSE fg := HBtnDim END;
+  Terminal.WriteColAt(tc, 0, fg, HBarBg, label);
+  IF enabled AND (gTBN <= HIGH(gTBAct)) THEN
+    gTBAct[gTBN] := act; gTBC0[gTBN] := tc; gTBC1[gTBN] := tc + n; INC(gTBN)
+  END;
+  tc := tc + n + 1
+END TBAdd;
+
+(* the help toolbar (row 0): Home / Back / Forward / Topics — aligns the help pane
+   top with the editor menu bar and sidebar header *)
+PROCEDURE DrawHelpToolbar (vc: CARDINAL);
+  VAR tc, k: CARDINAL; bar: ARRAY [0..255] OF CHAR; canB, canF: BOOLEAN;
+BEGIN
+  gTBN := 0;
+  k := 0; WHILE (k < vc) AND (k < 255) DO bar[k] := ' '; INC(k) END; bar[k] := 0C;
+  Terminal.WriteColAt(0, 0, HBtnFg, HBarBg, bar);    (* the bar background *)
+  canB := gHistPos > 0;
+  canF := (gHelpBackN > 0) AND (gHistPos + 1 < gHelpBackN);
+  tc := 1;
+  TBAdd(tc, "Home", TBHome, TRUE);
+  TBAdd(tc, "Back", TBBack, canB);
+  TBAdd(tc, "Fwd", TBFwd, canF);
+  TBAdd(tc, "Topics", TBTopics, TRUE)
+END DrawHelpToolbar;
+
+(* the Topics dropdown: a list of predefined topics under the toolbar *)
+PROCEDURE DrawHelpMenu (vr: CARDINAL);
+  CONST MW = 24;
+  VAR i, k, n, row: CARDINAL; label, file: ARRAY [0..63] OF CHAR; line: ARRAY [0..MW] OF CHAR;
+BEGIN
+  i := 0;
+  WHILE i < TopicCount DO
+    IF TopicInfo(i, label, file) THEN
+      row := HelpTool + i;
+      IF row < vr THEN
+        line[0] := ' '; line[1] := ' '; k := 2; n := 0;
+        WHILE (label[n] # 0C) AND (k < MW) DO line[k] := label[n]; INC(k); INC(n) END;
+        WHILE k < MW DO line[k] := ' '; INC(k) END; line[MW] := 0C;
+        Terminal.WriteColAt(0, row, HBtnFg, HMenuBg, line)
+      END
+    END;
+    INC(i)
+  END
+END DrawHelpMenu;
+
 PROCEDURE RenderHelp;
   VAR vc, vr, cols, rows, i, lineIdx, scr, c: CARDINAL; codeMode: BOOLEAN; ln: ARRAY [0..1023] OF CHAR;
 BEGIN
@@ -694,6 +772,7 @@ BEGIN
   IF (vc = 0) OR (vc > cols) THEN vc := cols END;
   IF (vr = 0) OR (vr > rows) THEN vr := rows END;
   Terminal.SetColour(Silver, HelpBg); Terminal.Clear;
+  DrawHelpToolbar(vc);                                    (* row 0: Home / Back / Fwd / Topics *)
   gHLinkN := 0;
   codeMode := FALSE; i := 0; lineIdx := 0;                (* pre-scan fence state up to gHelpTop *)
   WHILE (gHelp[i] # 0C) AND (lineIdx < gHelpTop) DO
@@ -701,13 +780,14 @@ BEGIN
     WHILE (gHelp[i] # 0C) AND (gHelp[i] # CHR(10)) DO INC(i) END;
     IF gHelp[i] = CHR(10) THEN INC(i) END; INC(lineIdx)
   END;
-  scr := 0;
+  scr := HelpTool;                                       (* markdown starts below the toolbar *)
   WHILE (gHelp[i] # 0C) AND (scr < vr) DO
     c := 0; WHILE (gHelp[i] # 0C) AND (gHelp[i] # CHR(10)) AND (c < 1023) DO ln[c] := gHelp[i]; INC(c); INC(i) END; ln[c] := 0C;
     WHILE (gHelp[i] # 0C) AND (gHelp[i] # CHR(10)) DO INC(i) END;   (* skip an over-long tail *)
     IF gHelp[i] = CHR(10) THEN INC(i) END;
     ProcessMdLine(ln, scr, vc, codeMode); INC(scr)
   END;
+  IF gHelpMenuOpen THEN DrawHelpMenu(vr) END;            (* topics dropdown overlays the body *)
   helpB.Paint
 END RenderHelp;
 
@@ -723,9 +803,32 @@ BEGIN
   RenderHelp
 END LoadHelp;
 
+(* navigate to a topic, recording browser-style history (truncates any forward) *)
+PROCEDURE NavHelp (topic: ARRAY OF CHAR);
+BEGIN
+  IF gHelpBackN = 0 THEN gHistPos := 0
+  ELSE INC(gHistPos); IF gHistPos > HIGH(gHelpBack) THEN gHistPos := HIGH(gHelpBack) END END;
+  SCopy(gHelpBack[gHistPos], topic);
+  gHelpBackN := gHistPos + 1;
+  gHelpMenuOpen := FALSE;
+  LoadHelp(topic)
+END NavHelp;
+
+PROCEDURE HelpBack;
+BEGIN
+  IF gHistPos > 0 THEN DEC(gHistPos); gHelpMenuOpen := FALSE; LoadHelp(gHelpBack[gHistPos]) END
+END HelpBack;
+
+PROCEDURE HelpForward;
+BEGIN
+  IF (gHelpBackN > 0) AND (gHistPos + 1 < gHelpBackN) THEN
+    INC(gHistPos); gHelpMenuOpen := FALSE; LoadHelp(gHelpBack[gHistPos])
+  END
+END HelpForward;
+
 (* set dynamic markdown (e.g. a daemon `describe` reply) into the pane *)
 PROCEDURE SetHelpText (VAR md: ARRAY OF CHAR);
-BEGIN SCopy(gHelp, md); gHelpTopic[0] := 0C; gHelpTop := 0; RenderHelp END SetHelpText;
+BEGIN SCopy(gHelp, md); gHelpTopic[0] := 0C; gHelpTop := 0; gHelpMenuOpen := FALSE; RenderHelp END SetHelpText;
 
 PROCEDURE HelpNavigate (VAR tgt: ARRAY OF CHAR);
   VAR topic: ARRAY [0..255] OF CHAR; n, i, k: CARDINAL;
@@ -738,18 +841,44 @@ BEGIN
     IF tgt[i] = '#' THEN INC(i); WHILE (tgt[i] >= '0') AND (tgt[i] <= '9') DO gGotoLine := gGotoLine * 10 + (ORD(tgt[i]) - ORD('0')); INC(i) END END;
     gGotoPending := TRUE
   ELSIF (n > 3) AND (tgt[n-3] = '.') AND (tgt[n-2] = 'm') AND (tgt[n-1] = 'd') THEN
-    SCopy(topic, tgt); topic[n-3] := 0C; LoadHelp(topic)
+    SCopy(topic, tgt); topic[n-3] := 0C; NavHelp(topic)
   ELSIF (tgt[0] = 'h') AND (tgt[1] = 't') AND (tgt[2] = 't') AND (tgt[3] = 'p') THEN
     SetStatus("(external link - open in a browser)"); RenderEditor
-  ELSE LoadHelp(tgt) END
+  ELSE NavHelp(tgt) END
 END HelpNavigate;
 
 PROCEDURE HelpClick (px, py: INTEGER);
-  VAR cw, ch, col, row, i: CARDINAL; tgt: ARRAY [0..255] OF CHAR;
+  VAR cw, ch, col, row, i: CARDINAL; tgt: ARRAY [0..255] OF CHAR; label, file: ARRAY [0..63] OF CHAR;
 BEGIN
   CellSize(helpB, cw, ch); IF (cw = 0) OR (ch = 0) THEN RETURN END;
   gSelPane := SelHelp;                              (* selecting this pane -> the wheel scrolls it *)
   col := VAL(CARDINAL, px) DIV cw; row := VAL(CARDINAL, py) DIV ch;
+  (* 1. Topics dropdown (when open): an item navigates; anything else closes it *)
+  IF gHelpMenuOpen THEN
+    IF (row >= HelpTool) AND (row < HelpTool + TopicCount) AND (col < 24)
+       AND TopicInfo(row - HelpTool, label, file) THEN
+      NavHelp(file); RenderEditor; RETURN
+    END;
+    gHelpMenuOpen := FALSE; RenderHelp; RenderEditor; RETURN
+  END;
+  (* 2. toolbar buttons (row 0) *)
+  IF row < HelpTool THEN
+    i := 0;
+    WHILE i < gTBN DO
+      IF (col >= gTBC0[i]) AND (col < gTBC1[i]) THEN
+        CASE gTBAct[i] OF
+          TBHome:   NavHelp("index") |
+          TBBack:   HelpBack |
+          TBFwd:    HelpForward |
+          TBTopics: gHelpMenuOpen := TRUE; RenderHelp
+        ELSE END;
+        RenderEditor; RETURN
+      END;
+      INC(i)
+    END;
+    RenderEditor; RETURN
+  END;
+  (* 3. markdown links *)
   i := 0;
   WHILE i < gHLinkN DO
     IF (gHLinkRow[i] = row) AND (col >= gHLinkC0[i]) AND (col < gHLinkC1[i]) THEN
@@ -2189,9 +2318,18 @@ BEGIN
   SaveAllDirty; Build; RunBounded(ws, 25);
   b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap19_build.png");
 
-  (* HELP PANE (P1): F1 toggles the right pane; the guide index renders as markdown *)
+  (* HELP PANE (P1): F1 toggles the right pane; the guide index renders as markdown
+     under a toolbar (Home / Back / Fwd / Topics) aligned with the other panes. *)
   Key(112); RunBounded(ws, 8);
   b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap20_help.png");
+
+  (* HELP TOOLBAR (new): click Topics -> the predefined-topics dropdown, then a topic *)
+  SendClick(CAST(HWND, HostOf(helpPane)), 230, 14); RunBounded(ws, 8);
+  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap20b_help_topics.png");
+  SendClick(CAST(HWND, HostOf(helpPane)), 60, 45); RunBounded(ws, 8);   (* pick "Getting Started" *)
+  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap20c_help_topic.png");
+  SendClick(CAST(HWND, HostOf(helpPane)), 30, 14); RunBounded(ws, 8);   (* Home -> back to index *)
+  b := SnapClient(FrameOf(win), "e:\NewModula2\projects\FastPanesM2\snap20d_help_home.png");
 
   (* CONTEXT HELP (P2): with help open, click a symbol (WriteString, line 7) ->
      the daemon `describe` renders cross-graph help (signature, module, siblings). *)
@@ -2273,7 +2411,7 @@ BEGIN
   SetRect(root, 0, 0, gWinW, gWinH);
   win := OpenWindow(ws, "FastPanesM2 - Modula-2 IDE on PaneShell", gWinW, gWinH, root, OnEvent);
   SetHidden(helpPane, TRUE);                                        (* help hidden until F1 / View>Help *)
-  LoadHelp("index");                                                (* preload the guide TOC *)
+  NavHelp("index");                                                 (* preload the guide TOC + seed history *)
   Retile(win);
   StartIdleTimer;                                    (* check-on-idle: re-check after a typing pause *)
   IF NOT Ask(PipeName, "ping", gReply) THEN SpawnDaemon END;   (* always have a warm compiler *)
