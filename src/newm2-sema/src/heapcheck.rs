@@ -209,6 +209,19 @@ impl<'a> Pass<'a> {
                     v.st.insert(name, St::Unknown);
                 }
             }
+            ast::Stmt::Guard { selector, arms, else_arm, .. } => {
+                self.scan_expr(selector, v);
+                let mut touched = std::collections::HashSet::new();
+                for arm in arms {
+                    self.scan_branch(&arm.body, v, &mut touched);
+                }
+                if let Some(body) = else_arm {
+                    self.scan_branch(body, v, &mut touched);
+                }
+                for name in touched {
+                    v.st.insert(name, St::Unknown);
+                }
+            }
             ast::Stmt::While(cond, body, _) => {
                 self.scan_expr(cond, v);
                 let mut touched = std::collections::HashSet::new();

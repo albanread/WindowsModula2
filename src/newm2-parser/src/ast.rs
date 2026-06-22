@@ -412,6 +412,14 @@ pub enum Stmt {
         else_arm: Option<Vec<Stmt>>,
         span: Span,
     },
+    /// OO `GUARD selector AS [x:]T DO … {| …} [ELSE …] END` — discriminate on the
+    /// selector's dynamic class type, binding a read-only narrowed view per arm.
+    Guard {
+        selector: Expr,
+        arms: Vec<GuardArm>,
+        else_arm: Option<Vec<Stmt>>,
+        span: Span,
+    },
     While(Expr, Vec<Stmt>, Span),
     Repeat(Vec<Stmt>, Expr, Span),
     For {
@@ -443,6 +451,18 @@ pub struct CaseArm {
 pub enum CaseLabel {
     Single(Expr),
     Range(Expr, Expr),
+}
+
+/// One arm of a `GUARD` statement: `[denoter ":"] guardedType DO body`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GuardArm {
+    /// Optional read-only narrowed binding `x : T DO …` (`None` = no binding).
+    pub denoter: Option<String>,
+    pub denoter_span: Span,
+    /// The guarded class/interface type name.
+    pub guarded_type: QualName,
+    pub body: Vec<Stmt>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

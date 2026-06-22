@@ -985,7 +985,26 @@ fn emit_linked_module<'ctx>(
             return Err(format!("LLVM link: failed to link module {}", ir.name));
         }
     }
+    promote_typeinfo_linkage(&dest);
     Ok(dest)
+}
+
+/// Promote every coalesced `{Class}.typeinfo` global from weak_odr back to
+/// external linkage, now that `LLVMLinkModules2` has merged any duplicate
+/// redeclarations (an abstract COM-interface mirror like `IMalloc` is declared
+/// independently in several modules — they MUST coalesce, so codegen emits them
+/// weak_odr). Post-coalesce there is exactly one definition per name, so
+/// external is safe — and necessary: the JIT's RTDyld drops weak data globals
+/// even when referenced/anchored, leaving a dangling `&typeinfo`; external
+/// forces materialisation. (AOT's real linker handles either linkage; promoting
+/// a single definition is harmless there.)
+fn promote_typeinfo_linkage(module: &Module<'_>) {
+    use inkwell::module::Linkage;
+    for gv in module.get_globals() {
+        if gv.get_name().to_string_lossy().ends_with(".typeinfo") {
+            gv.set_linkage(Linkage::External);
+        }
+    }
 }
 
 fn opt_level(n: u32) -> OptimizationLevel {
@@ -1122,6 +1141,7 @@ fn for_each_runtime_binding(
         nm2_current_number, nm2_current_source, nm2_exception_handled,
         nm2_is_current_source, nm2_is_exceptional_execution, nm2_m2_source,
         nm2_raise, nm2_raise_m2, nm2_reraise, nm2_run_protected,
+        nm2_guard_source, nm2_raise_guard, nm2_rtti_isa, nm2_typeinfo_of,
         nm2_libc_printf, nm2_libc_exit,
     };
 
@@ -1282,6 +1302,10 @@ fn for_each_runtime_binding(
     bind("nm2_assert_failed", nm2_assert_failed as *const ());
     bind("nm2_raise_m2", nm2_raise_m2 as *const ());
     bind("nm2_m2_source", nm2_m2_source as *const ());
+    bind("nm2_raise_guard", nm2_raise_guard as *const ());
+    bind("nm2_guard_source", nm2_guard_source as *const ());
+    bind("nm2_rtti_isa", nm2_rtti_isa as *const ());
+    bind("nm2_typeinfo_of", nm2_typeinfo_of as *const ());
 
     // GC-mode runtime helpers are only available (and only emitted by
     // codegen) when the collector is compiled in.
@@ -1448,7 +1472,7 @@ fn patch_vtables(
 
     for ir in irs {
         for g in &ir.globals {
-            let Global::ClassDesc { class_name, vtable_slots } = g else { continue };
+            let Global::ClassDesc { class_name, vtable_slots, has_typeinfo } = g else { continue };
             if vtable_slots.is_empty() {
                 continue;
             }
@@ -1458,6 +1482,10 @@ fn patch_vtables(
                 continue;
             }
 
+            // When the vtable carries the {Class}.typeinfo pointer at physical
+            // slot 0, methods are written at physical slot 1+ (matching the
+            // dispatch +1 in lower.rs and the codegen layout).
+            let base = if *has_typeinfo { 1 } else { 0 };
             let vt_ptr = vt_addr as *mut usize;
             for (slot_idx, fn_name) in vtable_slots.iter().enumerate() {
                 if fn_name.is_empty() || !defined.contains(fn_name.as_str()) {
@@ -1469,7 +1497,7 @@ fn patch_vtables(
                         "vtable patch: method `{fn_name}` (slot {slot_idx} of `{class_name}.vtable`) resolved to null"
                     ));
                 }
-                unsafe { vt_ptr.add(slot_idx).write(fn_addr) };
+                unsafe { vt_ptr.add(base + slot_idx).write(fn_addr) };
             }
         }
     }

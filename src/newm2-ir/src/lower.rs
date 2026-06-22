@@ -200,13 +200,18 @@ pub fn lower_module_opts(
             continue;
         };
         let class = sema.classes.get(cid);
-        // A fully-abstract class — a COM INTERFACE or a pure abstract base — is
-        // never instantiated, so it needs no `{Class}.vtable` global, and emitting
-        // one is actively harmful: two modules declaring a same-named interface
-        // (e.g. a hand-written IDWriteFactory and the generated Graphics_DirectWrite
-        // one) would each emit `IDWriteFactory.vtable` and collide at link. Dispatch
-        // through an interface uses the foreign COM object's vtable, never ours.
-        if class.vtable.is_empty() || class.vtable.iter().all(|s| s.is_abstract) {
+        // An INTERFACE or a pure ABSTRACT class is never instantiated, so it needs
+        // no `{Class}.vtable` global, and emitting one is actively harmful: two
+        // modules declaring a same-named interface (e.g. a hand-written
+        // IDWriteFactory and the generated Graphics_DirectWrite one) would each
+        // emit `IDWriteFactory.vtable` and collide at link. Dispatch through an
+        // interface uses the foreign COM object's vtable, never ours.
+        //
+        // Every CONCRETE native class IS emitted — INCLUDING a method-less
+        // (field-only) class: it still gets a `[typeinfo]`-only vtable so its
+        // instances can reach RTTI (field 0 -> vtable[-1]); otherwise NEW would
+        // store NIL at field 0 and ISMEMBER/GUARD would always answer FALSE.
+        if class.is_interface || class.is_abstract {
             continue;
         }
         let vtable_slots: Vec<String> = class
@@ -225,6 +230,37 @@ pub fn lower_module_opts(
         ir.globals.push(Global::ClassDesc {
             class_name: class.name.clone(),
             vtable_slots,
+            has_typeinfo: true,
+        });
+    }
+
+    // Emit a `{Class}.typeinfo` RTTI descriptor for every native class declared
+    // in this module — concrete AND abstract (an abstract base must be a valid
+    // ISMEMBER/GUARD target and the parent chain must reach it). COM interfaces
+    // get none: they are discriminated by QueryInterface, not RTTI, and carry no
+    // M2 typeinfo. This loop is deliberately INDEPENDENT of the all-abstract
+    // vtable suppression above, so an abstract base that has no `{Class}.vtable`
+    // still gets its `{Class}.typeinfo`.
+    for decl in &ast.decls {
+        let ast::Decl::Class(cd) = decl else { continue };
+        let Some(cid) = sema.classes.lookup(&cd.name) else { continue };
+        let class = sema.classes.get(cid);
+        if class.is_interface {
+            continue;
+        }
+        // depth = length of the base chain (0 at a root); parent_name = the
+        // immediate base's name (its `{base}.typeinfo` is referenced by symbol).
+        let mut depth: u64 = 0;
+        let mut cur = class.base;
+        while let Some(b) = cur {
+            depth += 1;
+            cur = sema.classes.get(b).base;
+        }
+        let parent_name = class.base.map(|b| sema.classes.get(b).name.clone());
+        ir.globals.push(Global::TypeInfo {
+            class_name: class.name.clone(),
+            parent_name,
+            depth,
         });
     }
 
@@ -545,6 +581,15 @@ fn collect_refs_stmt(s: &ast::Stmt, out: &mut HashSet<String>) {
         }
         ast::Stmt::Case { scrutinee, arms, else_arm, .. } => {
             collect_refs_expr(scrutinee, out);
+            for a in arms {
+                collect_refs_stmts(&a.body, out);
+            }
+            if let Some(e) = else_arm {
+                collect_refs_stmts(e, out);
+            }
+        }
+        ast::Stmt::Guard { selector, arms, else_arm, .. } => {
+            collect_refs_expr(selector, out);
             for a in arms {
                 collect_refs_stmts(&a.body, out);
             }
@@ -2040,6 +2085,10 @@ impl<'c, 'g, 's> FuncLower<'c, 'g, 's> {
                 self.lower_case(scrutinee, arms, else_arm.as_deref());
             }
 
+            ast::Stmt::Guard { selector, arms, else_arm, .. } => {
+                self.lower_guard(selector, arms, else_arm.as_deref());
+            }
+
             ast::Stmt::With(d, body, _) => {
                 self.lower_with(d, body);
             }
@@ -2406,6 +2455,149 @@ impl<'c, 'g, 's> FuncLower<'c, 'g, 's> {
         }
 
         self.builder.switch_to(join);
+    }
+
+    /// Lower `GUARD selector AS [x:]T DO … {| …} [ELSE …] END`. Evaluate the
+    /// selector once, take its typeinfo (null-safe: a NIL/EMPTY selector yields
+    /// null and matches no arm → ELSE/raise), then test each arm with
+    /// `nm2_rtti_isa` as an if-else ladder. A matched arm may bind a read-only
+    /// narrowed view of the selector. No match + no ELSE raises guardException.
+    fn lower_guard(
+        &mut self,
+        selector: &ast::Expr,
+        arms: &[ast::GuardArm],
+        else_arm: Option<&[ast::Stmt]>,
+    ) {
+        let sel = self.eval_expr(selector);
+        let addr = self.ctx.sema.types.builtin(Builtin::Address);
+        let bool_ty = self.ctx.sema.types.builtin(Builtin::Boolean);
+        // The selector's typeinfo, computed ONCE (null-safe).
+        let cand_ti = self
+            .call_runtime(
+                "nm2_typeinfo_of",
+                vec![IrParam { name: "obj".into(), ty: addr, is_var: false }],
+                Some(addr),
+                vec![sel],
+            )
+            .expect("nm2_typeinfo_of returns a value");
+
+        let join = self.builder.new_block("guard_join");
+        let default_block = self.builder.new_block("guard_else");
+        let arm_blocks: Vec<BlockId> = (0..arms.len())
+            .map(|i| self.builder.new_block(format!("guard_arm.{i}")))
+            .collect();
+
+        if arms.is_empty() {
+            self.terminate(Terminator::Goto(default_block));
+        }
+        // Test ladder: arm i runs iff nm2_rtti_isa(cand, &{Ti}.typeinfo); else the
+        // next test, and after the last the default (ELSE / raise).
+        for (i, arm) in arms.iter().enumerate() {
+            let target_ti = match self.guard_arm_class(&arm.guarded_type) {
+                Some(cid) => {
+                    let name = self.ctx.sema.classes.get(cid).name.clone();
+                    self.emit_global_ref(format!("{name}.typeinfo"), addr)
+                }
+                None => self.emit_nil(), // unresolved type — sema already errored
+            };
+            let matched = self
+                .call_runtime(
+                    "nm2_rtti_isa",
+                    vec![
+                        IrParam { name: "cand".into(), ty: addr, is_var: false },
+                        IrParam { name: "target".into(), ty: addr, is_var: false },
+                    ],
+                    Some(bool_ty),
+                    vec![cand_ti, target_ti],
+                )
+                .expect("nm2_rtti_isa returns a value");
+            let next = if i + 1 < arms.len() {
+                self.builder.new_block("guard_test")
+            } else {
+                default_block
+            };
+            self.terminate(Terminator::CondBr {
+                cond: matched,
+                t_block: arm_blocks[i],
+                f_block: next,
+            });
+            self.builder.switch_to(next);
+        }
+
+        // Arm bodies, each optionally binding the read-only narrowed denoter to
+        // the (already RTTI-verified) selector pointer.
+        for (i, arm) in arms.iter().enumerate() {
+            self.builder.switch_to(arm_blocks[i]);
+            let saved = if let Some(dn) = &arm.denoter {
+                let arm_ty = self
+                    .guard_arm_class(&arm.guarded_type)
+                    .map(|cid| self.ctx.sema.classes.get(cid).type_id)
+                    .unwrap_or(addr);
+                let slot = self.fresh();
+                self.push(Inst::Alloca { dst: slot, ty: arm_ty });
+                self.push(Inst::Store { ptr: slot, val: sel });
+                let prev = self.locals.insert(
+                    dn.clone(),
+                    Binding { storage: slot, ty: arm_ty, kind: BindingKind::Direct },
+                );
+                Some((dn.clone(), prev))
+            } else {
+                None
+            };
+            self.lower_stmts(&arm.body);
+            if !self.builder.is_terminated() {
+                self.terminate(Terminator::Goto(join));
+            }
+            // Restore any shadowed outer binding of the denoter name.
+            if let Some((dn, prev)) = saved {
+                match prev {
+                    Some(p) => {
+                        self.locals.insert(dn, p);
+                    }
+                    None => {
+                        self.locals.remove(&dn);
+                    }
+                }
+            }
+        }
+
+        // No-match: run ELSE if present, else raise guardException.
+        self.builder.switch_to(default_block);
+        if let Some(else_stmts) = else_arm {
+            self.lower_stmts(else_stmts);
+            if !self.builder.is_terminated() {
+                self.terminate(Terminator::Goto(join));
+            }
+        } else if !self.builder.is_terminated() {
+            self.raise_guard_exception();
+        }
+
+        self.builder.switch_to(join);
+    }
+
+    /// Resolve a GUARD arm's guarded type name to its class id, via sema's
+    /// recorded resolution at the type name's span. Returns None for an interface
+    /// (no typeinfo — sema already errors; this prevents a dangling typeinfo ref).
+    fn guard_arm_class(&self, qn: &ast::QualName) -> Option<ClassSymbolId> {
+        let cid = match self.ctx.sema.resolved_name(self.ctx.mid, qn.span)? {
+            SymbolKind::Type(ty) => match self.ctx.sema.types.get(*ty) {
+                TypeKind::Class { symbol } => ClassSymbolId(*symbol),
+                _ => return None,
+            },
+            SymbolKind::Class(cid) => *cid,
+            _ => return None,
+        };
+        if self.ctx.sema.classes.get(cid).is_interface {
+            None
+        } else {
+            Some(cid)
+        }
+    }
+
+    /// Raise the NewM2 GUARD no-match exception; the block becomes unreachable.
+    fn raise_guard_exception(&mut self) {
+        self.call_runtime("nm2_raise_guard", vec![], None, vec![]);
+        self.terminate(Terminator::Unreachable);
     }
 
     /// Raise an ISO `M2EXCEPTION` language exception via the runtime and mark
@@ -3586,6 +3778,116 @@ impl<'c, 'g, 's> FuncLower<'c, 'g, 's> {
         Some(dst)
     }
 
+    /// `ISMEMBER(p1, p2): BOOLEAN` — TRUE iff p1's (dynamic-or-static) class is a
+    /// subclass-of-or-equal to p2. Each operand is a class TYPE name or an object
+    /// VALUE. (TYPE, TYPE) folds at compile time; the others compute each
+    /// operand's `{Class}.typeinfo` pointer (a global ref for a type; the
+    /// null-safe `nm2_typeinfo_of` for a value) and call `nm2_rtti_isa`.
+    fn lower_ismember_builtin(&mut self, callee: &ast::Expr, args: &[ast::Expr]) -> Option<ValueId> {
+        let ast::Expr::Designator(d) = callee else { return None };
+        if !d.selectors.is_empty()
+            || d.base.segments.len() != 1
+            || d.base.segments[0] != "ISMEMBER"
+            || args.len() != 2
+        {
+            return None;
+        }
+        let (is_ty0, cid0, obj0) = self.ismember_class_of(&args[0])?;
+        let (is_ty1, cid1, obj1) = self.ismember_class_of(&args[1])?;
+
+        // (TYPE, TYPE): fold the static subclass relation.
+        if is_ty0 && is_ty1 {
+            let val = self.class_is_a(cid0, cid1);
+            let dst = self.fresh();
+            self.push(Inst::Const { dst, val: ConstVal::Bool(val) });
+            return Some(dst);
+        }
+
+        let addr = self.ctx.sema.types.builtin(Builtin::Address);
+        let bool_ty = self.ctx.sema.types.builtin(Builtin::Boolean);
+        let ti0 = self.ismember_typeinfo(is_ty0, cid0, obj0, addr);
+        let ti1 = self.ismember_typeinfo(is_ty1, cid1, obj1, addr);
+        self.call_runtime(
+            "nm2_rtti_isa",
+            vec![
+                IrParam { name: "cand".into(), ty: addr, is_var: false },
+                IrParam { name: "target".into(), ty: addr, is_var: false },
+            ],
+            Some(bool_ty),
+            vec![ti0, ti1],
+        )
+    }
+
+    /// Classify an ISMEMBER operand: `(is_type, class id, object value)`. A type
+    /// name (resolved to a Type-of-class or a Class symbol) carries no object; a
+    /// value operand is evaluated to its object pointer. `None` if not a class.
+    fn ismember_class_of(
+        &mut self,
+        arg: &ast::Expr,
+    ) -> Option<(bool, ClassSymbolId, Option<ValueId>)> {
+        if let ast::Expr::Designator(d) = arg {
+            if d.selectors.is_empty() && d.base.segments.len() == 1 {
+                match self.ctx.sema.resolved_name(self.ctx.mid, d.span) {
+                    Some(SymbolKind::Type(ty)) => {
+                        if let TypeKind::Class { symbol } = self.ctx.sema.types.get(*ty) {
+                            return Some((true, ClassSymbolId(*symbol), None));
+                        }
+                    }
+                    Some(SymbolKind::Class(cid)) => return Some((true, *cid, None)),
+                    _ => {}
+                }
+            }
+        }
+        // A value operand: its class comes from its (designator) type.
+        let ty = match arg {
+            ast::Expr::Designator(d) => self.ctx.sema.designator_type(self.ctx.mid, d.span)?,
+            _ => return None,
+        };
+        if let TypeKind::Class { symbol } = self.ctx.sema.types.get(ty) {
+            let cid = ClassSymbolId(*symbol);
+            let obj = self.eval_expr(arg);
+            Some((false, cid, Some(obj)))
+        } else {
+            None
+        }
+    }
+
+    /// The `{Class}.typeinfo` pointer for an ISMEMBER operand: a global ref for a
+    /// type operand, or the null-safe `nm2_typeinfo_of(obj)` for a value operand.
+    fn ismember_typeinfo(
+        &mut self,
+        is_type: bool,
+        cid: ClassSymbolId,
+        obj: Option<ValueId>,
+        addr: newm2_sema::types::TypeId,
+    ) -> ValueId {
+        if is_type {
+            let name = self.ctx.sema.classes.get(cid).name.clone();
+            self.emit_global_ref(format!("{name}.typeinfo"), addr)
+        } else {
+            let o = obj.expect("value ISMEMBER operand has an object value");
+            self.call_runtime(
+                "nm2_typeinfo_of",
+                vec![IrParam { name: "obj".into(), ty: addr, is_var: false }],
+                Some(addr),
+                vec![o],
+            )
+            .expect("nm2_typeinfo_of returns a value")
+        }
+    }
+
+    /// Static subclass-of-or-equal: walk `a`'s single-inheritance base chain.
+    fn class_is_a(&self, a: ClassSymbolId, b: ClassSymbolId) -> bool {
+        let mut cur = Some(a);
+        while let Some(c) = cur {
+            if c == b {
+                return true;
+            }
+            cur = self.ctx.sema.classes.get(c).base;
+        }
+        false
+    }
+
     /// `SUCCEEDED(h)` / `FAILED(h)` — the COM HRESULT severity-bit test.
     /// `FAILED(h) = (h AND 80000000H) # 0` (severity bit set); `SUCCEEDED` is its
     /// negation. Bit 31 carries the HRESULT severity regardless of the holding
@@ -4125,7 +4427,11 @@ impl<'c, 'g, 's> FuncLower<'c, 'g, 's> {
         self.push(Inst::FieldPtr { dst: vptr_slot, base: obj_typed, field: 0 });
         let vtable = self.fresh();
         self.push(Inst::Load { dst: vtable, ptr: vptr_slot });
-        // Load the method function pointer from vtable[vtable_index].
+        // Load the method function pointer from vtable[vtable_index]. The object's
+        // field-0 vtable pointer points at the FIRST METHOD (for our native objects
+        // the {Class}.typeinfo pointer sits one slot before it, at vtable[-1]; for
+        // foreign COM objects field 0 is the COM vtable directly) — so method
+        // dispatch is a plain [vtable_index] for both, unchanged.
         let addr = self.ctx.sema.types.builtin(Builtin::Address);
         let idx = self.fresh();
         self.push(Inst::Const { dst: idx, val: ConstVal::Int(vtable_index as i128) });
@@ -4195,6 +4501,9 @@ impl<'c, 'g, 's> FuncLower<'c, 'g, 's> {
             return dst;
         }
         if let Some(dst) = self.lower_odd_builtin(callee, args) {
+            return dst;
+        }
+        if let Some(dst) = self.lower_ismember_builtin(callee, args) {
             return dst;
         }
         if let Some(dst) = self.lower_hresult_test_builtin(callee, args) {
@@ -5109,7 +5418,12 @@ impl<'c, 'g, 's> FuncLower<'c, 'g, 's> {
         };
         let cls = self.ctx.sema.classes.get(ClassSymbolId(*symbol));
         let obj = cls.object_record?;
-        Some((obj, cls.name.clone(), !cls.vtable.is_empty()))
+        // Every concrete native class has a {Class}.vtable (carrying typeinfo at
+        // slot -1) even when method-less, so field 0 always points at it (NEW then
+        // stores element-1) — keeping ISMEMBER/GUARD answers correct for
+        // field-only classes. (Interfaces/abstract classes are never NEW'd.)
+        let has_vtable = !cls.is_interface && !cls.is_abstract;
+        Some((obj, cls.name.clone(), has_vtable))
     }
 
     /// `NEW(obj)` for a class variable: allocate the object record on the heap,
@@ -5131,7 +5445,16 @@ impl<'c, 'g, 's> FuncLower<'c, 'g, 's> {
         self.push(Inst::FieldPtr { dst: vptr_slot, base: obj, field: 0 });
         let vtable_val = if has_vtable {
             let addr = self.ctx.sema.types.builtin(Builtin::Address);
-            self.emit_global_ref(format!("{class_name}.vtable"), addr)
+            let base = self.emit_global_ref(format!("{class_name}.vtable"), addr);
+            // The vtable global is laid out [typeinfo, method0, method1, …]; store
+            // a pointer to the FIRST METHOD (element 1) into the object so method
+            // dispatch stays a plain [vtable_index] (identical to a foreign COM
+            // object) and the {Class}.typeinfo pointer sits at vtable[-1] for RTTI.
+            let one = self.fresh();
+            self.push(Inst::Const { dst: one, val: ConstVal::Int(1) });
+            let methods = self.fresh();
+            self.push(Inst::IndexPtr { dst: methods, base, index: one, elem_ty: addr });
+            methods
         } else {
             self.emit_nil()
         };

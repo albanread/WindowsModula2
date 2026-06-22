@@ -209,33 +209,37 @@ END NewTextGrid;
 (* expose the Terminal.Instance behind a TextGrid leaf so the app can render into it
    (Terminal.Use it, write cells, then b.Paint). NIL if b is not a TextGrid. *)
 PROCEDURE TermOf (b: Backend): ADDRESS;
-  VAR tg: TextGridBackend;
 BEGIN
-  IF (b # NIL) AND (b.KindOf() = TextGrid) THEN tg := CAST(TextGridBackend, b); RETURN tg.term END;
-  RETURN NIL
+  GUARD b AS
+    tg : TextGridBackend DO RETURN tg.term
+  ELSE
+    RETURN NIL
+  END
 END TermOf;
 
 (* how many whole cells fit the TextGrid's current pixel area (after Attach/Resize).
    0,0 if not a TextGrid or not yet sized — caller should fall back to the model size. *)
 PROCEDURE VisibleCells (b: Backend; VAR cols, rows: CARDINAL);
-  VAR tg: TextGridBackend;
 BEGIN
   cols := 0; rows := 0;
-  IF (b # NIL) AND (b.KindOf() = TextGrid) THEN
-    tg := CAST(TextGridBackend, b);
-    (* cellW/cellH are PHYSICAL px (DPI-scaled in NewTextGrid) and so is lastW/lastH,
-       so this is a direct, drift-free division. *)
-    IF (tg.cellW > 0) AND (tg.cellH > 0) THEN cols := tg.lastW DIV tg.cellW; rows := tg.lastH DIV tg.cellH END
+  GUARD b AS
+    tg : TextGridBackend DO
+      (* cellW/cellH are PHYSICAL px (DPI-scaled in NewTextGrid) and so is lastW/lastH,
+         so this is a direct, drift-free division. *)
+      IF (tg.cellW > 0) AND (tg.cellH > 0) THEN cols := tg.lastW DIV tg.cellW; rows := tg.lastH DIV tg.cellH END
+  ELSE
+    (* not a TextGrid: leave 0,0 *)
   END
 END VisibleCells;
 
 (* the TextGrid leaf's cell size in pixels (0,0 if not a TextGrid) — for mouse hit-testing *)
 PROCEDURE CellSize (b: Backend; VAR w, h: CARDINAL);
-  VAR tg: TextGridBackend;
 BEGIN
   w := 0; h := 0;
-  IF (b # NIL) AND (b.KindOf() = TextGrid) THEN
-    tg := CAST(TextGridBackend, b); w := tg.cellW; h := tg.cellH   (* already physical px (mouse coords are physical) *)
+  GUARD b AS
+    tg : TextGridBackend DO w := tg.cellW; h := tg.cellH   (* already physical px (mouse coords are physical) *)
+  ELSE
+    (* not a TextGrid: leave 0,0 *)
   END
 END CellSize;
 
@@ -322,12 +326,16 @@ BEGIN
   RETURN b
 END NewCombo;
 
-(* ---- generic value access over a control Backend (Q17.5: generic). Guarded by
-   KindOf = NativeControl, then a CAST downcast to the concrete ControlBackend. ---- *)
+(* ---- generic value access over a control Backend (Q17.5: generic). A GUARD
+   narrows Backend to the concrete ControlBackend — a compiler-checked downcast,
+   replacing the old hand-maintained KindOf tag + unchecked CAST. ---- *)
 PROCEDURE AsControl (b: Backend): ControlBackend;     (* the ControlBackend, or NIL *)
 BEGIN
-  IF (b # NIL) AND (b.KindOf() = NativeControl) THEN RETURN CAST(ControlBackend, b) END;
-  RETURN NIL
+  GUARD b AS
+    c : ControlBackend DO RETURN c
+  ELSE
+    RETURN NIL
+  END
 END AsControl;
 
 PROCEDURE SetText (b: Backend; s: ARRAY OF CHAR);

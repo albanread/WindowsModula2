@@ -422,6 +422,83 @@ impl<'ctx, 'ir> Codegen<'ctx, 'ir> {
             .iter()
             .map(|f| f.name.as_str())
             .collect();
+
+        // RTTI pre-pass: declare every {Class}.typeinfo global (so a vtable's
+        // physical slot 0 can reference it below), then fill initializers (a
+        // typeinfo's `parent` field references another, possibly cross-module,
+        // {Base}.typeinfo). Layout `{ ptr parent, ptr name, i64 depth }` matches
+        // newm2_runtime::rtti::TypeInfo exactly.
+        {
+            use newm2_ir::module::Global;
+            let ptr_ty = self.ctx.ptr_type(inkwell::AddressSpace::default());
+            let i64_t = self.ctx.i64_type();
+            let i8_t = self.ctx.i8_type();
+            let ti_struct =
+                self.ctx.struct_type(&[ptr_ty.into(), ptr_ty.into(), i64_t.into()], false);
+            // 1. declare all (one-per-class, coalescing) so cross-refs resolve.
+            for g in &self.ir.globals {
+                if let Global::TypeInfo { class_name, .. } = g {
+                    let name = format!("{}.typeinfo", class_name);
+                    if self.module.get_global(&name).is_none() {
+                        let gv = self.module.add_global(ti_struct, None, &name);
+                        gv.set_constant(true);
+                        // weak_odr: an ABSTRACT class (e.g. a COM-interface mirror
+                        // like IMalloc) is independently redeclared in several
+                        // modules, each emitting its typeinfo — so the linkage must
+                        // COALESCE (external would multiply-define at link). After
+                        // LLVMLinkModules2 coalesces the duplicates, the JIT path
+                        // promotes the survivor back to external (see
+                        // promote_typeinfo_linkage) so RTDyld materialises it.
+                        gv.set_linkage(inkwell::module::Linkage::WeakODR);
+                    }
+                }
+            }
+            // 2. initialize { parent, name, depth }.
+            for g in &self.ir.globals {
+                if let Global::TypeInfo { class_name, parent_name, depth } = g {
+                    let Some(gv) = self.module.get_global(&format!("{}.typeinfo", class_name))
+                    else {
+                        continue;
+                    };
+                    let parent_ptr = match parent_name {
+                        Some(pn) => {
+                            let pname = format!("{}.typeinfo", pn);
+                            let pg = self.module.get_global(&pname).unwrap_or_else(|| {
+                                // cross-module base: an external declaration,
+                                // resolved at link (AOT) / JIT to its module.
+                                let g2 = self.module.add_global(ti_struct, None, &pname);
+                                g2.set_linkage(inkwell::module::Linkage::External);
+                                g2
+                            });
+                            pg.as_pointer_value()
+                        }
+                        None => ptr_ty.const_null(),
+                    };
+                    // The class name as a private NUL-terminated UTF-8 byte array
+                    // (reflection substrate; not read by nm2_rtti_isa).
+                    let name_bytes: Vec<u8> =
+                        class_name.bytes().chain(std::iter::once(0u8)).collect();
+                    let name_arr_ty = i8_t.array_type(name_bytes.len() as u32);
+                    let name_gv = self.module.add_global(
+                        name_arr_ty,
+                        None,
+                        &format!("{}.typeinfo.name", class_name),
+                    );
+                    let name_vals: Vec<_> =
+                        name_bytes.iter().map(|&b| i8_t.const_int(b as u64, false)).collect();
+                    name_gv.set_initializer(&i8_t.const_array(&name_vals));
+                    name_gv.set_constant(true);
+                    name_gv.set_linkage(inkwell::module::Linkage::Private);
+                    let depth_val = i64_t.const_int(*depth, false);
+                    gv.set_initializer(&ti_struct.const_named_struct(&[
+                        parent_ptr.into(),
+                        name_gv.as_pointer_value().into(),
+                        depth_val.into(),
+                    ]));
+                }
+            }
+        }
+
         for g in &self.ir.globals {
             match g {
                 Global::ExternFunc { name, params, return_ty, dll_name, is_variadic, .. } => {
@@ -479,25 +556,45 @@ impl<'ctx, 'ir> Codegen<'ctx, 'ir> {
                     // the per-module LLVM modules are linked together.
                     gv.set_linkage(inkwell::module::Linkage::Private);
                 }
-                Global::ClassDesc { class_name, vtable_slots } => {
-                    // Declare {class_name}.vtable as a zero-initialized mutable
-                    // [N x ptr] global.  MCJIT can only reliably relocate data
-                    // pointers - never function pointers inside constant
-                    // initializers.  Leave the initializer as all-zeroes and
-                    // write real method addresses post-JIT via
-                    // LLVMGetPointerToGlobal (see lib.rs: patch_vtables).
-                    if vtable_slots.is_empty() {
+                Global::ClassDesc { class_name, vtable_slots, has_typeinfo } => {
+                    // Declare {class_name}.vtable as a mutable [E+N x ptr] global,
+                    // where physical slot 0 (when has_typeinfo) holds the
+                    // {class}.typeinfo pointer (a DATA pointer — MCJIT-safe in a
+                    // constant initializer) and the N method slots follow at 1+.
+                    // Method slots stay null and are written post-JIT via
+                    // LLVMGetPointerToGlobal (see lib.rs: patch_vtables); MCJIT
+                    // can't relocate function pointers in constant initializers.
+                    // A method-less class still emits a [typeinfo]-only vtable.
+                    if vtable_slots.is_empty() && !*has_typeinfo {
                         continue;
                     }
                     let ptr_ty = self.ctx.ptr_type(inkwell::AddressSpace::default());
-                    let vtable_ty = ptr_ty.array_type(vtable_slots.len() as u32);
+                    let extra = if *has_typeinfo { 1 } else { 0 };
+                    let total = vtable_slots.len() + extra;
+                    let vtable_ty = ptr_ty.array_type(total as u32);
                     let vtable_name = format!("{}.vtable", class_name);
                     if self.module.get_global(&vtable_name).is_none() {
-                        let gv =
-                            self.module.add_global(vtable_ty, None, &vtable_name);
-                        gv.set_initializer(&vtable_ty.const_zero());
+                        let gv = self.module.add_global(vtable_ty, None, &vtable_name);
+                        if *has_typeinfo {
+                            let ti_ptr = self
+                                .module
+                                .get_global(&format!("{}.typeinfo", class_name))
+                                .map(|g| g.as_pointer_value())
+                                .unwrap_or_else(|| ptr_ty.const_null());
+                            let mut init = Vec::with_capacity(total);
+                            init.push(ti_ptr);
+                            for _ in 0..vtable_slots.len() {
+                                init.push(ptr_ty.const_null());
+                            }
+                            gv.set_initializer(&ptr_ty.const_array(&init));
+                        } else {
+                            gv.set_initializer(&vtable_ty.const_zero());
+                        }
                         gv.set_constant(false);
                     }
+                }
+                Global::TypeInfo { .. } => {
+                    // Declared + initialized in the RTTI pre-pass above.
                 }
             }
         }
@@ -519,24 +616,33 @@ impl<'ctx, 'ir> Codegen<'ctx, 'ir> {
         if self.opts.aot {
             let ptr_ty = self.ctx.ptr_type(inkwell::AddressSpace::default());
             for g in &self.ir.globals {
-                let Global::ClassDesc { class_name, vtable_slots } = g else { continue };
-                if vtable_slots.is_empty() {
+                let Global::ClassDesc { class_name, vtable_slots, has_typeinfo } = g else {
+                    continue;
+                };
+                if vtable_slots.is_empty() && !*has_typeinfo {
                     continue;
                 }
                 let vtable_name = format!("{}.vtable", class_name);
                 let Some(vt_gv) = self.module.get_global(&vtable_name) else { continue };
-                let slots: Vec<inkwell::values::PointerValue<'ctx>> = vtable_slots
-                    .iter()
-                    .map(|fn_name| {
-                        if fn_name.is_empty() {
-                            ptr_ty.const_null()
-                        } else if let Some(fv) = self.module.get_function(fn_name) {
-                            fv.as_global_value().as_pointer_value()
-                        } else {
-                            ptr_ty.const_null()
-                        }
-                    })
-                    .collect();
+                let mut slots: Vec<inkwell::values::PointerValue<'ctx>> = Vec::new();
+                if *has_typeinfo {
+                    // physical slot 0 = &{class}.typeinfo
+                    let ti_ptr = self
+                        .module
+                        .get_global(&format!("{}.typeinfo", class_name))
+                        .map(|g| g.as_pointer_value())
+                        .unwrap_or_else(|| ptr_ty.const_null());
+                    slots.push(ti_ptr);
+                }
+                slots.extend(vtable_slots.iter().map(|fn_name| {
+                    if fn_name.is_empty() {
+                        ptr_ty.const_null()
+                    } else if let Some(fv) = self.module.get_function(fn_name) {
+                        fv.as_global_value().as_pointer_value()
+                    } else {
+                        ptr_ty.const_null()
+                    }
+                }));
                 vt_gv.set_initializer(&ptr_ty.const_array(&slots));
             }
         }
@@ -562,6 +668,17 @@ impl<'ctx, 'ir> Codegen<'ctx, 'ir> {
                     if let Some(fn_val) = self.module.get_function(fn_name) {
                         anchored.push(fn_val.as_global_value().as_pointer_value());
                     }
+                }
+            }
+        }
+        // Anchor every {Class}.typeinfo too: an abstract base's typeinfo is
+        // reachable only through other typeinfos' `parent` fields (no vtable, no
+        // call site), so DCE would drop it and break `nm2_rtti_isa`'s walk / an
+        // `AS AbstractBase` arm. (Its name string is kept transitively.)
+        for g in &self.ir.globals {
+            if let Global::TypeInfo { class_name, .. } = g {
+                if let Some(gv) = self.module.get_global(&format!("{}.typeinfo", class_name)) {
+                    anchored.push(gv.as_pointer_value());
                 }
             }
         }

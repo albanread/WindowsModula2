@@ -2771,3 +2771,53 @@ fn t90_278_large_array_copy() {
     // segfault on large by-value aggregates.
     check("t-90-278-large-array-copy.mod", "65\n90\n90\n7\n");
 }
+
+#[test]
+fn t90_280_ismember() {
+    // ISMEMBER (OO RTTI) across a 3-level hierarchy with an abstract base, all
+    // four value/type operand combinations + the (TYPE,TYPE) compile-time fold.
+    check("t-90-280-ismember.mod", "YYYN\nYYNN\nY\nYN\n");
+}
+
+#[test]
+fn t90_281_guard() {
+    // GUARD: dynamic-type dispatch, read-only narrowed binding (field + method
+    // through it), first-match-wins, and the ELSE arm for an unmatched subclass.
+    check(
+        "t-90-281-guard.mod",
+        "circle r=5 area=75\nsquare s=4\nunknown\n",
+    );
+}
+
+#[test]
+fn t90_282_guard_nested() {
+    // GUARD: a base-class catch-all arm after a specific arm (first-match-wins)
+    // and a nested GUARD inside an arm body.
+    check("t-90-282-guard-nested.mod", "branch 42\nnode 7\n");
+}
+
+#[test]
+fn t90_283_guard_nomatch() {
+    // GUARD with no matching arm and no ELSE raises the NewM2 guardException.
+    check_run_error("t-90-283-guard-nomatch.mod", &["GUARD selector matched no arm"]);
+}
+
+#[test]
+fn t90_284_guard_softkw() {
+    // GUARD/AS/ISMEMBER are soft keywords — identifiers with those spellings
+    // still parse as ordinary variables.
+    check("t-90-284-guard-softkw.mod", "30\n15\n");
+}
+
+#[test]
+fn t90_285_rtti_methodless() {
+    // RTTI on a field-only (method-less) class hierarchy answers correctly
+    // (method-less concrete classes still carry typeinfo). Review finding B1.
+    check("t-90-285-rtti-methodless.mod", "YYY\nleaf\n");
+}
+
+#[test]
+fn t91_030_guard_interface_reject() {
+    // GUARD on an interface selector is a compile error (RTTI is native-only).
+    check_run_error("t-91-030-guard-interface-reject.mod", &["interface selector"]);
+}

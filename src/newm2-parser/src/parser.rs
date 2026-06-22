@@ -2284,6 +2284,13 @@ impl<'a> Parser<'a> {
 
     fn parse_statement(&mut self) -> Result<Stmt, ParseError> {
         let start = self.peek().span;
+        // GUARD is a soft keyword (an Ident), so dispatch it before the generic
+        // designator/assignment path — but only when it truly starts a GUARD
+        // statement (see starts_guard_stmt), so an identifier named `guard`
+        // keeps working as an ordinary variable.
+        if self.starts_guard_stmt() {
+            return self.parse_guard();
+        }
         match self.peek_kind() {
             TokenKind::Keyword(Keyword::If) => self.parse_if(),
             TokenKind::Keyword(Keyword::Case) => self.parse_case(),
@@ -2412,6 +2419,90 @@ impl<'a> Parser<'a> {
             arms,
             else_arm,
             span: Span { start: start.start, end: end.end },
+        })
+    }
+
+    /// True when the current position begins a `GUARD … AS …` statement. GUARD
+    /// is a soft keyword, so we commit only when `GUARD` is NOT followed by a
+    /// designator-continuation / assignment token — i.e. an ordinary statement
+    /// using a variable named `guard` (`guard := x`, `guard.f`, `guard(args)`,
+    /// `guard[i]`, `guard^`, `guard, y := …`) is left on the assignment path.
+    fn starts_guard_stmt(&self) -> bool {
+        if !matches!(self.peek_kind(), TokenKind::Ident(n) if n == "GUARD") {
+            return false;
+        }
+        match self.peek_at(1).map(|t| &t.kind) {
+            Some(
+                TokenKind::Assign
+                | TokenKind::Dot
+                | TokenKind::LBracket
+                | TokenKind::LParen
+                | TokenKind::Caret
+                | TokenKind::Comma
+                | TokenKind::Colon,
+            ) => false,
+            _ => true,
+        }
+    }
+
+    fn parse_guard(&mut self) -> Result<Stmt, ParseError> {
+        let start = self.peek().span;
+        self.bump(); // soft `GUARD`
+        let selector = self.parse_expr()?;
+        if !self.eat_soft_kw("AS") {
+            return self.err("expected 'AS' after GUARD selector");
+        }
+        let mut arms = Vec::new();
+        let _ = self.eat_kind(&TokenKind::Pipe); // optional leading `|`
+        loop {
+            if matches!(
+                self.peek_kind(),
+                TokenKind::Keyword(Keyword::End) | TokenKind::Keyword(Keyword::Else)
+            ) {
+                break;
+            }
+            arms.push(self.parse_guard_arm()?);
+            if !self.eat_kind(&TokenKind::Pipe) {
+                break;
+            }
+        }
+        let else_arm = if self.eat_kw(Keyword::Else) {
+            Some(self.parse_stmt_seq()?)
+        } else {
+            None
+        };
+        let end = self.expect_kw(Keyword::End)?;
+        Ok(Stmt::Guard {
+            selector,
+            arms,
+            else_arm,
+            span: Span { start: start.start, end: end.end },
+        })
+    }
+
+    fn parse_guard_arm(&mut self) -> Result<GuardArm, ParseError> {
+        let start = self.peek().span;
+        // Optional `denoter :` — an Ident immediately followed by `:`.
+        let mut denoter = None;
+        let mut denoter_span = start;
+        if let TokenKind::Ident(name) = self.peek_kind().clone() {
+            if matches!(self.peek_at(1).map(|t| &t.kind), Some(TokenKind::Colon)) {
+                denoter_span = self.peek().span;
+                denoter = Some(name);
+                self.bump(); // ident
+                self.bump(); // ':'
+            }
+        }
+        let guarded_type = self.parse_qual_name()?;
+        self.expect_kw(Keyword::Do)?;
+        let body = self.parse_stmt_seq()?;
+        let end = self.toks[self.pos.saturating_sub(1)].span.end;
+        Ok(GuardArm {
+            denoter,
+            denoter_span,
+            guarded_type,
+            body,
+            span: Span { start: start.start, end },
         })
     }
 

@@ -45,6 +45,25 @@ pub enum Global {
     ClassDesc {
         class_name: String,
         vtable_slots: Vec<String>,
+        /// When true, physical slot 0 of the emitted `{class}.vtable` holds the
+        /// `{class}.typeinfo` pointer (RTTI) and the methods named by
+        /// `vtable_slots` therefore start at physical slot 1. Native classes set
+        /// this; the post-JIT patcher and dispatch lowering add the matching +1.
+        has_typeinfo: bool,
+    },
+    /// Per-class RTTI descriptor, emitted as a constant global
+    /// `{class_name}.typeinfo` = `{ parent: ptr, name: ptr, depth: i64 }`
+    /// (matching `newm2_runtime::rtti::TypeInfo`).
+    ///
+    /// Emitted for **every native class — concrete AND abstract** (so an
+    /// abstract base is a valid `ISMEMBER`/`GUARD` target and derived classes
+    /// can chain to it); COM interfaces get none. `parent_name`, when present,
+    /// is the base class's name — its `{base}.typeinfo` is referenced by symbol
+    /// and resolved by the linker (AOT) / JIT. `depth` is 0 at a root.
+    TypeInfo {
+        class_name: String,
+        parent_name: Option<String>,
+        depth: u64,
     },
 }
 

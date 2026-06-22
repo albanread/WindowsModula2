@@ -346,6 +346,26 @@ fn write_stmt(buf: &mut String, s: &Stmt, d: usize) {
                 }
             }
         }
+        Stmt::Guard { selector, arms, else_arm, .. } => {
+            line(buf, d, "Guard");
+            write_expr(buf, selector, d + 1);
+            for a in arms {
+                let lbl = match &a.denoter {
+                    Some(n) => format!("Arm {} : {}", n, a.guarded_type.segments.join(".")),
+                    None => format!("Arm {}", a.guarded_type.segments.join(".")),
+                };
+                line(buf, d + 1, &lbl);
+                for s in &a.body {
+                    write_stmt(buf, s, d + 2);
+                }
+            }
+            if let Some(else_body) = else_arm {
+                line(buf, d + 1, "Else");
+                for s in else_body {
+                    write_stmt(buf, s, d + 2);
+                }
+            }
+        }
         Stmt::Case { scrutinee, arms, else_arm, .. } => {
             line(buf, d, "Case");
             write_expr(buf, scrutinee, d + 1);

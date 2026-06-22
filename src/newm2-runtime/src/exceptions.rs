@@ -217,6 +217,12 @@ pub const ASSERT_SOURCE: u64 = u64::MAX;
 /// `ASSERT_SOURCE` and from user sources (which count up from 1).
 pub const M2_SOURCE: u64 = u64::MAX - 1;
 
+/// Reserved exception source for the NewM2 `GUARD` no-match exception. Kept
+/// OUT of the closed ISO `M2EXCEPTION.M2Exceptions` enum (raising a 16th ordinal
+/// through `nm2_raise_m2` would make `VAL`-ing it back UB) — instead it gets its
+/// own sentinel source, exactly mirroring `ASSERT_SOURCE` / `M2_SOURCE`.
+pub const GUARD_SOURCE: u64 = u64::MAX - 2;
+
 /// `M2EXCEPTION.M2Exceptions` enumeration ordinals (the ISO order).
 pub mod m2exc {
     pub const INDEX: u64 = 0;
@@ -253,6 +259,26 @@ pub extern "C-unwind" fn nm2_raise_m2(number: u64) -> ! {
     panic::panic_any(ExceptionPayload { source: M2_SOURCE, number: number as u32, message });
 }
 
+/// The fixed source id for the GUARD no-match exception, so a NewM2 OO-exception
+/// module can do `IsCurrentSource(nm2_guard_source())` to catch it.
+#[unsafe(no_mangle)]
+pub extern "C-unwind" fn nm2_guard_source() -> u64 {
+    GUARD_SOURCE
+}
+
+/// Raise the GUARD no-match exception: a `GUARD selector AS …` matched no arm and
+/// the statement had no `ELSE`. Codegen calls this in the guard default path.
+/// Never returns.
+#[unsafe(no_mangle)]
+pub extern "C-unwind" fn nm2_raise_guard() -> ! {
+    install_panic_hook();
+    panic::panic_any(ExceptionPayload {
+        source: GUARD_SOURCE,
+        number: 0,
+        message: b"GUARD selector matched no arm".to_vec(),
+    });
+}
+
 /// `M2EXCEPTION.M2Exceptions` ordinal names, in ISO order. Single source of
 /// truth shared with the def/mod and the unhandled-exception diagnostic.
 pub const M2_EXCEPTION_NAMES: [&str; 15] = [
@@ -280,6 +306,7 @@ pub const M2_EXCEPTION_NAMES: [&str; 15] = [
 pub fn describe_exception(source: u64, number: u32) -> String {
     match source {
         ASSERT_SOURCE => "failed ASSERT".to_string(),
+        GUARD_SOURCE => "GUARD selector matched no arm".to_string(),
         M2_SOURCE => match M2_EXCEPTION_NAMES.get(number as usize) {
             Some(name) => format!("M2EXCEPTION.{name}"),
             None => format!("M2EXCEPTION ordinal {number}"),

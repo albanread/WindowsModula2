@@ -44,6 +44,10 @@ pub mod coroutine;
 /// COM interop glue (CoInitialize / CoGetMalloc / GUID equality).
 pub mod com;
 
+/// Runtime type information for native classes (`{Class}.typeinfo` + the
+/// subclass-of test `nm2_rtti_isa`) backing `ISMEMBER` and `GUARD`.
+pub mod rtti;
+
 /// ISO TERMINATION (HasHalted / IsTerminating) + the HALT unwind path.
 pub mod termination;
 
@@ -129,11 +133,13 @@ pub use termination::{
     HaltMarker, begin_termination, nm2_halt, nm2_term_has_halted, nm2_term_is_terminating,
 };
 pub use exceptions::{
-    ASSERT_SOURCE, ExceptionPayload, describe_exception, nm2_alloc_exception_source, nm2_assert_failed,
-    nm2_current_message, nm2_current_number, nm2_current_source, nm2_exception_handled,
-    nm2_is_current_source, nm2_is_exceptional_execution, nm2_m2_source, nm2_raise,
-    nm2_raise_m2, nm2_reraise, nm2_run_protected,
+    ASSERT_SOURCE, ExceptionPayload, GUARD_SOURCE, describe_exception, nm2_alloc_exception_source,
+    nm2_assert_failed, nm2_current_message, nm2_current_number, nm2_current_source,
+    nm2_exception_handled, nm2_guard_source, nm2_is_current_source, nm2_is_exceptional_execution,
+    nm2_m2_source, nm2_raise, nm2_raise_guard, nm2_raise_m2, nm2_reraise, nm2_run_protected,
 };
+
+pub use rtti::{TypeInfo, nm2_rtti_isa, nm2_typeinfo_of};
 
 pub use crash::{nm2_finalize_jit_symbols, nm2_install_crash_handler, nm2_register_jit_symbol};
 

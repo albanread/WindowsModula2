@@ -732,6 +732,8 @@ fn build_pervasive_scope(
                  "LFLOAT", "INT", "ENTIER", "RE", "IM", "CMPLX",
                  // COM HRESULT severity-bit tests (see docs/design/com-interfaces.md).
                  "SUCCEEDED", "FAILED",
+                 // OO RTTI membership test (see docs/design/guard-ismember.md).
+                 "ISMEMBER",
                  // SIMD reductions / fused multiply-add (see simd-laned-vectors).
                  "SUM", "DOT", "FMA"] {
         scope.insert(Symbol {
@@ -4075,6 +4077,32 @@ fn analyse_call_args(
     }
 }
 
+/// Classify an `ISMEMBER` operand: return its class TypeId whether the operand
+/// is a class/interface TYPE name or a class-typed object VALUE; `None` if it is
+/// neither. A value operand is analysed (records resolution + side effects); a
+/// type-name operand is resolved (which records its name resolution too, so the
+/// IR lowering can tell type-operands from value-operands).
+fn ismember_operand_class(ctx: &mut Ctx, arg: &ast::Expr, scope: ScopeId) -> Option<TypeId> {
+    if let ast::Expr::Designator(d) = arg {
+        if d.selectors.is_empty() {
+            if let Some(sym) = resolve_symbol(ctx, &d.base, scope) {
+                match &sym.kind {
+                    SymbolKind::Type(ty)
+                        if matches!(ctx.types.get(*ty), TypeKind::Class { .. }) =>
+                    {
+                        return Some(*ty);
+                    }
+                    SymbolKind::Class(cid) => return Some(ctx.classes.get(*cid).type_id),
+                    _ => {}
+                }
+            }
+        }
+    }
+    // Otherwise a value operand: its type must be a class reference.
+    let ty = analyse_expr(ctx, arg, scope)?;
+    if matches!(ctx.types.get(ty), TypeKind::Class { .. }) { Some(ty) } else { None }
+}
+
 fn resolve_builtin_type_arg(
     ctx: &mut Ctx,
     arg: &ast::Expr,
@@ -4296,6 +4324,44 @@ fn analyse_builtin_call(
                 );
             }
             Some(target_ty)
+        }
+
+        // ---- OO RTTI membership test -----------------------------------------
+        "ISMEMBER" => {
+            // ISMEMBER(p1, p2): BOOLEAN — TRUE iff p1's (dynamic-or-static) class
+            // is a subclass-of-or-equal to p2. Each operand is independently a
+            // class/interface TYPE name or a class-typed object VALUE.
+            let bool_ty = ctx.types.builtin(Builtin::Boolean);
+            if args.len() != 2 {
+                ctx.error(span, "ISMEMBER requires two arguments".to_string());
+                for arg in args {
+                    let _ = analyse_expr(ctx, arg, scope);
+                }
+                return Some(Some(bool_ty));
+            }
+            let c0 = ismember_operand_class(ctx, &args[0], scope);
+            let c1 = ismember_operand_class(ctx, &args[1], scope);
+            if c0.is_none() {
+                ctx.error(
+                    expr_span(&args[0]),
+                    "ISMEMBER requires a class type or an object reference".to_string(),
+                );
+            }
+            if c1.is_none() {
+                ctx.error(
+                    expr_span(&args[1]),
+                    "ISMEMBER requires a class type or an object reference".to_string(),
+                );
+            }
+            // RTTI is native-only — an interface operand has no typeinfo (it would
+            // need a QueryInterface probe, not yet implemented).
+            if c0.is_some_and(|t| class_type_is_interface(ctx, t)) {
+                ctx.error(expr_span(&args[0]), "ISMEMBER on an interface is not yet implemented".to_string());
+            }
+            if c1.is_some_and(|t| class_type_is_interface(ctx, t)) {
+                ctx.error(expr_span(&args[1]), "ISMEMBER on an interface is not yet implemented".to_string());
+            }
+            Some(Some(bool_ty))
         }
 
         // ---- Allocation / mutation pseudo-procedures (no result) -------------
@@ -5205,6 +5271,12 @@ fn stmt_completes(stmt: &ast::Stmt) -> bool {
             arms.iter().any(|a| seq_completes(&a.body))
                 || else_arm.as_ref().is_some_and(|e| seq_completes(e))
         }
+        // GUARD falls through iff a matched arm (or the ELSE) does; a no-match
+        // with no ELSE raises guardException (does not complete).
+        Guard { arms, else_arm, .. } => {
+            arms.iter().any(|a| seq_completes(&a.body))
+                || else_arm.as_ref().is_some_and(|e| seq_completes(e))
+        }
         // WHILE/FOR/REPEAT can always terminate normally and fall through.
         While(..) | Repeat(..) | For { .. } => true,
         // A LOOP completes only if it contains an EXIT bound to it; an exitless
@@ -5234,6 +5306,10 @@ fn stmt_has_exit(stmt: &ast::Stmt) -> bool {
                 || else_arm.as_ref().is_some_and(|e| loop_has_exit(e))
         }
         Case { arms, else_arm, .. } => {
+            arms.iter().any(|a| loop_has_exit(&a.body))
+                || else_arm.as_ref().is_some_and(|e| loop_has_exit(e))
+        }
+        Guard { arms, else_arm, .. } => {
             arms.iter().any(|a| loop_has_exit(&a.body))
                 || else_arm.as_ref().is_some_and(|e| loop_has_exit(e))
         }
@@ -5280,6 +5356,118 @@ fn analyse_stmts(
 ) {
     for stmt in stmts {
         analyse_stmt(ctx, graph, mid, stmt, scope, return_ty);
+    }
+}
+
+/// `a` is a subclass-of-or-equal to `b` (walk a's single-inheritance base chain).
+fn class_is_subclass_or_eq(ctx: &Ctx, a: ClassSymbolId, b: ClassSymbolId) -> bool {
+    let mut cur = Some(a);
+    while let Some(c) = cur {
+        if c.0 == b.0 {
+            return true;
+        }
+        cur = ctx.classes.get(c).base;
+    }
+    false
+}
+
+/// Two classes are related iff one is a subclass-of-or-equal of the other.
+fn class_related(ctx: &Ctx, a: ClassSymbolId, b: ClassSymbolId) -> bool {
+    class_is_subclass_or_eq(ctx, a, b) || class_is_subclass_or_eq(ctx, b, a)
+}
+
+/// True iff `ty` is a class type declared with INTERFACE. GUARD/ISMEMBER are
+/// native-RTTI only; an interface carries no `{Class}.typeinfo` (it would be
+/// discriminated by QueryInterface — not yet implemented), so interface
+/// operands must be rejected at sema rather than read a foreign vtable's slot.
+fn class_type_is_interface(ctx: &Ctx, ty: TypeId) -> bool {
+    matches!(ctx.types.get(ty), TypeKind::Class { symbol }
+        if ctx.classes.get(ClassSymbolId(*symbol)).is_interface)
+}
+
+/// Analyse a `GUARD selector AS [x:]T DO … {| …} [ELSE …] END`. The selector
+/// must be an object reference; each arm type must be a class related to the
+/// selector's static class; an arm may bind a narrowed view as a CONST-mode
+/// local (direct re-assignment is rejected by is_const_param_target). NOTE:
+/// passing it as a VAR argument is NOT yet rejected — a pre-existing general
+/// CONST-param gap (does not affect native-arm safety; must be closed before
+/// Phase-3 interface arms, whose Release soundness depends on read-only).
+#[allow(clippy::too_many_arguments)]
+fn analyse_guard(
+    ctx: &mut Ctx,
+    graph: &ModuleGraph,
+    mid: ModuleId,
+    selector: &ast::Expr,
+    arms: &[ast::GuardArm],
+    else_arm: Option<&[ast::Stmt]>,
+    _span: Span,
+    scope: ScopeId,
+    return_ty: Option<TypeId>,
+) {
+    let sel_ty = analyse_expr(ctx, selector, scope);
+    let sel_cid = sel_ty.and_then(|t| match ctx.types.get(t) {
+        TypeKind::Class { symbol } => Some(ClassSymbolId(*symbol)),
+        _ => None,
+    });
+    if sel_ty.is_some() && sel_cid.is_none() {
+        ctx.error(expr_span(selector), "GUARD selector must be an object reference".to_string());
+    }
+    // RTTI is native-only: an interface selector would read a foreign COM vtable's
+    // slot. Reject until QueryInterface lowering (Phase 3) lands.
+    if sel_ty.is_some_and(|t| class_type_is_interface(ctx, t)) {
+        ctx.error(
+            expr_span(selector),
+            "GUARD on an interface selector is not yet implemented (needs QueryInterface)"
+                .to_string(),
+        );
+    }
+
+    for arm in arms {
+        let arm_ty = resolve_type_name(ctx, &arm.guarded_type, scope);
+        let arm_cid = match ctx.types.get(arm_ty) {
+            TypeKind::Class { symbol } => Some(ClassSymbolId(*symbol)),
+            _ => {
+                ctx.error(arm.guarded_type.span, "GUARD arm type must be a class".to_string());
+                None
+            }
+        };
+        if class_type_is_interface(ctx, arm_ty) {
+            ctx.error(
+                arm.guarded_type.span,
+                "GUARD arm type must not be an interface (not yet implemented)".to_string(),
+            );
+        } else if let (Some(s), Some(t)) = (sel_cid, arm_cid) {
+            if !class_related(ctx, s, t) {
+                ctx.error(
+                    arm.guarded_type.span,
+                    "GUARD arm type is unrelated to the selector's class".to_string(),
+                );
+            }
+        }
+        // A child scope holding the optional read-only bound denoter `x : T`.
+        let arm_scope = ctx.scopes.push(ScopeKind::Block, Some(scope));
+        if let Some(name) = &arm.denoter {
+            let declaration_id = ctx.fresh_declaration_id();
+            let binding_id = ctx.fresh_binding_id();
+            ctx.scopes.get_mut(arm_scope).insert(Symbol {
+                name: name.clone(),
+                kind: SymbolKind::Var { ty: arm_ty, param_mode: Some(ParamMode::Const) },
+                span: arm.denoter_span,
+                declaration_id,
+                binding_id,
+                provenance: SymbolProvenance::Declared {
+                    module: ctx.current_module,
+                    module_name: ctx.current_module_name.clone(),
+                },
+                exported: false,
+            });
+        }
+        analyse_stmts(ctx, graph, mid, &arm.body, arm_scope, return_ty);
+    }
+
+    if let Some(body) = else_arm {
+        let else_scope = ctx.scopes.push(ScopeKind::Block, Some(scope));
+        analyse_stmts(ctx, graph, mid, body, else_scope, return_ty);
     }
 }
 
@@ -5370,6 +5558,11 @@ fn analyse_stmt(
             if let Some(body) = else_arm {
                 analyse_stmts(ctx, graph, mid, body, scope, return_ty);
             }
+        }
+        ast::Stmt::Guard { selector, arms, else_arm, span } => {
+            analyse_guard(
+                ctx, graph, mid, selector, arms, else_arm.as_deref(), *span, scope, return_ty,
+            );
         }
         ast::Stmt::Case {
             scrutinee,

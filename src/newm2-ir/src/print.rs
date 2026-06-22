@@ -55,9 +55,14 @@ fn format_global(g: &Global) -> String {
         Global::StringConst { name, value } => {
             format!("string @{name} = {value:?}\n")
         }
-        Global::ClassDesc { class_name, vtable_slots } => {
+        Global::ClassDesc { class_name, vtable_slots, has_typeinfo } => {
             let slots = vtable_slots.join(", ");
-            format!("vtable @{class_name}.vtable [{slots}]\n")
+            let ti = if *has_typeinfo { "typeinfo, " } else { "" };
+            format!("vtable @{class_name}.vtable [{ti}{slots}]\n")
+        }
+        Global::TypeInfo { class_name, parent_name, depth } => {
+            let parent = parent_name.as_deref().unwrap_or("-");
+            format!("typeinfo @{class_name}.typeinfo (parent {parent}, depth {depth})\n")
         }
     }
 }
