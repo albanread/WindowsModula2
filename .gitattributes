@@ -1,0 +1,12 @@
+# Treat binary assets as binary: never apply EOL (LF<->CRLF) conversion or text
+# diffing. Without this, core.autocrlf=true could mangle these on checkout —
+# e.g. corrupt the shipped manual PDF.
+*.pdf  binary
+*.chm  binary
+*.png  binary
+*.ico  binary
+*.exe  binary
+*.dll  binary
+*.lib  binary
+*.wav  binary
+*.mid  binary
