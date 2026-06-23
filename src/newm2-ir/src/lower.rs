@@ -2468,6 +2468,13 @@ impl<'c, 'g, 's> FuncLower<'c, 'g, 's> {
         arms: &[ast::GuardArm],
         else_arm: Option<&[ast::Stmt]>,
     ) {
+        // An INTERFACE selector discriminates by QueryInterface, not native RTTI
+        // (sema guarantees an interface selector has only interface arms, and
+        // vice versa). Branch to the COM path.
+        if !arms.is_empty() && self.guard_arm_is_interface(&arms[0].guarded_type) {
+            self.lower_guard_iface(selector, arms, else_arm);
+            return;
+        }
         let sel = self.eval_expr(selector);
         let addr = self.ctx.sema.types.builtin(Builtin::Address);
         let bool_ty = self.ctx.sema.types.builtin(Builtin::Boolean);
@@ -2573,6 +2580,209 @@ impl<'c, 'g, 's> FuncLower<'c, 'g, 's> {
         }
 
         self.builder.switch_to(join);
+    }
+
+    /// Lower `GUARD ifaceSel AS [x:]IFoo DO … END` — the COM path. Each arm tests
+    /// `ifaceSel->QueryInterface(IID_IFoo, &out)`; on success it binds the AddRef'd
+    /// `out` and (v1) the arm body must fall through, after which `out` is
+    /// Released. A failed QI Releases any partial out and tries the next arm.
+    ///
+    /// V1 LIMITATION: the matched-arm Release is on the lexical fall-through edge
+    /// only (plain Goto, no unwind landingpad). Sema bars a *lexical* RETURN/EXIT/
+    /// RAISE in the arm, but an exception or trap raised by a CALLEE inside the arm
+    /// unwinds past the Release and leaks exactly one COM reference. That is a
+    /// bounded leak on the already-exceptional path (never memory-unsafe / never a
+    /// wrong answer); a cleanup landingpad is deferred to the general
+    /// exception-cleanup work.
+    fn lower_guard_iface(
+        &mut self,
+        selector: &ast::Expr,
+        arms: &[ast::GuardArm],
+        else_arm: Option<&[ast::Stmt]>,
+    ) {
+        let addr = self.ctx.sema.types.builtin(Builtin::Address);
+        let sel = self.eval_expr(selector); // borrowed; v1 doesn't Release the selector
+        let join = self.builder.new_block("guard_join");
+        let default_block = self.builder.new_block("guard_else");
+        let arm_blocks: Vec<BlockId> = (0..arms.len())
+            .map(|i| self.builder.new_block(format!("guard_iarm.{i}")))
+            .collect();
+        // QI ladder: each arm queries into a prologue SLOT, threaded (as the slot,
+        // available in every block) to the arm body (bind + Release) and the
+        // no-match path (Release the partial AddRef).
+        let mut arm_slot: Vec<ValueId> = Vec::with_capacity(arms.len());
+        for (i, arm) in arms.iter().enumerate() {
+            let (matched, ppv_slot) = match self.guard_arm_cid(&arm.guarded_type) {
+                Some(cid) => self.emit_com_qi(sel, cid),
+                None => {
+                    let f = self.emit_const_bool(false);
+                    let slot = self.fresh();
+                    self.push(Inst::Alloca { dst: slot, ty: addr });
+                    let nil = self.emit_nil();
+                    self.push(Inst::Store { ptr: slot, val: nil });
+                    (f, slot)
+                }
+            };
+            arm_slot.push(ppv_slot);
+            let after = if i + 1 < arms.len() {
+                self.builder.new_block("guard_test")
+            } else {
+                default_block
+            };
+            let nomatch = self.builder.new_block("guard_nomatch");
+            self.terminate(Terminator::CondBr { cond: matched, t_block: arm_blocks[i], f_block: nomatch });
+            // No match: Release any partial AddRef (null-safe), then the next test.
+            self.builder.switch_to(nomatch);
+            let ppv = self.fresh();
+            self.push(Inst::Load { dst: ppv, ptr: ppv_slot });
+            self.emit_com_release(ppv);
+            self.terminate(Terminator::Goto(after));
+            self.builder.switch_to(after);
+        }
+
+        for (i, arm) in arms.iter().enumerate() {
+            self.builder.switch_to(arm_blocks[i]);
+            let ppv_slot = arm_slot[i];
+            // Bind the denoter directly to the QI slot (it holds the AddRef'd
+            // interface pointer); the body reads it as the narrowed view.
+            let saved = if let Some(dn) = &arm.denoter {
+                let arm_ty = self
+                    .guard_arm_cid(&arm.guarded_type)
+                    .map(|cid| self.ctx.sema.classes.get(cid).type_id)
+                    .unwrap_or(addr);
+                let prev = self.locals.insert(
+                    dn.clone(),
+                    Binding { storage: ppv_slot, ty: arm_ty, kind: BindingKind::Direct },
+                );
+                Some((dn.clone(), prev))
+            } else {
+                None
+            };
+            self.lower_stmts(&arm.body); // sema bars LEXICAL RETURN/EXIT/RAISE (a callee exception still escapes — see doc)
+            if !self.builder.is_terminated() {
+                // Balance the QI AddRef on the matched path (Load the slot here so
+                // the value is defined in whatever block the body fell through to).
+                let ppv = self.fresh();
+                self.push(Inst::Load { dst: ppv, ptr: ppv_slot });
+                self.emit_com_release(ppv);
+                self.terminate(Terminator::Goto(join));
+            }
+            if let Some((dn, prev)) = saved {
+                match prev {
+                    Some(p) => {
+                        self.locals.insert(dn, p);
+                    }
+                    None => {
+                        self.locals.remove(&dn);
+                    }
+                }
+            }
+        }
+
+        self.builder.switch_to(default_block);
+        if let Some(else_stmts) = else_arm {
+            self.lower_stmts(else_stmts);
+            if !self.builder.is_terminated() {
+                self.terminate(Terminator::Goto(join));
+            }
+        } else if !self.builder.is_terminated() {
+            self.raise_guard_exception();
+        }
+        self.builder.switch_to(join);
+    }
+
+    /// Emit `sel->QueryInterface(IID_iface, &out)` via the runtime helper, plus
+    /// the success test. Returns `(matched, out)` where matched = SUCCEEDED(hr)
+    /// AND out#NIL, and out is the (AddRef'd-on-success) interface pointer.
+    fn emit_com_qi(&mut self, sel: ValueId, iface_cid: ClassSymbolId) -> (ValueId, ValueId) {
+        let addr = self.ctx.sema.types.builtin(Builtin::Address);
+        let int_ty = self.ctx.sema.types.builtin(Builtin::Integer);
+        let bool_ty = self.ctx.sema.types.builtin(Builtin::Boolean);
+        let (name, iid) = {
+            let iface = self.ctx.sema.classes.get(iface_cid);
+            (iface.name.clone(), iface.iid.clone().unwrap_or_default())
+        };
+        let bytes = newm2_sema::iid::iid_str_to_le16(&iid).unwrap_or([0u8; 16]);
+        let guid_name = format!("{name}.guid");
+        self.ir.globals.push(crate::module::Global::Guid { name: guid_name.clone(), bytes });
+        let iid_ptr = self.emit_global_ref(guid_name, addr);
+        // out: ADDRESS := NIL
+        let ppv_slot = self.fresh();
+        self.push(Inst::Alloca { dst: ppv_slot, ty: addr });
+        let nil = self.emit_nil();
+        self.push(Inst::Store { ptr: ppv_slot, val: nil });
+        let hr = self
+            .call_runtime(
+                "nm2_com_query_interface",
+                vec![
+                    IrParam { name: "this".into(), ty: addr, is_var: false },
+                    IrParam { name: "iid".into(), ty: addr, is_var: false },
+                    IrParam { name: "out".into(), ty: addr, is_var: false },
+                ],
+                Some(int_ty),
+                vec![sel, iid_ptr, ppv_slot],
+            )
+            .expect("nm2_com_query_interface returns hr");
+        // SUCCEEDED(hr) = (hr BAND 80000000H) = 0
+        let mask = self.fresh();
+        self.push(Inst::Const { dst: mask, val: ConstVal::Int(0x8000_0000) });
+        let masked = self.fresh();
+        self.push(Inst::Binary { dst: masked, op: BinOp::BitAnd, lhs: hr, rhs: mask });
+        let zero = self.fresh();
+        self.push(Inst::Const { dst: zero, val: ConstVal::Int(0) });
+        let succeeded = self.fresh();
+        self.push(Inst::Binary { dst: succeeded, op: BinOp::Eq, lhs: masked, rhs: zero });
+        // out # NIL
+        let ppv = self.fresh();
+        self.push(Inst::Load { dst: ppv, ptr: ppv_slot });
+        let nil2 = self.emit_nil();
+        let notnil = self.fresh();
+        self.push(Inst::Binary { dst: notnil, op: BinOp::Ne, lhs: ppv, rhs: nil2 });
+        let matched = self.fresh();
+        self.push(Inst::Binary { dst: matched, op: BinOp::BitAnd, lhs: succeeded, rhs: notnil });
+        let _ = bool_ty;
+        // Return the SLOT (a prologue Alloca, available in every block); callers
+        // Load it in their own block to bind / Release the interface pointer.
+        // `matched` is consumed in the same block (the CondBr), so it is fine.
+        (matched, ppv_slot)
+    }
+
+    /// `obj->Release()` via the runtime helper (null-safe; ignores the new count).
+    fn emit_com_release(&mut self, obj: ValueId) {
+        let addr = self.ctx.sema.types.builtin(Builtin::Address);
+        let int_ty = self.ctx.sema.types.builtin(Builtin::Integer);
+        self.call_runtime(
+            "nm2_com_release",
+            vec![IrParam { name: "this".into(), ty: addr, is_var: false }],
+            Some(int_ty),
+            vec![obj],
+        );
+    }
+
+    fn emit_const_bool(&mut self, b: bool) -> ValueId {
+        let dst = self.fresh();
+        self.push(Inst::Const { dst, val: ConstVal::Bool(b) });
+        dst
+    }
+
+    /// True iff the GUARD arm's type name resolves to an INTERFACE class.
+    fn guard_arm_is_interface(&self, qn: &ast::QualName) -> bool {
+        self.guard_arm_cid(qn)
+            .map(|cid| self.ctx.sema.classes.get(cid).is_interface)
+            .unwrap_or(false)
+    }
+
+    /// Resolve a GUARD arm's type name to its class id WITHOUT the native-only
+    /// interface filter (used by the interface path + the kind discriminator).
+    fn guard_arm_cid(&self, qn: &ast::QualName) -> Option<ClassSymbolId> {
+        match self.ctx.sema.resolved_name(self.ctx.mid, qn.span)? {
+            SymbolKind::Type(ty) => match self.ctx.sema.types.get(*ty) {
+                TypeKind::Class { symbol } => Some(ClassSymbolId(*symbol)),
+                _ => None,
+            },
+            SymbolKind::Class(cid) => Some(*cid),
+            _ => None,
+        }
     }
 
     /// Resolve a GUARD arm's guarded type name to its class id, via sema's
@@ -3795,12 +4005,33 @@ impl<'c, 'g, 's> FuncLower<'c, 'g, 's> {
         let (is_ty0, cid0, obj0) = self.ismember_class_of(&args[0])?;
         let (is_ty1, cid1, obj1) = self.ismember_class_of(&args[1])?;
 
-        // (TYPE, TYPE): fold the static subclass relation.
+        // (TYPE, TYPE): fold the static subclass relation (works for interface
+        // inheritance too).
         if is_ty0 && is_ty1 {
             let val = self.class_is_a(cid0, cid1);
             let dst = self.fresh();
             self.push(Inst::Const { dst, val: ConstVal::Bool(val) });
             return Some(dst);
+        }
+
+        // (VALUE p1, interface-TYPE p2): a non-binding QueryInterface probe — QI
+        // for p2's IID, then immediately Release (we keep no reference).
+        if !is_ty0 && is_ty1 && self.ctx.sema.classes.get(cid1).is_interface {
+            let obj = obj0.expect("value ISMEMBER operand has an object");
+            let (matched, ppv_slot) = self.emit_com_qi(obj, cid1);
+            let ppv = self.fresh();
+            self.push(Inst::Load { dst: ppv, ptr: ppv_slot });
+            self.emit_com_release(ppv); // non-binding probe: release immediately
+            return Some(matched);
+        }
+
+        // Defensive: any other interface-involving combo is a sema-errored case
+        // (mixed native/interface, or an interface-variable target). Never emit a
+        // garbage native RTTI probe on a COM pointer.
+        if self.ctx.sema.classes.get(cid0).is_interface
+            || self.ctx.sema.classes.get(cid1).is_interface
+        {
+            return Some(self.emit_const_bool(false));
         }
 
         let addr = self.ctx.sema.types.builtin(Builtin::Address);
@@ -3826,16 +4057,20 @@ impl<'c, 'g, 's> FuncLower<'c, 'g, 's> {
         arg: &ast::Expr,
     ) -> Option<(bool, ClassSymbolId, Option<ValueId>)> {
         if let ast::Expr::Designator(d) = arg {
-            if d.selectors.is_empty() && d.base.segments.len() == 1 {
-                match self.ctx.sema.resolved_name(self.ctx.mid, d.span) {
-                    Some(SymbolKind::Type(ty)) => {
-                        if let TypeKind::Class { symbol } = self.ctx.sema.types.get(*ty) {
-                            return Some((true, ClassSymbolId(*symbol), None));
-                        }
+            // A type name, bare (`IFoo`) or qualified (`Mod.IFoo`). Sema records the
+            // resolution at the designator span for BOTH (a qualified name carries
+            // Field selectors, so do not gate on the AST shape — that mismatch with
+            // sema silently lowered a qualified interface target to a never-matching
+            // probe). Consult the recorded resolution; a value designator records a
+            // Var/field here instead and falls through to the value path.
+            match self.ctx.sema.resolved_name(self.ctx.mid, d.span) {
+                Some(SymbolKind::Type(ty)) => {
+                    if let TypeKind::Class { symbol } = self.ctx.sema.types.get(*ty) {
+                        return Some((true, ClassSymbolId(*symbol), None));
                     }
-                    Some(SymbolKind::Class(cid)) => return Some((true, *cid, None)),
-                    _ => {}
                 }
+                Some(SymbolKind::Class(cid)) => return Some((true, *cid, None)),
+                _ => {}
             }
         }
         // A value operand: its class comes from its (designator) type.

@@ -14,6 +14,7 @@ pub mod describe;
 pub mod heapcheck;
 pub mod constant;
 pub mod iface;
+pub mod iid;
 pub mod print;
 pub mod scope;
 pub mod symcache;

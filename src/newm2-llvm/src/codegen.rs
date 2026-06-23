@@ -596,6 +596,21 @@ impl<'ctx, 'ir> Codegen<'ctx, 'ir> {
                 Global::TypeInfo { .. } => {
                     // Declared + initialized in the RTTI pre-pass above.
                 }
+                Global::Guid { name, bytes } => {
+                    // A 16-byte IID constant for QueryInterface (GUARD/ISMEMBER
+                    // on an interface). Private + linkonce_odr-free; deduped by
+                    // name (the same IID referenced by several arms coalesces).
+                    if self.module.get_global(name).is_none() {
+                        let i8_t = self.ctx.i8_type();
+                        let arr_ty = i8_t.array_type(16);
+                        let gv = self.module.add_global(arr_ty, None, name);
+                        let vals: Vec<_> =
+                            bytes.iter().map(|&b| i8_t.const_int(b as u64, false)).collect();
+                        gv.set_initializer(&i8_t.const_array(&vals));
+                        gv.set_constant(true);
+                        gv.set_linkage(inkwell::module::Linkage::Private);
+                    }
+                }
             }
         }
 

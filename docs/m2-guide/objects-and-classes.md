@@ -230,13 +230,41 @@ flowchart LR
 `nm2_rtti_isa(cand, target)` returns TRUE iff `target` is found while walking `cand`'s
 `parent` chain — i.e. `cand` is `target` or a subclass.
 
+### Discriminating COM interfaces — `QueryInterface`
+
+When the selector (or `ISMEMBER` operand) is an **interface**, discrimination uses COM's
+`QueryInterface`, not native RTTI — an interface arm matches iff the object answers `QI` for
+that interface's IID:
+
+```modula2
+GUARD obj AS                          (* obj : some interface *)
+  s : IStream    DO s.Write(buf, n)   (* QI(IID_IStream) succeeded — s is the AddRef'd view *)
+| f : IFileDlg   DO f.Show(0)
+ELSE
+  (* obj implements neither *)
+END;
+
+IF ISMEMBER(obj, IStream) THEN … END  (* a non-binding QI probe; the target is a TYPE name *)
+```
+
+A matched arm binds the **AddRef'd** interface pointer for the arm body and `Release`s it on
+exit; `ISMEMBER` `Release`s immediately. The interface needs a valid `["…"]` IID (checked at
+its declaration). The `ISMEMBER` target must be a *type name* (a COM pointer carries no static
+IID), and a native class and an interface can't be mixed in one `GUARD`/`ISMEMBER`.
+
+> **v1 limitation:** a `GUARD` interface arm must *fall through* — a lexical `RETURN`/`EXIT`/
+> `RAISE` in it is a compile error, and an exception/trap raised by a *callee* inside the arm
+> leaks one COM reference (the arm-exit `Release` is on the normal edge only). Bounded, never
+> unsafe; a cleanup landingpad is future work.
+
 ## What's live, what's pending
 
 - **Live:** classes, single inheritance, abstract classes + `OVERRIDE`, `NEW`/`DISPOSE`/
-  `EMPTY`, virtual dispatch, `INTERFACE` consumption of foreign COM, and **native-class
-  `ISMEMBER` + `GUARD`** (the design is `docs/design/guard-ismember.md`).
-- **Pending:** `GUARD`/`ISMEMBER` on an **interface** (it needs a `QueryInterface` probe, not
-  yet built) is rejected at compile time rather than silently misbehaving.
+  `EMPTY`, virtual dispatch, `INTERFACE` consumption of foreign COM, **native-class
+  `ISMEMBER` + `GUARD`**, and **`ISMEMBER`/`GUARD` on COM interfaces via `QueryInterface`**
+  (the design is `docs/design/guard-ismember.md`).
+- **Pending:** unwind-safe `Release` for an interface arm that exits via an exception (the v1
+  limitation above); the foreign-COM *abstract-class-mirror* RTTI marker (design §B3).
 - **Deliberate departures from ISO 10514-3** (the COM model wins): no `TRACED`
   (garbage-collected) classes — lifetime is manual / COM-refcounted; no operator
   overloading; no universal root object.

@@ -65,6 +65,13 @@ pub enum Global {
         parent_name: Option<String>,
         depth: u64,
     },
+    /// A COM interface IID as a 16-byte constant global `{name}` (a `[16 x i8]`),
+    /// referenced by `GUARD`/`ISMEMBER`-on-interface as the `riid` passed to
+    /// `QueryInterface`. `bytes` is the canonical in-memory GUID layout.
+    Guid {
+        name: String,
+        bytes: [u8; 16],
+    },
 }
 
 /// The IR for a single compiled module.

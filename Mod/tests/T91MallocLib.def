@@ -1,0 +1,17 @@
+DEFINITION MODULE T91MallocLib;
+(* A companion module exporting the COM IMalloc interface, so a consumer can use
+   it QUALIFIED (T91MallocLib.IMalloc) in GUARD / ISMEMBER. Pure declarations —
+   no implementation module needed. *)
+
+FROM SYSTEM IMPORT ADDRESS;
+
+INTERFACE IMalloc* ["00000002-0000-0000-c000-000000000046"];
+  ABSTRACT PROCEDURE QueryInterface () : INTEGER;       (* slot 0 *)
+  ABSTRACT PROCEDURE AddRef () : INTEGER;               (* slot 1 *)
+  ABSTRACT PROCEDURE Release () : INTEGER;              (* slot 2 *)
+  ABSTRACT PROCEDURE Alloc (cb : CARDINAL) : ADDRESS;   (* slot 3 *)
+  ABSTRACT PROCEDURE Realloc (p : ADDRESS; cb : CARDINAL) : ADDRESS;
+  ABSTRACT PROCEDURE Free (p : ADDRESS);
+END IMalloc;
+
+END T91MallocLib.

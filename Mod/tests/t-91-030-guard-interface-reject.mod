@@ -1,18 +1,23 @@
-MODULE t91029;
-(* Negative: GUARD on an interface selector is rejected. RTTI is native-only —
-   an interface carries no typeinfo (it would need a QueryInterface probe, not
-   yet implemented), so GUARD/ISMEMBER on an interface must be a compile error
-   rather than reading a foreign COM vtable's slot. Regression for finding B2. *)
+MODULE t91030;
+(* Negative: a NATIVE-class arm on an INTERFACE selector is a compile error — a
+   COM object can't be narrowed to a native class (there is no QI tear-off), so
+   an interface GUARD's arms must themselves be interfaces. *)
 IMPORT STextIO;
 
-INTERFACE IFoo;
-  ABSTRACT PROCEDURE Bar() : INTEGER;
+INTERFACE IFoo ["12345678-0000-0000-0000-000000000001"];
+  ABSTRACT PROCEDURE QueryInterface () : INTEGER;
+  ABSTRACT PROCEDURE AddRef () : INTEGER;
+  ABSTRACT PROCEDURE Release () : INTEGER;
 END IFoo;
+
+CLASS Widget;
+  VAR n : INTEGER;
+END Widget;
 
 VAR f : IFoo;
 
 BEGIN
   GUARD f AS
-    x : IFoo DO STextIO.WriteString("foo")
+    w : Widget DO STextIO.WriteString("widget")
   END
-END t91029.
+END t91030.

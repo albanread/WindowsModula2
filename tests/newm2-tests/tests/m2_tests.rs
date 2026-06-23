@@ -2818,6 +2818,39 @@ fn t90_285_rtti_methodless() {
 
 #[test]
 fn t91_030_guard_interface_reject() {
-    // GUARD on an interface selector is a compile error (RTTI is native-only).
-    check_run_error("t-91-030-guard-interface-reject.mod", &["interface selector"]);
+    // A native-class arm on an interface selector is a compile error.
+    check_run_error("t-91-030-guard-interface-reject.mod", &["must be an interface"]);
+}
+
+#[test]
+fn t91_031_guard_com_interface() {
+    // GUARD + ISMEMBER on a COM INTERFACE via QueryInterface, against a real OS
+    // IMalloc: IMalloc matches, the bogus IID does not.
+    check("t-91-031-guard-com-interface.mod", "YN\nalloc-ok\n");
+}
+
+#[test]
+fn t91_032_ismember_iface_rejects() {
+    // ISMEMBER interface target must be a TYPE name; native/interface can't mix.
+    check_run_error(
+        "t-91-032-ismember-iface-rejects.mod",
+        &["TYPE name", "cannot mix"],
+    );
+}
+
+#[test]
+fn t91_033_iface_iid_rejects() {
+    // A malformed IID literal errors at the decl; a no-IID interface can't be a
+    // GUARD arm (QueryInterface needs an IID).
+    check_run_error(
+        "t-91-033-iface-iid-rejects.mod",
+        &["interface IID", "must declare an IID"],
+    );
+}
+
+#[test]
+fn t91_034_ismember_qualified_iface() {
+    // GUARD + ISMEMBER with a QUALIFIED interface name (Mod.IMalloc) against the
+    // real OS IMalloc. Regression for the qualified-name classification fix.
+    check("t-91-034-ismember-qualified-iface.mod", "Y\nok\n");
 }

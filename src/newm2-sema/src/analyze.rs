@@ -4082,25 +4082,60 @@ fn analyse_call_args(
 /// neither. A value operand is analysed (records resolution + side effects); a
 /// type-name operand is resolved (which records its name resolution too, so the
 /// IR lowering can tell type-operands from value-operands).
-fn ismember_operand_class(ctx: &mut Ctx, arg: &ast::Expr, scope: ScopeId) -> Option<TypeId> {
+fn ismember_operand_class(ctx: &mut Ctx, arg: &ast::Expr, scope: ScopeId) -> Option<(TypeId, bool)> {
     if let ast::Expr::Designator(d) = arg {
-        if d.selectors.is_empty() {
-            if let Some(sym) = resolve_symbol(ctx, &d.base, scope) {
-                match &sym.kind {
-                    SymbolKind::Type(ty)
-                        if matches!(ctx.types.get(*ty), TypeKind::Class { .. }) =>
-                    {
-                        return Some(*ty);
+        // A TYPE name: bare (`IFoo`, no selectors) or qualified (`Mod.IFoo`, where
+        // the base resolves to a module and the selectors are all Field names — the
+        // same shape resolve_builtin_type_arg accepts). Peek the base
+        // non-destructively first so a value field-access (`rec.field`) does not
+        // trigger a spurious diagnostic.
+        let type_sym: Option<Symbol> = if d.selectors.is_empty() {
+            resolve_symbol(ctx, &d.base, scope)
+        } else if d
+            .base
+            .segments
+            .first()
+            .and_then(|n| ctx.scopes.lookup(scope, n).cloned())
+            .is_some_and(|s| matches!(s.kind, SymbolKind::Module(..)))
+        {
+            let mut segments = d.base.segments.clone();
+            let mut all_field = true;
+            for sel in &d.selectors {
+                match sel {
+                    ast::Selector::Field(name, _) => segments.push(name.clone()),
+                    _ => {
+                        all_field = false;
+                        break;
                     }
-                    SymbolKind::Class(cid) => return Some(ctx.classes.get(*cid).type_id),
-                    _ => {}
                 }
+            }
+            if all_field {
+                resolve_symbol(ctx, &ast::QualName { segments, span: d.span }, scope)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        if let Some(sym) = type_sym {
+            let ty = match &sym.kind {
+                SymbolKind::Type(ty) if matches!(ctx.types.get(*ty), TypeKind::Class { .. }) => {
+                    Some(*ty)
+                }
+                SymbolKind::Class(cid) => Some(ctx.classes.get(*cid).type_id),
+                _ => None,
+            };
+            if let Some(ty) = ty {
+                // Record the resolution at the designator span so the IR lowering
+                // can likewise tell a (possibly qualified) type operand from a value.
+                ctx.note_name_resolution(d.span, &sym);
+                return Some((ty, true));
             }
         }
     }
     // Otherwise a value operand: its type must be a class reference.
     let ty = analyse_expr(ctx, arg, scope)?;
-    if matches!(ctx.types.get(ty), TypeKind::Class { .. }) { Some(ty) } else { None }
+    if matches!(ctx.types.get(ty), TypeKind::Class { .. }) { Some((ty, false)) } else { None }
 }
 
 fn resolve_builtin_type_arg(
@@ -4353,13 +4388,39 @@ fn analyse_builtin_call(
                     "ISMEMBER requires a class type or an object reference".to_string(),
                 );
             }
-            // RTTI is native-only — an interface operand has no typeinfo (it would
-            // need a QueryInterface probe, not yet implemented).
-            if c0.is_some_and(|t| class_type_is_interface(ctx, t)) {
-                ctx.error(expr_span(&args[0]), "ISMEMBER on an interface is not yet implemented".to_string());
-            }
-            if c1.is_some_and(|t| class_type_is_interface(ctx, t)) {
-                ctx.error(expr_span(&args[1]), "ISMEMBER on an interface is not yet implemented".to_string());
+            // Native classes use RTTI; interfaces use QueryInterface. The two
+            // cannot be mixed, and an interface TARGET (p2) must be a TYPE name
+            // (a COM pointer carries no static IID to test against).
+            let i0 = c0.is_some_and(|(t, _)| class_type_is_interface(ctx, t));
+            let i1 = c1.is_some_and(|(t, _)| class_type_is_interface(ctx, t));
+            if i0 != i1 && c0.is_some() && c1.is_some() {
+                ctx.error(
+                    span,
+                    "ISMEMBER cannot mix a native class and a COM interface".to_string(),
+                );
+            } else if i1 {
+                let is_type1 = c1.map(|(_, is_ty)| is_ty).unwrap_or(false);
+                if !is_type1 {
+                    ctx.error(
+                        expr_span(&args[1]),
+                        "ISMEMBER against an interface needs the interface TYPE name, not a \
+                         variable (a COM pointer carries no static IID)"
+                            .to_string(),
+                    );
+                } else {
+                    // A valid interface TYPE target — QI needs an IID (format is
+                    // validated at the interface decl; here just require presence).
+                    let tcid = c1.and_then(|(t, _)| match ctx.types.get(t) {
+                        TypeKind::Class { symbol } => Some(ClassSymbolId(*symbol)),
+                        _ => None,
+                    });
+                    if tcid.and_then(|c| ctx.classes.get(c).iid.clone()).is_none() {
+                        ctx.error(
+                            expr_span(&args[1]),
+                            "ISMEMBER interface target must declare an IID".to_string(),
+                        );
+                    }
+                }
             }
             Some(Some(bool_ty))
         }
@@ -5385,6 +5446,54 @@ fn class_type_is_interface(ctx: &Ctx, ty: TypeId) -> bool {
         if ctx.classes.get(ClassSymbolId(*symbol)).is_interface)
 }
 
+/// Scan a GUARD interface-arm body for a control transfer that would leave the
+/// arm WITHOUT running its single COM Release: RETURN/RAISE/RETRY anywhere, or an
+/// EXIT not enclosed by a loop declared *inside* the arm. Returns the offending
+/// span, if any. (Phase-3 v1 supports fall-through interface arms only; full
+/// structured-exit + exception cleanup is a follow-up.)
+fn guard_arm_nonlocal_exit(body: &[ast::Stmt]) -> Option<Span> {
+    fn scan(stmts: &[ast::Stmt], loop_depth: u32) -> Option<Span> {
+        for s in stmts {
+            let hit = match s {
+                ast::Stmt::Return(_, sp) | ast::Stmt::Raise(_, sp) | ast::Stmt::Retry(sp) => {
+                    Some(*sp)
+                }
+                ast::Stmt::Exit(sp) => {
+                    if loop_depth == 0 {
+                        Some(*sp)
+                    } else {
+                        None
+                    }
+                }
+                ast::Stmt::If { arms, else_arm, .. } => arms
+                    .iter()
+                    .find_map(|(_, b)| scan(b, loop_depth))
+                    .or_else(|| else_arm.as_ref().and_then(|b| scan(b, loop_depth))),
+                ast::Stmt::Case { arms, else_arm, .. } => arms
+                    .iter()
+                    .find_map(|a| scan(&a.body, loop_depth))
+                    .or_else(|| else_arm.as_ref().and_then(|b| scan(b, loop_depth))),
+                ast::Stmt::Guard { arms, else_arm, .. } => arms
+                    .iter()
+                    .find_map(|a| scan(&a.body, loop_depth))
+                    .or_else(|| else_arm.as_ref().and_then(|b| scan(b, loop_depth))),
+                ast::Stmt::While(_, b, _) | ast::Stmt::Repeat(b, _, _) => scan(b, loop_depth + 1),
+                ast::Stmt::For { body, .. } | ast::Stmt::Loop(body, _) => scan(body, loop_depth + 1),
+                ast::Stmt::With(_, b, _) => scan(b, loop_depth),
+                ast::Stmt::Block(blk) => scan(&blk.stmts, loop_depth)
+                    .or_else(|| blk.except.iter().find_map(|a| scan(&a.body, loop_depth)))
+                    .or_else(|| blk.finally.as_deref().and_then(|b| scan(b, loop_depth))),
+                _ => None,
+            };
+            if hit.is_some() {
+                return hit;
+            }
+        }
+        None
+    }
+    scan(body, 0)
+}
+
 /// Analyse a `GUARD selector AS [x:]T DO … {| …} [ELSE …] END`. The selector
 /// must be an object reference; each arm type must be a class related to the
 /// selector's static class; an arm may bind a narrowed view as a CONST-mode
@@ -5412,15 +5521,9 @@ fn analyse_guard(
     if sel_ty.is_some() && sel_cid.is_none() {
         ctx.error(expr_span(selector), "GUARD selector must be an object reference".to_string());
     }
-    // RTTI is native-only: an interface selector would read a foreign COM vtable's
-    // slot. Reject until QueryInterface lowering (Phase 3) lands.
-    if sel_ty.is_some_and(|t| class_type_is_interface(ctx, t)) {
-        ctx.error(
-            expr_span(selector),
-            "GUARD on an interface selector is not yet implemented (needs QueryInterface)"
-                .to_string(),
-        );
-    }
+    // An INTERFACE selector discriminates by QueryInterface (COM); a native class
+    // selector by RTTI. The two never mix within one GUARD.
+    let sel_is_iface = sel_ty.is_some_and(|t| class_type_is_interface(ctx, t));
 
     for arm in arms {
         let arm_ty = resolve_type_name(ctx, &arm.guarded_type, scope);
@@ -5431,17 +5534,49 @@ fn analyse_guard(
                 None
             }
         };
-        if class_type_is_interface(ctx, arm_ty) {
-            ctx.error(
-                arm.guarded_type.span,
-                "GUARD arm type must not be an interface (not yet implemented)".to_string(),
-            );
-        } else if let (Some(s), Some(t)) = (sel_cid, arm_cid) {
-            if !class_related(ctx, s, t) {
+        let arm_is_iface = class_type_is_interface(ctx, arm_ty);
+
+        if sel_is_iface {
+            // COM path: arms must be interfaces with a valid IID to QI for.
+            if arm_cid.is_some() && !arm_is_iface {
                 ctx.error(
                     arm.guarded_type.span,
-                    "GUARD arm type is unrelated to the selector's class".to_string(),
+                    "GUARD arm on an interface selector must be an interface (narrowing a \
+                     COM object to a native class is not supported)"
+                        .to_string(),
                 );
+            } else if arm_is_iface {
+                // QI needs an IID (the format is validated at the interface decl).
+                if arm_cid.and_then(|c| ctx.classes.get(c).iid.clone()).is_none() {
+                    ctx.error(
+                        arm.guarded_type.span,
+                        "GUARD interface arm: the interface must declare an IID".to_string(),
+                    );
+                }
+                // v1: the arm body must fall through so its single Release fires.
+                if let Some(bad) = guard_arm_nonlocal_exit(&arm.body) {
+                    ctx.error(
+                        bad,
+                        "RETURN/EXIT/RAISE inside a GUARD interface arm is not supported yet \
+                         (it would skip the COM Release) — assign to a variable and fall through"
+                            .to_string(),
+                    );
+                }
+            }
+        } else {
+            // Native RTTI path.
+            if arm_is_iface {
+                ctx.error(
+                    arm.guarded_type.span,
+                    "GUARD to an interface requires an interface selector".to_string(),
+                );
+            } else if let (Some(s), Some(t)) = (sel_cid, arm_cid) {
+                if !class_related(ctx, s, t) {
+                    ctx.error(
+                        arm.guarded_type.span,
+                        "GUARD arm type is unrelated to the selector's class".to_string(),
+                    );
+                }
             }
         }
         // A child scope holding the optional read-only bound denoter `x : T`.
@@ -5791,6 +5926,15 @@ fn resolve_class_decl(
         let cls = ctx.classes.get_mut(cid);
         cls.is_interface = is_interface;
         cls.iid = cd.iid.clone();
+    }
+    // Validate the IID FORMAT at the declaration, so a malformed GUID is a
+    // compile error here rather than a silently-dead QueryInterface at a use
+    // site. A *missing* IID is legal (only QI uses require one — that is checked
+    // at the GUARD arm / ISMEMBER target).
+    if let Some(s) = &cd.iid {
+        if let Err(e) = crate::iid::iid_str_to_le16(s) {
+            ctx.error(cd.span, format!("interface IID {e}"));
+        }
     }
 
     if cd.is_forward {

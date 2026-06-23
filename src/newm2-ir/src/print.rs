@@ -64,6 +64,7 @@ fn format_global(g: &Global) -> String {
             let parent = parent_name.as_deref().unwrap_or("-");
             format!("typeinfo @{class_name}.typeinfo (parent {parent}, depth {depth})\n")
         }
+        Global::Guid { name, .. } => format!("guid @{name} [16 x i8]\n"),
     }
 }
 

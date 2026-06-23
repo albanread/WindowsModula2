@@ -126,7 +126,10 @@ pub use file::{
 pub use sysclock::nm2_sysclock_now;
 pub use bitops::{nm2_rotate, nm2_shift};
 pub use coroutine::{nm2_coroutine_current, nm2_coroutine_new, nm2_coroutine_transfer};
-pub use com::{nm2_com_drive, nm2_com_get_malloc, nm2_com_init, nm2_com_uninit, nm2_guid_eq};
+pub use com::{
+    nm2_com_drive, nm2_com_get_malloc, nm2_com_init, nm2_com_query_interface, nm2_com_release,
+    nm2_com_uninit, nm2_guid_eq,
+};
 pub use aot::{AotEntry, nm2_aot_run};
 pub use callback::nm2_sort_i64;
 pub use termination::{

@@ -1,11 +1,40 @@
 # GUARD + ISMEMBER — Final Design
 
-**Status: IMPLEMENTED (Phases 0–2, native-class). Date: 2026-06-22.**
+**Status: IMPLEMENTED (Phases 0–2 native-class + Phase 3 COM interfaces). Date: 2026-06-23.**
 
 Phases 0–2 are built, verified (gates `t-90-280…285`, `t-91-030`; full m2_tests green;
 JIT + AOT; live IDE render), and applied (the four `Surface.mod` `KindOf()`+`CAST`
 sites are now `GUARD`s). A 4-dimension adversarial review followed; its real findings
 are fixed or recorded below.
+
+**Phase 3 — GUARD/ISMEMBER on COM interfaces (via `QueryInterface`) — IMPLEMENTED
+(2026-06-23).** An interface selector discriminates by `QueryInterface`, not native
+RTTI. Built: an IID canonicalizer (`newm2-sema/src/iid.rs`, mixed-endian 16-byte
+layout, validated at the interface declaration); a `Global::Guid` IR/codegen const
+(`[16 x i8]`, Private, name-deduped); two runtime helpers calling the IUnknown vtable
+(`nm2_com_query_interface` slot 0, `nm2_com_release` slot 2, both NIL-safe); the
+interface lowering (`lower_guard_iface` + the ISMEMBER QI-probe in `lower_ismember_builtin`).
+A `GUARD` interface arm QIs into a prologue slot, binds the AddRef'd pointer as the
+read-only denoter, and Releases it on the fall-through edge; a failed/skipped arm
+Releases the (NIL) slot. `ISMEMBER(value, IFoo)` is a non-binding QI-then-Release probe;
+`ISMEMBER(IFoo, IBar)` (type,type) folds statically. Qualified interface names
+(`Mod.IFoo`) work in both. Gates `t-91-031…034`; full m2_tests green; conformance
+no-drift; JIT + AOT verified against the real OS `IMalloc`. A 3-dimension adversarial
+review (refcount lifecycle / codegen-SSA / sema soundness) followed — lifecycle and
+codegen were found SOUND; the sema findings (IID-at-decl validation, ISMEMBER
+interface-target IID + qualified-name classification) are fixed.
+
+**Phase 3 v1 LIMITATION (documented, not a regression).** The matched-arm `Release` is
+emitted on the *lexical fall-through* edge only — there is no unwind landingpad. Sema
+bars a *lexical* `RETURN`/`EXIT`/`RAISE`/`RETRY` inside an interface arm, but an
+exception or trap raised by a *callee* (or a runtime trap: bounds/NIL/overflow/`HALT`)
+unwinds past the `Release` and leaks exactly one COM reference. This is a bounded leak
+on the already-exceptional path — never memory-unsafe, never a wrong answer. The proper
+fix (a cleanup landingpad that Releases on the unwind edge) is deferred to the general
+exception-cleanup work. **Note also: `KindOf` was NOT deleted** — it is the public
+(and only headless) way for a client to discriminate a `Surface.Backend` (the concrete
+adapters are private to `Surface.mod`); the prior "dead code" deletion was reverted, the
+four unsafe internal `KindOf()`+`CAST` sites remain `GUARD`s.
 
 ## Implementation status & adversarial-review follow-ups
 
@@ -22,8 +51,13 @@ are fixed or recorded below.
   data globals; abstract COM-mirror classes must coalesce).
 
 **Deferred (recorded, not blocking native-class GUARD/ISMEMBER):**
-- **B3 — foreign-COM abstract-class mirror. DECISION (2026-06-23): defer to Phase 3, no
-  code now.** A COM interface consumed via an `ABSTRACT CLASS` (the `IMalloc` idiom in
+- **B3 — foreign-COM abstract-class mirror. STILL OPEN after Phase 3 (2026-06-23).**
+  Phase 3 implemented GUARD/ISMEMBER for the `INTERFACE`-keyword path (sound: an interface
+  selector lowers to `QueryInterface`, never native RTTI). B3 is the *other* shape — a
+  COM interface consumed via an `ABSTRACT CLASS` mirror, which the symbol table cannot
+  distinguish from a genuine native abstract base, so a native-RTTI GUARD on such an
+  object still reads a foreign vtable's `[-1]` slot → UB. The marker fix below is
+  unchanged and remains deferred (rare foot-gun, not a regression). A COM interface consumed via an `ABSTRACT CLASS` (the `IMalloc` idiom in
   `t-90-080/229`) is indistinguishable in the symbol table from a genuine native abstract
   base, so the interface gate cannot catch it; `GUARD`/`ISMEMBER` on such a foreign-backed
   object reads a foreign vtable's `[-1]` slot → UB. The chosen fix is a **`ClassSymbol`

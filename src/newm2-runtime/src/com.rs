@@ -115,6 +115,60 @@ pub unsafe extern "C-unwind" fn nm2_com_drive(punk: *mut c_void, d: i64) -> i64 
     qi_ok * 1000 + a * 100 + r
 }
 
+/// The minimal `IUnknown` vtable head: QueryInterface (slot 0), AddRef (1),
+/// Release (2). Any COM interface pointer is IUnknown-rooted, so these three
+/// slots are always present at the front of its vtable.
+#[repr(C)]
+struct IUnknownVtbl {
+    query_interface: unsafe extern "C-unwind" fn(*mut c_void, *const c_void, *mut c_void) -> i64,
+    add_ref: unsafe extern "C-unwind" fn(*mut c_void) -> i64,
+    release: unsafe extern "C-unwind" fn(*mut c_void) -> i64,
+}
+
+/// Call `QueryInterface` (IUnknown vtable slot 0) on a COM interface pointer —
+/// the runtime primitive behind `GUARD`/`ISMEMBER` on a COM `INTERFACE`. On
+/// `S_OK`, `*out` receives the AddRef'd interface pointer for `iid`. Returns the
+/// HRESULT (0 = `S_OK`; the high bit set = failure). Null-safe.
+///
+/// # Safety
+/// `this` is null or a live COM interface pointer (field 0 = IUnknown vtable);
+/// `iid` points to a 16-byte GUID; `out` to a writable pointer-sized slot.
+#[unsafe(no_mangle)]
+pub unsafe extern "C-unwind" fn nm2_com_query_interface(
+    this: *mut c_void,
+    iid: *const c_void,
+    out: *mut c_void,
+) -> i64 {
+    const E_POINTER: i64 = 0x8000_4003; // failure HRESULT (high bit set)
+    if this.is_null() {
+        return E_POINTER;
+    }
+    let vtbl = unsafe { *(this as *const *const IUnknownVtbl) };
+    if vtbl.is_null() {
+        return E_POINTER;
+    }
+    unsafe { ((*vtbl).query_interface)(this, iid, out) }
+}
+
+/// Call `Release` (IUnknown vtable slot 2) on a COM interface pointer, balancing
+/// the AddRef that `QueryInterface` performed. Null-safe (a no-op on NIL, so it
+/// is safe to call unconditionally at a GUARD arm's exit). Returns the new ref
+/// count (0 on NIL).
+///
+/// # Safety
+/// `this` is null or a live COM interface pointer (field 0 = IUnknown vtable).
+#[unsafe(no_mangle)]
+pub unsafe extern "C-unwind" fn nm2_com_release(this: *mut c_void) -> i64 {
+    if this.is_null() {
+        return 0;
+    }
+    let vtbl = unsafe { *(this as *const *const IUnknownVtbl) };
+    if vtbl.is_null() {
+        return 0;
+    }
+    unsafe { ((*vtbl).release)(this) }
+}
+
 /// `IsEqualGUID(a, b)` — compare two 16-byte GUIDs. The COM `QueryInterface`
 /// dispatch chain uses this to match interface identifiers.
 #[unsafe(no_mangle)]
