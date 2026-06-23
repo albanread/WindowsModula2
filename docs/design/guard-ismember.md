@@ -22,13 +22,20 @@ are fixed or recorded below.
   data globals; abstract COM-mirror classes must coalesce).
 
 **Deferred (recorded, not blocking native-class GUARD/ISMEMBER):**
-- **B3 — foreign-COM abstract-class mirror.** A COM interface consumed via an
-  `ABSTRACT CLASS` (the `IMalloc` idiom in `t-90-080/229`) is indistinguishable in the
-  symbol table from a genuine native abstract base, so the interface gate cannot catch
-  it. `GUARD`/`ISMEMBER` on such a (foreign-backed) object reads a foreign vtable's
-  `[-1]` slot → UB. **Not a regression** (no shipping code does this; the old unchecked
-  `CAST` was UB on misuse too) but a foot-gun. Fix needs a foreign/COM marker on
-  `ClassSymbol`, or requiring COM mirrors to be declared `INTERFACE`. Do before Phase 3.
+- **B3 — foreign-COM abstract-class mirror. DECISION (2026-06-23): defer to Phase 3, no
+  code now.** A COM interface consumed via an `ABSTRACT CLASS` (the `IMalloc` idiom in
+  `t-90-080/229`) is indistinguishable in the symbol table from a genuine native abstract
+  base, so the interface gate cannot catch it; `GUARD`/`ISMEMBER` on such a foreign-backed
+  object reads a foreign vtable's `[-1]` slot → UB. The chosen fix is a **`ClassSymbol`
+  foreign/COM marker** (e.g. a `<*foreign*>` class pragma) that bars RTTI on marked
+  classes — *not* forcing every COM mirror to be `INTERFACE` (that would break the
+  documented ABSTRACT-CLASS-as-COM idiom). It is **deliberately deferred to Phase 3**
+  because it is coupled to the interface-GUARD-via-`QueryInterface` lowering: only once
+  interface/foreign GUARD is *allowed* does distinguishing foreign-from-native become
+  load-bearing; adding the marker earlier is premature complexity for a rare foot-gun that
+  is **not a regression** (no shipping code does it; the old unchecked `CAST` was UB on
+  misuse too). Until then the limitation is documented: do not `GUARD`/`ISMEMBER` an object
+  whose dynamic type is a foreign COM object.
 - **B4 — read-only denoter passable as a `VAR` argument.** A pre-existing general
   CONST-param gap (the VAR-arg check doesn't reject read-only actuals). Harmless for
   native arms; **must** be closed before Phase-3 interface arms (their Release soundness

@@ -4,8 +4,8 @@
    contract) is the one polymorphic handle the substrate drives; each concrete
    subclass wraps an *instance* of a P1-instanced renderer (Terminal+TermRender,
    RasterView, Canvas2D, GameView, GameViewGpu, ShaderView) and implements
-   Attach/Resize/Paint/KindOf/Close by selecting that instance (Use) and calling
-   its procs. Construction + KindOf + Close are headless; the real D2D/D3D
+   Attach/Resize/Paint/Close by selecting that instance (Use) and calling
+   its procs. Construction + Close are headless; the real D2D/D3D
    Attach/Paint need a real window (the S7 leaf AOT demo). Native controls are
    the S6 half (still stubs here). *)
 IMPLEMENTATION MODULE Surface;
@@ -32,7 +32,6 @@ ABSTRACT CLASS Backend;                              (* RE-DECLARED verbatim *)
   ABSTRACT PROCEDURE Attach (hwnd: ADDRESS; pxW, pxH: CARDINAL): BOOLEAN;
   ABSTRACT PROCEDURE Resize (pxW, pxH: CARDINAL): BOOLEAN;
   ABSTRACT PROCEDURE Paint;
-  ABSTRACT PROCEDURE KindOf (): Kind;
   ABSTRACT PROCEDURE Close;
 END Backend;
 
@@ -67,7 +66,6 @@ CLASS TextGridBackend;
   END Resize;
   OVERRIDE PROCEDURE Paint;
   BEGIN TermRender.Use(rend); TermRender.Paint END Paint;
-  OVERRIDE PROCEDURE KindOf (): Kind; BEGIN RETURN TextGrid END KindOf;
   OVERRIDE PROCEDURE Close;
   BEGIN TermRender.Free(rend); Terminal.Free(term) END Close;
 END TextGridBackend;
@@ -82,7 +80,6 @@ CLASS RasterBackend;
   BEGIN RasterView.Use(rv); RETURN RasterView.Attach(host, pxW, pxH) END Resize;   (* re-bind size *)
   OVERRIDE PROCEDURE Paint;
   BEGIN RasterView.Use(rv); RasterView.Present END Paint;
-  OVERRIDE PROCEDURE KindOf (): Kind; BEGIN RETURN Raster END KindOf;
   OVERRIDE PROCEDURE Close; BEGIN RasterView.Free(rv) END Close;
 END RasterBackend;
 
@@ -96,7 +93,6 @@ CLASS CanvasBackend;
   BEGIN Canvas2D.Use(cv); RETURN Canvas2D.Attach(host, pxW, pxH) END Resize;   (* re-create target *)
   OVERRIDE PROCEDURE Paint;
   BEGIN (* Canvas2D is immediate-mode: the app brackets Begin/draw/Flush itself *) END Paint;
-  OVERRIDE PROCEDURE KindOf (): Kind; BEGIN RETURN Canvas END KindOf;
   OVERRIDE PROCEDURE Close; BEGIN Canvas2D.Use(cv); Canvas2D.Free(cv) END Close;
 END CanvasBackend;
 
@@ -110,7 +106,6 @@ CLASS IndexedBackend;
   BEGIN GameView.Use(gv); RETURN GameView.Attach(host, iw, ih, scale) END Resize;
   OVERRIDE PROCEDURE Paint;
   BEGIN GameView.Use(gv); GameView.Present END Paint;
-  OVERRIDE PROCEDURE KindOf (): Kind; BEGIN RETURN Indexed END KindOf;
   OVERRIDE PROCEDURE Close; BEGIN GameView.Free(gv) END Close;
 END IndexedBackend;
 
@@ -127,7 +122,6 @@ CLASS IndexedGpuBackend;
   BEGIN RETURN TRUE END Resize;                      (* GPU swapchain resize: S7+ *)
   OVERRIDE PROCEDURE Paint;
   BEGIN GameViewGpu.Use(gp); GameViewGpu.Present END Paint;
-  OVERRIDE PROCEDURE KindOf (): Kind; BEGIN RETURN Indexed END KindOf;
   OVERRIDE PROCEDURE Close; BEGIN GameViewGpu.Free(gp) END Close;
 END IndexedGpuBackend;
 
@@ -141,7 +135,6 @@ CLASS ShaderBackend;
   BEGIN ShaderView.Use(sv); ShaderView.Resize(pxW, pxH); RETURN TRUE END Resize;
   OVERRIDE PROCEDURE Paint;
   BEGIN (* ShaderView is driven via SetShader + Frame(constants); generic Paint is a no-op *) END Paint;
-  OVERRIDE PROCEDURE KindOf (): Kind; BEGIN RETURN Shader END KindOf;
   OVERRIDE PROCEDURE Close; BEGIN ShaderView.Use(sv); ShaderView.Free(sv) END Close;
 END ShaderBackend;
 
@@ -172,7 +165,6 @@ CLASS ControlBackend;
     RETURN TRUE
   END Resize;
   OVERRIDE PROCEDURE Paint; BEGIN END Paint;          (* the OS paints the control *)
-  OVERRIDE PROCEDURE KindOf (): Kind; BEGIN RETURN NativeControl END KindOf;
   OVERRIDE PROCEDURE Close;
     VAR ok: BOOL;
   BEGIN IF cwin # NIL THEN ok := DestroyWindow(cwin); cwin := NIL END END Close;
@@ -281,9 +273,9 @@ BEGIN
 END NewShader;
 
 (* ---- native-control adapters (S6): each NEWs a ControlBackend with its Win32
-   class + style; the OS-drawn control is created at Attach. `Kind.Custom` needs
-   no constructor here — an app subclasses Backend directly (the §6 extension
-   seam). ---- *)
+   class + style; the OS-drawn control is created at Attach. A custom surface
+   needs no constructor here — an app subclasses Backend directly (the §6
+   extension seam). ---- *)
 PROCEDURE NewButton (label: ARRAY OF CHAR; event: ARRAY OF CHAR): Backend;
   VAR b: ControlBackend;
 BEGIN

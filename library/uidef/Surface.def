@@ -8,17 +8,14 @@ DEFINITION MODULE Surface;
 
 FROM SYSTEM IMPORT ADDRESS;
 
-TYPE
-  Kind = (TextGrid, Raster, Canvas, Indexed, Shader, NativeControl, Custom);
-
 (* CLASS-as-vtable, the house COM idiom. Declared at TOP LEVEL (not inside a
    TYPE block); ABSTRACT is a per-method prefix; the class closes with the named
-   END Backend; and must be RE-DECLARED verbatim in Surface.mod. *)
+   END Backend; and must be RE-DECLARED verbatim in Surface.mod. A concrete
+   backend's class is recovered by a GUARD, not a tag — see Surface.mod. *)
 ABSTRACT CLASS Backend;
   ABSTRACT PROCEDURE Attach (hwnd: ADDRESS; pxW, pxH: CARDINAL): BOOLEAN;
   ABSTRACT PROCEDURE Resize (pxW, pxH: CARDINAL): BOOLEAN;
   ABSTRACT PROCEDURE Paint;                         (* re-render; a NO-OP for a control *)
-  ABSTRACT PROCEDURE KindOf (): Kind;
   ABSTRACT PROCEDURE Close;
 END Backend;
 
